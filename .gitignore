@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.DS_Store
+coverage/
+*.log
+pnpm-lock.yaml
+
+# IDE / AI tools
+.cursor/
+.claude/
+
+# Editor settings
+.vscode/
+.idea/
+
+# OS / temp files
+Thumbs.db
+*.swp
+*.swo

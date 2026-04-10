@@ -1,0 +1,18 @@
+{
+  "name": "trade-signal-schema-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schema-first market data toolkit",
+  "license": "MIT",
+  "packageManager": "pnpm@10.24.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}
