@@ -43,19 +43,6 @@
 - 允许差异：上游返回延迟或覆盖率差异，但需通过 `capability_flags` 显式暴露
 - 验证方式：conformance tests 对齐关键接口（`getInstrument/getQuote/getKlines` 起步）
 
-## feed 现状接口缺口（已排查）
-
-以下能力在 `../trade-signal-feed` 目前未发现可直接对接的 HTTP/MCP 接口：
-
-- `getCorporateActions`：缺企业行动标准接口（分红/拆合股/供股/送股）
-- `getTradingCalendar`：缺交易日历接口（交易日/半日市/休市）
-- 分钟级 K 线：`1m/5m/15m/30m/60m` 尚未在现有股票 K 线接口开放
-
-建议新增接口（feed 侧）：
-
-- HTTP：`GET /stock/corporate-actions`、`GET /market/trading-calendar`
-- MCP：`get_stock_corporate_actions`、`get_trading_calendar`
-
 ## 不做事项
 
 - 不在策略层直接拼接上游字段

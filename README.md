@@ -146,6 +146,14 @@ trade-signal-schema-kit/
 | v0.2 | 补齐港股分钟线、交易日历、企业行动/复权 | 计划中 |
 | v0.3 | 港股策略参数调优，达到与 A 股同级体验 | 计划中 |
 
+## 参考与致谢
+
+本项目在流程设计中参考了以下开源项目：
+
+- [terancejiang/Turtle_investment_framework](https://github.com/terancejiang/Turtle_investment_framework)（方法论与流程）
+
+感谢以上项目与维护者对开源投研生态的贡献。
+
 ## License
 
 MIT
