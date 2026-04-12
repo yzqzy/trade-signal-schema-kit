@@ -107,6 +107,17 @@ pnpm run typecheck
 pnpm run build
 ```
 
+### Phase2A：PDF 章节提取（schema_block）
+
+```bash
+pnpm --filter @trade-signal/research-strategies run phase2a:extract -- \
+  --pdf "./cache/reports/SH600519/600519_2024_年报.pdf" \
+  --output "./output/pdf_sections.json" \
+  --verbose
+```
+
+输出结构对齐 `PdfSections`：`metadata` + `P2/P3/P4/P6/P13/MDA/SUB`（章节命中时带 `title/content/pageFrom/pageTo`）。
+
 ### 环境变量配置（packages 统一口径）
 
 仅入口读取 `.env`，库层保持显式参数。  

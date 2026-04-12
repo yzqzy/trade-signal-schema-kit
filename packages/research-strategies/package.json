@@ -12,13 +12,15 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "phase0:download": "node dist/packages/research-strategies/src/cli.js",
     "phase1a:demo": "node dist/packages/research-strategies/src/phase1a/demo.js",
-    "phase1b:demo": "node dist/packages/research-strategies/src/phase1b/demo.js"
+    "phase1b:demo": "node dist/packages/research-strategies/src/phase1b/demo.js",
+    "phase2a:extract": "node dist/packages/research-strategies/src/phase2a/cli.js"
   },
   "dependencies": {
     "@trade-signal/schema-core": "workspace:*",
     "dotenv": "^17.2.3",
     "file-type": "^22.0.1",
     "got": "^15.0.1",
-    "p-retry": "^8.0.0"
+    "p-retry": "^8.0.0",
+    "pdf-parse": "^2.4.5"
   }
 }

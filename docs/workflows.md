@@ -72,8 +72,17 @@
 
 - 用途：作为 Phase 2B 的章节索引输入
 - 最小结构：
-  - `metadata`（`pdf_file`、`total_pages`、`extract_time`、`sections_found`、`sections_total`）
+  - `metadata`（`pdfFile`、`totalPages`、`extractTime`、`sectionsFound`、`sectionsTotal`）
   - 章节键：`P2`、`P3`、`P4`、`P6`、`P13`、`MDA`、`SUB`
+- 章节值：`PdfSectionBlock`（`title/content/pageFrom/pageTo`）
+
+Phase2A CLI（research-strategies）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run phase2a:extract -- \
+  --pdf "./cache/reports/SH600519/600519_2024_年报.pdf" \
+  --output "./output/pdf_sections.json"
+```
 
 ### `qualitative_report`（Phase 1B/2B 输出）
 
