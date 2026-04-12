@@ -43,6 +43,33 @@
 - 允许差异：上游返回延迟或覆盖率差异，但需通过 `capability_flags` 显式暴露
 - 验证方式：conformance tests 对齐关键接口（`getInstrument/getQuote/getKlines` 起步）
 
+## Phase1A（结构化采集）调用方式
+
+- 聚合入口：`@trade-signal/research-strategies` 的 `collectPhase1ADataPack(provider, input)`
+- 标准输出：`DataPackMarket`（最小必含 `instrument/quote/klines`）
+- 可选输出：`financialSnapshot/corporateActions/tradingCalendar`
+- 降级策略：`optionalFailure: "ignore" | "throw"`（默认 `ignore`，即可选项失败时省略该字段）
+
+通道切换（provider 选择）：
+
+- HTTP：`@trade-signal/provider-http` 的 `createFeedHttpProviderFromEnv()`
+- MCP：`@trade-signal/provider-mcp` 的 `createFeedMcpProviderFromEnv(callTool)`
+
+示例（伪代码）：
+
+```ts
+import { collectPhase1ADataPack } from "@trade-signal/research-strategies";
+import { createFeedHttpProviderFromEnv } from "@trade-signal/provider-http";
+
+const provider = createFeedHttpProviderFromEnv();
+const dataPack = await collectPhase1ADataPack(provider, {
+  code: "SH600519",
+  period: "day",
+  from: "2024-01-01",
+  to: "2024-12-31",
+});
+```
+
 ## 不做事项
 
 - 不在策略层直接拼接上游字段

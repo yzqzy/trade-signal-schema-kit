@@ -12,6 +12,7 @@ export interface AnalysisResult {
 }
 
 export * from "./phase0/downloader.js";
+export * from "./phase1a/collector.js";
 
 export async function runBaselineAnalysis(
   context: AnalysisContext,
