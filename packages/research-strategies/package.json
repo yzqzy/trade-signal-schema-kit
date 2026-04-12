@@ -14,7 +14,8 @@
     "phase1a:demo": "node dist/packages/research-strategies/src/phase1a/demo.js",
     "phase1b:demo": "node dist/packages/research-strategies/src/phase1b/demo.js",
     "phase2a:extract": "node dist/packages/research-strategies/src/phase2a/cli.js",
-    "phase2b:render": "node dist/packages/research-strategies/src/phase2b/cli.js"
+    "phase2b:render": "node dist/packages/research-strategies/src/phase2b/cli.js",
+    "phase3:run": "node dist/packages/research-strategies/src/phase3/cli.js"
   },
   "dependencies": {
     "@trade-signal/schema-core": "workspace:*",
@@ -22,6 +23,7 @@
     "file-type": "^22.0.1",
     "got": "^15.0.1",
     "p-retry": "^8.0.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "@trade-signal/reporting": "workspace:*"
   }
 }

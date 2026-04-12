@@ -158,13 +158,36 @@ export interface ValuationMethodResult {
   value?: number;
   currency?: string;
   assumptions?: Record<string, number | string>;
+  range?: {
+    conservative?: number;
+    central?: number;
+    optimistic?: number;
+  };
+  diagnostics?: Record<string, number | string | null | undefined>;
   note?: string;
+}
+
+export interface ValuationCrossValidation {
+  weightedAverage?: number;
+  coefficientOfVariation?: number;
+  consistency?: "high" | "medium" | "low" | "n/a";
+  activeWeights?: Record<string, number>;
+  range?: {
+    conservative?: number;
+    central?: number;
+    optimistic?: number;
+  };
 }
 
 export interface ValuationComputed {
   code: string;
   generatedAt: string;
+  companyType?: "blue_chip_value" | "growth" | "hybrid";
+  wacc?: number;
+  ke?: number;
   methods: ValuationMethodResult[];
+  crossValidation?: ValuationCrossValidation;
+  impliedExpectations?: Record<string, number | string | null | undefined>;
 }
 
 export interface AnalysisReportMeta {
@@ -178,5 +201,7 @@ export interface AnalysisReportMeta {
 export interface AnalysisReport {
   meta: AnalysisReportMeta;
   title: string;
+  decision?: "buy" | "watch" | "avoid";
+  confidence?: "high" | "medium" | "low";
   sections: Array<{ heading: string; content: string }>;
 }

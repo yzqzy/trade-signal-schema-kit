@@ -136,6 +136,20 @@ pnpm --filter @trade-signal/research-strategies run phase2b:render -- \
 ```
 
 
+### Phase3：定量+估值+报告（MD + HTML）
+
+```bash
+pnpm --filter @trade-signal/research-strategies run phase3:run -- \
+  --market-json "./output/phase3_market_input.json" \
+  --report-md "./output/data_pack_report.md" \
+  --output-dir "./output"
+```
+
+产出文件：
+- `output/valuation_computed.json`
+- `output/analysis_report.md`
+- `output/analysis_report.html`
+
 ### 环境变量配置（packages 统一口径）
 
 仅入口读取 `.env`，库层保持显式参数。  

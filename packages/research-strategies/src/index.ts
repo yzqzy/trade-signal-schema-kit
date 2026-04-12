@@ -18,6 +18,9 @@ export * from "./phase1b/collector.js";
 export * from "./phase1b/renderer.js";
 export * from "./phase2a/extractor.js";
 export * from "./phase2b/renderer.js";
+export * from "./phase3/types.js";
+export * from "./phase3/valuation-engine.js";
+export * from "./phase3/analyzer.js";
 
 export async function runBaselineAnalysis(
   context: AnalysisContext,

@@ -101,6 +101,20 @@ pnpm --filter @trade-signal/research-strategies run phase2b:render -- \
   --output "./output/data_pack_report.md"
 ```
 
+Phase3 CLI（research-strategies，输入市场数据 + 可选附注包，输出估值与报告）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run phase3:run -- \
+  --market-json "./output/phase3_market_input.json" \
+  --report-md "./output/data_pack_report.md" \
+  --output-dir "./output"
+```
+
+输出：
+- `output/valuation_computed.json`
+- `output/analysis_report.md`
+- `output/analysis_report.html`
+
 ### `qualitative_report`（Phase 1B/2B 输出）
 
 - 用途：为 Phase 3 的定性与估值假设提供依据
