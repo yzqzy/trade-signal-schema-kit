@@ -107,6 +107,25 @@ pnpm run typecheck
 pnpm run build
 ```
 
+### 环境变量配置（packages 统一口径）
+
+仅入口读取 `.env`，库层保持显式参数；`.env` 示例见项目根 `/.env.example`。
+
+| 变量名 | 用途 | 作用包 | 默认值 |
+|------|------|------|------|
+| `PHASE0_REPORT_URL` | Phase0 默认下载 URL | `research-strategies` | 无 |
+| `PHASE0_STOCK_CODE` | Phase0 默认股票代码 | `research-strategies` | 无 |
+| `PHASE0_REPORT_TYPE` | Phase0 默认报告类型 | `research-strategies` | `年报` |
+| `PHASE0_YEAR` | Phase0 默认年份 | `research-strategies` | 无 |
+| `PHASE0_SAVE_DIR` | Phase0 默认落盘目录 | `research-strategies` | `.` |
+| `PHASE0_MAX_RETRIES` | Phase0 默认重试次数 | `research-strategies` | `3` |
+| `PHASE0_FORCE_REFRESH` | Phase0 是否默认强制刷新 | `research-strategies` | `false` |
+| `FEED_BASE_URL` | Feed HTTP 根地址 | `provider-http` | 无 |
+| `FEED_API_KEY` | Feed API Key | `provider-http` / `provider-mcp` | 无 |
+| `FEED_API_BASE_PATH` | Feed HTTP API 前缀 | `provider-http` | `/api/v1` |
+| `FEED_MCP_URL` | Feed MCP endpoint（记录/透传） | `provider-mcp` | 无 |
+| `FEED_MCP_SERVER` | Feed MCP serverName | `provider-mcp` | `trade-signal-feed` |
+
 ## 项目结构（简版）
 
 ```text

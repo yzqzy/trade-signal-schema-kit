@@ -4,6 +4,8 @@ dist/
 coverage/
 *.log
 pnpm-lock.yaml
+.env
+.env.local
 
 # IDE / AI tools
 .cursor/

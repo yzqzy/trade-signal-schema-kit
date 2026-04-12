@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "types": ["node"],
     "paths": {
       "@trade-signal/schema-core": ["./packages/core-schema/src/index.ts"],
       "@trade-signal/provider-http": ["./packages/provider-http/src/index.ts"],

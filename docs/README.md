@@ -8,6 +8,7 @@
 
 - [系统架构说明](./architecture.md)：分层结构、数据流、设计边界
 - [流程说明（Phase 0~3）](./workflows.md)：主流程、独立流程、阶段职责
+- [Phase 0 年报下载器](./phase0-download.md)：白名单、校验、CLI 用法与退出码
 - [数据源与字段契约](./data-source.md)：feed 接入原则、字段范围、约束
 - [路线图](./roadmap.md)：按“先复刻流程，再替换实现”的版本节奏
 

@@ -4,11 +4,19 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "ts-phase0-download": "dist/packages/research-strategies/src/cli.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "phase0:download": "node dist/packages/research-strategies/src/cli.js"
   },
   "dependencies": {
-    "@trade-signal/schema-core": "workspace:*"
+    "@trade-signal/schema-core": "workspace:*",
+    "dotenv": "^17.2.3",
+    "file-type": "^22.0.1",
+    "got": "^15.0.1",
+    "p-retry": "^8.0.0"
   }
 }

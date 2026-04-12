@@ -53,7 +53,7 @@
 
 ## 阶段职责
 
-- Phase 0：年报下载、缓存、版本命名
+- Phase 0：年报下载、缓存、版本命名（详见 [Phase 0 年报下载器](./phase0-download.md)）
 - Phase 1A：通过 `MarketDataProvider` 采集结构化数据
 - Phase 1B：补充外部非结构化信息
 - Phase 2A：PDF 章节定位与切分

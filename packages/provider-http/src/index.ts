@@ -16,6 +16,27 @@ export interface HttpProviderOptions {
   apiBasePath?: string;
 }
 
+export function createFeedHttpProviderFromEnv(
+  overrides: Partial<HttpProviderOptions> = {},
+): FeedHttpProvider {
+  const timeoutFromEnv = process.env.FEED_TIMEOUT_MS
+    ? Number(process.env.FEED_TIMEOUT_MS)
+    : undefined;
+  const timeoutMs =
+    overrides.timeoutMs ??
+    (timeoutFromEnv !== undefined && Number.isFinite(timeoutFromEnv) ? timeoutFromEnv : undefined);
+  const baseUrl = overrides.baseUrl ?? process.env.FEED_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("Missing FEED_BASE_URL (or pass overrides.baseUrl)");
+  }
+  return new FeedHttpProvider({
+    baseUrl,
+    apiKey: overrides.apiKey ?? process.env.FEED_API_KEY,
+    apiBasePath: overrides.apiBasePath ?? process.env.FEED_API_BASE_PATH,
+    timeoutMs,
+  });
+}
+
 type ApiEnvelope<T> = {
   success?: boolean;
   data?: T;

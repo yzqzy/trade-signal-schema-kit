@@ -11,6 +11,8 @@ export interface AnalysisResult {
   notes: string[];
 }
 
+export * from "./phase0/downloader.js";
+
 export async function runBaselineAnalysis(
   context: AnalysisContext,
 ): Promise<AnalysisResult> {

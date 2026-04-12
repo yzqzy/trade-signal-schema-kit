@@ -14,7 +14,24 @@ export type McpToolCaller = (toolName: string, args: Record<string, unknown>) =>
 export interface McpProviderOptions {
   serverName: string;
   transport?: "stdio" | "http";
+  endpoint?: string;
+  apiKey?: string;
   callTool: McpToolCaller;
+}
+
+export function createFeedMcpProviderFromEnv(
+  callTool: McpToolCaller,
+  overrides: Partial<Omit<McpProviderOptions, "callTool">> = {},
+): FeedMcpProvider {
+  const serverName =
+    overrides.serverName ?? process.env.FEED_MCP_SERVER ?? process.env.FEED_MCP_URL ?? "trade-signal-feed";
+  return new FeedMcpProvider({
+    serverName,
+    transport: overrides.transport,
+    endpoint: overrides.endpoint ?? process.env.FEED_MCP_URL,
+    apiKey: overrides.apiKey ?? process.env.FEED_API_KEY,
+    callTool,
+  });
 }
 
 type StockInfoPayload = {
