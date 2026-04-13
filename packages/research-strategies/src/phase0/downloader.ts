@@ -93,7 +93,8 @@ function resolveOutputPath(input: Phase0Input): string {
   return path.resolve(saveRoot, buildOutputFileName(input));
 }
 
-function isAllowedReportUrl(reportUrl: string): boolean {
+/** Phase0 下载白名单（与自动发现筛选一致） */
+export function isPhase0WhitelistedPdfUrl(reportUrl: string): boolean {
   try {
     const url = new URL(reportUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
@@ -109,6 +110,10 @@ function isAllowedReportUrl(reportUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isAllowedReportUrl(reportUrl: string): boolean {
+  return isPhase0WhitelistedPdfUrl(reportUrl);
 }
 
 function resolveHeaders(reportUrl: string): Record<string, string> {

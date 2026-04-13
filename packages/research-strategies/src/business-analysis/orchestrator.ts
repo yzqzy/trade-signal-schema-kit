@@ -69,6 +69,7 @@ export async function runBusinessAnalysis(
     ? path.relative(pipeline.outputDir, pipeline.phase2bMarkdownPath)
     : undefined;
   const manifest = {
+    manifestVersion: "1.0",
     generatedAt: new Date().toISOString(),
     kind: "business-analysis",
     input: {

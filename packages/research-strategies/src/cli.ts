@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runPhase0DownloadAndCache } from "./index.js";
+import { runPhase0DownloadAndCache } from "./phase0/downloader.js";
 import {
   type CliArgs,
   initPhase0CliEnv,
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
 
   const resolved = resolvePhase0CliInput(args, process.env);
 
-  const requiredFields: Array<keyof typeof resolved> = ["url", "stockCode", "category", "year"];
+  const requiredFields: Array<keyof typeof resolved> = ["stockCode", "category", "year"];
   for (const field of requiredFields) {
     if (!resolved[field]) {
       printPhase0CliResult({
@@ -52,10 +52,34 @@ async function main(): Promise<void> {
     }
   }
 
+  let reportUrl = resolved.url?.trim();
+  if (!reportUrl) {
+    try {
+      const { discoverPhase0ReportUrlFromFeed } = await import("./phase0/discover-report-url.js");
+      reportUrl = await discoverPhase0ReportUrlFromFeed({
+        stockCode: resolved.stockCode as string,
+        fiscalYear: resolved.year as string,
+        category: resolved.category as string,
+      });
+    } catch (error: any) {
+      const message = error?.message ?? "Phase0 auto-discovery failed";
+      printPhase0CliResult({
+        status: "FAILED",
+        url: "",
+        stockCode: resolved.stockCode ?? "",
+        category: resolved.category ?? "",
+        year: resolved.year ?? "",
+        message,
+      });
+      process.exit(mapPhase0ErrorToExitCode(message));
+      return;
+    }
+  }
+
   try {
     const artifact = await runPhase0DownloadAndCache({
       code: resolved.stockCode as string,
-      reportUrl: resolved.url as string,
+      reportUrl,
       category: resolved.category as string,
       fiscalYear: resolved.year as string,
       saveDir: resolved.saveDir,
@@ -67,7 +91,7 @@ async function main(): Promise<void> {
       status: "SUCCESS",
       filepath: artifact.filePath,
       filesize: artifact.sizeBytes,
-      url: resolved.url as string,
+      url: reportUrl,
       stockCode: resolved.stockCode as string,
       category: resolved.category as string,
       year: resolved.year as string,
@@ -82,7 +106,7 @@ async function main(): Promise<void> {
     const code = mapPhase0ErrorToExitCode(message);
     printPhase0CliResult({
       status: "FAILED",
-      url: resolved.url as string,
+      url: reportUrl,
       stockCode: resolved.stockCode as string,
       category: resolved.category as string,
       year: resolved.year as string,

@@ -29,7 +29,7 @@ pnpm run business-analysis:run -- \
   --output-dir "./output/run/600887_ba"
 ```
 
-**2）严格全流程（必须 PDF 或年报 URL，否则 fail-fast）**
+**2）严格全流程（优先传 PDF/URL；缺失时尝试自动发现）**
 
 ```bash
 pnpm run workflow:run -- \
@@ -60,7 +60,7 @@ pnpm run report-to-html:run -- \
 |--------|------------|
 | `/business-analysis` | `pnpm run business-analysis:run -- ...` |
 | `/turtle-analysis` | `pnpm run workflow:run -- --mode turtle-strict ...` |
-| `/download-annual-report` | `pnpm run phase0:download -- ...` |
+| `/download-annual-report` | `pnpm run phase0:download -- ...`（可无 `--url`，由 Feed 自动发现 PDF） |
 | `/valuation` | `pnpm run valuation:run -- ...` |
 | `/report-to-html` | `pnpm run report-to-html:run -- ...` |
 
@@ -88,7 +88,7 @@ pnpm run report-to-html:run -- \
 |------|------|
 | 找不到模块 / CLI 不运行 | 先执行 `pnpm run build` |
 | Phase1A 失败 | 检查 `FEED_BASE_URL`、网络与 API Key |
-| turtle-strict 立即报错 | 必须提供 `--pdf` 或 `--report-url`，且需成功生成 `data_pack_report.md` |
+| turtle-strict 立即报错 | 若未传 `--pdf/--report-url` 会先尝试自动发现；失败时按提示改传 `--report-url` 或 `--pdf`，并确保可生成 `data_pack_report.md` |
 
 ## 质量门禁
 

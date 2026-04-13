@@ -28,7 +28,7 @@ pnpm run workflow:run -- --code 600887 --year 2024
 
 ## turtle-strict 行为
 
-- 启动前：**必须** `--pdf` 或 `--report-url`。
+- 启动前：优先使用显式 `--pdf` 或 `--report-url`；若两者均缺失，将尝试基于 `--code`+`--year` 通过 Feed `/stock/report/search` 自动发现年报 PDF（需 `FEED_BASE_URL`）。
 - 管线结束后：必须已成功生成 `data_pack_report.md`，否则 fail-fast 并提示检查 PDF/下载/2A/2B。
 - CLI 报错前缀统一为 `[strict:workflow:turtle-strict]`，便于检索与文档对照。
 

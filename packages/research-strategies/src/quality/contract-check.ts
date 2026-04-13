@@ -17,6 +17,9 @@ async function main(): Promise<void> {
   assert.match(marketPack, /#\s*.+（\d{5,6}）/, "data_pack_market title/code contract mismatch");
   assert.match(marketPack, /经营活动现金流OCF/, "data_pack_market missing OCF field");
   assert.match(marketPack, /资本开支Capex/, "data_pack_market missing Capex field");
+  assert.match(marketPack, /归母净利润/, "data_pack_market missing net profit row");
+  assert.match(marketPack, /总资产/, "data_pack_market missing balance sheet anchor");
+  assert.match(marketPack, /§13 Warnings/, "data_pack_market missing §13 Warnings section");
 
   const valuation = JSON.parse(await readFile(valuationPath, "utf-8")) as {
     code?: unknown;

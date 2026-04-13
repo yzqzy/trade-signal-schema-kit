@@ -94,6 +94,7 @@ const dataPack = await collectPhase1ADataPack(provider, {
 
 - HTTP API 基础前缀固定为 `/api/v1`（代码内置默认）
 - Phase1B 检索 endpoint 固定为 `/stock/report/search`（代码内置默认）
+- Phase0 在未提供 `--url` 时复用同一检索端点做年报 PDF 自动发现（需 `FEED_BASE_URL`）；失败需手动传 PDF 直链
 
 MCP 场景（AI/Agent）：
 

@@ -40,5 +40,8 @@ export function mapPhase0ErrorToExitCode(message: string): number {
   if (message.includes("Invalid report URL")) {
     return EXIT_BAD_ARGUMENTS;
   }
+  if (message.includes("[phase0]") && (message.includes("--url") || message.includes("请手动指定"))) {
+    return EXIT_BAD_ARGUMENTS;
+  }
   return EXIT_NETWORK_FAILURE;
 }

@@ -1,28 +1,38 @@
 ---
 description: Phase0 年报下载与缓存（独立 CLI）
-argument-hint: [--url] [--stock-code] [--year] [--category]
+argument-hint: [--stock-code] [--year] [--category] [--url 可选]
 ---
 
 在 **monorepo 根目录**执行。
 
 ## 映射 CLI
 
+**模式 A：自动发现（Feed `/stock/report/search`，需 `FEED_BASE_URL`）**
+
 ```bash
 pnpm run phase0:download -- \
-  --url "<年报 PDF 直链或页面 URL>" \
-  --stock-code <如 600887> \
-  --year <如 2024> \
+  --stock-code 600887 \
+  --year 2024 \
   --category 年报 \
-  [--save-dir "./cache/reports/..."] \
-  [--max-retries 3] \
-  [--force-refresh]
+  [--save-dir "./cache/reports/..."]
 ```
 
-环境变量兜底：`PHASE0_REPORT_URL`、`PHASE0_STOCK_CODE`、`PHASE0_YEAR`、`PHASE0_CATEGORY`。详见 [Phase 0 文档](../../docs/phase0-download.md)。
+**模式 B：显式 PDF 直链（与历史行为一致）**
+
+```bash
+pnpm run phase0:download -- \
+  --url "<https://...pdf>" \
+  --stock-code 600887 \
+  --year 2024 \
+  --category 年报
+```
+
+环境变量兜底：`PHASE0_REPORT_URL`（可选）、`PHASE0_STOCK_CODE`、`PHASE0_YEAR`、`PHASE0_CATEGORY`。详见 [Phase 0 文档](../../docs/phase0-download.md)。
 
 ## 输入校验
 
-- `url`、`stock-code`、`year`、`category` 为 CLI 必填项（缺失则非零退出）。
+- `stock-code`、`year`、`category` 必填。
+- 未提供 `--url` / `PHASE0_REPORT_URL` 时走自动发现；发现失败会提示改用 `--url`（退出码 3）。
 - 下载成功后打印本地 `filepath`、校验和等，供后续 `--pdf` 传入 `workflow:run` 或 `business-analysis:run`。
 
 ## 与编排衔接

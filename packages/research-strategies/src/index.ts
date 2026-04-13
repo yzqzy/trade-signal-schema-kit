@@ -12,6 +12,7 @@ export interface AnalysisResult {
 }
 
 export * from "./phase0/downloader.js";
+export * from "./phase0/discover-report-url.js";
 export * from "./phase1a/collector.js";
 export * from "./phase1b/types.js";
 export * from "./phase1b/collector.js";

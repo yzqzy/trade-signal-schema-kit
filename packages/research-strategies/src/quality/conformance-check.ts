@@ -94,11 +94,11 @@ async function main(): Promise<void> {
   const root = path.resolve(process.cwd(), "../..");
   const httpProviderModulePath = path.join(
     root,
-    "packages/provider-http/dist/packages/provider-http/src/index.js",
+    "packages/provider-http/dist/index.js",
   );
   const mcpProviderModulePath = path.join(
     root,
-    "packages/provider-mcp/dist/packages/provider-mcp/src/index.js",
+    "packages/provider-mcp/dist/index.js",
   );
   const { FeedHttpProvider } = (await import(pathToFileURL(httpProviderModulePath).href)) as {
     FeedHttpProvider: new (...args: any[]) => any;

@@ -18,3 +18,7 @@ export function strictWorkflowTurtleMissingPdf(): string {
 export function strictWorkflowTurtleMissingReportPack(): string {
   return `${STRICT_WORKFLOW_TURTLE_PREFIX} 未生成 data_pack_report.md：请确认 PDF 可读且 Phase2A/2B 成功（或检查 --pdf / --report-url）。`;
 }
+
+export function strictWorkflowTurtleDiscoveryFailed(detail: string): string {
+  return `${STRICT_WORKFLOW_TURTLE_PREFIX} 自动发现年报失败：${detail}。请改传 --report-url <url> 或 --pdf <path>。`;
+}

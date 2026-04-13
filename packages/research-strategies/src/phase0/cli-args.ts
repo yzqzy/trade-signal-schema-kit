@@ -14,6 +14,7 @@ export type CliArgs = {
 };
 
 export type ResolvedCliInput = {
+  /** 未提供时由 Phase0 通过 Feed `/stock/report/search` 自动发现（需 FEED_BASE_URL） */
   url?: string;
   stockCode?: string;
   category?: string;

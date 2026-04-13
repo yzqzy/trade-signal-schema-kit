@@ -47,6 +47,7 @@ async function writeText(filePath: string, content: string): Promise<void> {
 }
 
 type BusinessAnalysisManifest = {
+  manifestVersion?: string;
   outputs?: {
     marketPackPath?: string;
     dataPackReportPath?: string;

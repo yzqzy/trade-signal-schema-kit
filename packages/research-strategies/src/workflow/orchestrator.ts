@@ -5,6 +5,7 @@ import type { DataPackMarket } from "@trade-signal/schema-core";
 import { createFeedHttpProviderFromEnv } from "@trade-signal/provider-http";
 
 import { runPhase0DownloadAndCache } from "../phase0/downloader.js";
+import { discoverPhase0ReportUrlFromFeed } from "../phase0/discover-report-url.js";
 import { collectPhase1ADataPack } from "../phase1a/collector.js";
 import { collectPhase1BQualitative } from "../phase1b/collector.js";
 import type { Phase1BQualitativeSupplement } from "../phase1b/types.js";
@@ -14,7 +15,7 @@ import { renderPhase2BDataPackReport } from "../phase2b/renderer.js";
 import { runPhase3Strict } from "../phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../phase3/report-renderer.js";
 import {
-  strictWorkflowTurtleMissingPdf,
+  strictWorkflowTurtleDiscoveryFailed,
   strictWorkflowTurtleMissingReportPack,
 } from "../pipeline/strict-messages.js";
 
@@ -64,14 +65,7 @@ export interface WorkflowDataPipelineResult {
   phase2aJsonPath?: string;
   phase2bMarkdownPath?: string;
   reportPackMarkdown?: string;
-}
-
-function validateTurtleStrictInput(input: RunWorkflowInput): void {
-  const hasPdf = Boolean(input.pdfPath?.trim());
-  const hasUrl = Boolean(input.reportUrl?.trim());
-  if (!hasPdf && !hasUrl) {
-    throw new Error(strictWorkflowTurtleMissingPdf());
-  }
+  reportUrlResolved?: string;
 }
 
 function asYear(value?: string): string {
@@ -110,26 +104,45 @@ function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket): string
   const capex = Math.max(0, Math.round(Math.abs(ocf) * 0.2));
   const totalAssets = safeNum(fin?.totalAssets, 0);
   const totalLiabilities = safeNum(fin?.totalLiabilities, 0);
-  const interestBearingDebt = totalLiabilities * 0.4;
-  const cash = totalAssets * 0.1;
+  const hasFullBalanceSheet = totalAssets > 0 && totalLiabilities >= 0;
+  const interestBearingDebt = hasFullBalanceSheet ? totalLiabilities * 0.4 : 0;
+  const cash = hasFullBalanceSheet ? totalAssets * 0.1 : 0;
   const totalShares = quote.price > 0 ? finalMarketCap / quote.price : undefined;
   const basicEps = totalShares && totalShares > 0 ? netProfit / totalShares : undefined;
-  const dps = safeNum(dataPack.corporateActions?.[0]?.cashDividendPerShare, 0);
-  const rf = 2.5;
+  const div0 = dataPack.corporateActions?.find((a) => a.cashDividendPerShare != null);
+  const dps = safeNum(div0?.cashDividendPerShare, 0);
+  const rfEnv = process.env.PHASE1A_RF_RATE?.trim() || process.env.MARKET_PACK_RF_RATE?.trim();
+  const rfParsed = rfEnv ? Number(rfEnv) : Number.NaN;
+  const rf = Number.isFinite(rfParsed) ? rfParsed : 2.5;
+
+  const riskLines: string[] = [];
+  if (!fin?.totalAssets || fin.totalAssets <= 0) {
+    riskLines.push(
+      `- [数据完整性|中] Phase1A 财务快照缺少有效总资产，市值/资产负债表多项为编排层占位推算，仅用于联调。`,
+    );
+  }
+  if (!dataPack.corporateActions?.length) {
+    riskLines.push(`- [数据完整性|低] 未返回企业行动记录，每股分红 DPS 记为 0。`);
+  }
+  riskLines.push(
+    `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF*20% 做保守估算（${capex.toFixed(2)}）。`,
+  );
 
   return [
     `# ${instrument.name}（${normalizeCodeForFeed(code)}）`,
     "",
     "## §1 基础信息",
     `- 股票代码：${normalizeCodeForFeed(code)}`,
+    `- 市场：${instrument.market}`,
+    `- 币种：${instrument.currency ?? "CNY"}`,
     `- 行业：未知`,
     `- 最新股价：${safeNum(quote.price, 0).toFixed(4)}`,
     `- 最新市值：${finalMarketCap.toFixed(2)}`,
     `- 总股本：${safeNum(totalShares, 0).toFixed(2)}`,
-    `- 无风险利率：${rf.toFixed(2)}`,
+    `- 无风险利率：${rf.toFixed(2)}${rfEnv ? "（来自环境变量）" : "（默认占位）"}`,
     "",
     "## §2 风险提示",
-    `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF*20% 做保守估算（${capex.toFixed(2)}）。`,
+    ...riskLines,
     "",
     "## §3 利润表（百万元）",
     `| 指标 | ${reportYear} |`,
@@ -174,9 +187,36 @@ export async function executeWorkflowDataPipeline(
   );
   await mkdir(outputDir, { recursive: true });
 
-  const provider = createFeedHttpProviderFromEnv();
   const to = input.to ?? new Date().toISOString().slice(0, 10);
   const from = input.from ?? `${asYear(input.year)}-01-01`;
+
+  let pdfPath = input.pdfPath;
+  let reportUrlResolved = input.reportUrl;
+  if (!pdfPath && !reportUrlResolved && input.mode === "turtle-strict") {
+    try {
+      reportUrlResolved = await discoverPhase0ReportUrlFromFeed({
+        stockCode: normalizedCode,
+        fiscalYear: asYear(input.year),
+        category: input.category ?? "年报",
+      });
+    } catch (error: any) {
+      const detail = error?.message ?? "Feed discovery failed";
+      throw new Error(strictWorkflowTurtleDiscoveryFailed(detail));
+    }
+  }
+
+  if (!pdfPath && reportUrlResolved) {
+    const downloaded = await runPhase0DownloadAndCache({
+      code: normalizedCode,
+      reportUrl: reportUrlResolved,
+      fiscalYear: asYear(input.year),
+      category: input.category ?? "年报",
+      saveDir: path.join(outputDir, "reports", normalizedCode),
+    });
+    pdfPath = downloaded.filePath;
+  }
+
+  const provider = createFeedHttpProviderFromEnv();
 
   const phase1a = await collectPhase1ADataPack(provider, {
     code: input.code,
@@ -204,18 +244,6 @@ export async function executeWorkflowDataPipeline(
   const phase1bMarkdownPath = path.join(outputDir, "phase1b_qualitative.md");
   await writeText(phase1bJsonPath, JSON.stringify(phase1b, null, 2));
   await writeText(phase1bMarkdownPath, renderPhase1BMarkdown(phase1b));
-
-  let pdfPath = input.pdfPath;
-  if (!pdfPath && input.reportUrl) {
-    const downloaded = await runPhase0DownloadAndCache({
-      code: normalizedCode,
-      reportUrl: input.reportUrl,
-      fiscalYear: asYear(input.year),
-      category: input.category ?? "年报",
-      saveDir: path.join(outputDir, "reports", normalizedCode),
-    });
-    pdfPath = downloaded.filePath;
-  }
 
   let phase2aJsonPath: string | undefined;
   let phase2bMarkdownPath: string | undefined;
@@ -245,14 +273,11 @@ export async function executeWorkflowDataPipeline(
     phase2aJsonPath,
     phase2bMarkdownPath,
     reportPackMarkdown,
+    reportUrlResolved,
   };
 }
 
 export async function runResearchWorkflow(input: RunWorkflowInput): Promise<WorkflowArtifacts> {
-  if (input.mode === "turtle-strict") {
-    validateTurtleStrictInput(input);
-  }
-
   const pipeline = await executeWorkflowDataPipeline(input);
 
   if (input.mode === "turtle-strict" && !pipeline.reportPackMarkdown) {
@@ -271,6 +296,7 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
     phase2aJsonPath,
     phase2bMarkdownPath,
     reportPackMarkdown,
+    reportUrlResolved,
   } = pipeline;
 
   const phase3 = runPhase3Strict({
@@ -292,10 +318,12 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
     ? path.relative(outputDir, phase2bMarkdownPath)
     : undefined;
   const manifest = {
+    manifestVersion: "1.0",
     generatedAt: new Date().toISOString(),
     input: {
       ...input,
       code: normalizedCode,
+      reportUrl: reportUrlResolved ?? input.reportUrl,
     },
     outputs: {
       phase1aJsonPath,

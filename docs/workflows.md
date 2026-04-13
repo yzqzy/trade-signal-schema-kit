@@ -39,7 +39,7 @@
 Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
 ```
 
-- **Phase 0**：仅 `--report-url` 触发下载；**仅 `--pdf` 不经过 Phase0**。
+- **Phase 0**：`workflow` 内仅 `--report-url` 触发下载；**仅 `--pdf` 不经过 Phase0**。独立 `phase0:download` 可无 `--url`，由 Feed `/stock/report/search` 自动发现 PDF（需 `FEED_BASE_URL`）。
 - **依赖**：`FEED_BASE_URL`（Phase1A 固定 HTTP Provider）；编排内合成的 `data_pack_market.md` 与手写 golden 用途不同。
 - **与 `phase3:run` 差异**：编排不传 `--interim-report-md`。
 
@@ -169,7 +169,7 @@ pnpm run workflow:run -- \
 
 说明：
 - 必填：`--code`
-- `--mode`：`standard`（默认）或 `turtle-strict`（要求 PDF 输入且必须生成 `data_pack_report.md`）
+- `--mode`：`standard`（默认）或 `turtle-strict`（优先显式 PDF/URL；若缺失则尝试按 `code+year` 自动发现，且必须生成 `data_pack_report.md`）
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`workflow_manifest.json`
 
