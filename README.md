@@ -28,19 +28,21 @@
 
 `trade-signal-schema-kit` 采用“共享模块 + 策略专属模块”分层，且必须实现以下主流程（Phase 0~3）：
 
-### 策略主流程（必做）
+### 策略主流程（逻辑阶段，Turtle 对齐）
+
+下图表示**方法论上的阶段划分**；同一阶段可在不同 CLI 中独立执行，也可由 `workflow:run` **按顺序**串联（见下一节「Workflow」说明）。Phase 1A 与 Phase 2A 在逻辑上可并行准备数据，**当前一键编排实现为串行**。
 
 ```text
-用户输入 (股票代码 + 年报PDF)
+用户输入 (股票代码 [+ 年报 PDF / 报告 URL])
          │
     ┌────▼────┐
-    │ Phase 0 │  年报获取与缓存 (download/caching)
+    │ Phase 0 │  年报获取与缓存（可选：独立 CLI 或 workflow 传 --report-url）
     └────┬────┘
          │
     ┌────▼──────────────┬───────────────────┐
-    │ Phase 1A          │ Phase 2A          │  ← 并行运行
+    │ Phase 1A          │ Phase 2A          │  ← 逻辑上可并行准备
     │ 标准字段数据采集    │ PDF 预处理         │
-    │ (HTTP/MCP Provider)│ (章节定位/切片)     │
+    │ (MarketDataProvider)│ (章节定位/切片)     │
     └────┬──────────────┴──────────┬────────┘
          │                         │
     ┌────▼────┐               ┌────▼────┐
@@ -55,27 +57,19 @@
             │ 定性 + 定量 + 估值 │
             └───────┬────────┘
                     │
-      output/{code}_analysis_report.md + .html
+      <output-dir>/analysis_report.md + .html
+                 （文件名固定；可用目录名区分标的）
 ```
 
-### 独立商业分析流程（必做）
+### 独立商业分析流程（规划中）
+
+以下对应 Turtle 等产品形态中的「单 Agent 商业分析」路径；**本仓库当前无 `/business-analysis` 单一命令**，能力由 Phase 0~3 各 CLI 与 `workflow:run` 组合覆盖。
 
 ```text
-/business-analysis {code}
+/business-analysis {code}   （规划/外部产品形态，非本仓库 CLI）
          │
-    ┌────▼────────────────┐
-    │ 年报 PDF 获取/缓存    │
-    └────┬────────────────┘
-         │
-    ┌────▼────────────────┐
-    │ 标准字段数据采集      │  历史序列补充（标准字段数据段）
-    └────┬────────────────┘
-         │
-    ┌────▼────────────────┐
-    │ 单 Agent 定性分析     │  基于 PDF + 结构化数据联合分析
-    └────┬────────────────┘
-         │
-    report.md + report.html
+         ▼
+    年报 PDF + 结构化数据 → 定性/报告输出（report.md + report.html）
 ```
 
 ### 各阶段实现范围
@@ -106,6 +100,8 @@ pnpm install
 pnpm run typecheck
 pnpm run build
 ```
+
+`@trade-signal/research-strategies` 下的 CLI（`phase2a:extract`、`phase3:run`、`workflow:run`、`screener:run` 等）依赖编译产物 `dist/...`；首次运行前请执行根目录 `pnpm run build`（或对该包单独 `pnpm --filter @trade-signal/research-strategies run build`）。
 
 ### Phase2A：PDF 章节提取（schema_block）
 
@@ -162,10 +158,19 @@ pnpm run workflow:run -- \
   --output-dir "./output/workflow/600887"
 ```
 
-说明：
-- 默认会走 `Phase1A -> Phase1B -> (可选 Phase2A/2B) -> Phase3`
-- 传 `--pdf` 或 `--report-url` 时会启用 Phase2A/2B；两者都不传则跳过 PDF 支路
-- 输出目录包含 `workflow_manifest.json`，用于追踪各阶段产物路径
+**执行顺序（实现）**：`Phase1A → Phase1B →（可选）Phase2A/2B → Phase3`，串行执行。
+
+**环境与通道**：
+- **必须**配置 `FEED_BASE_URL`（及按需 `FEED_API_KEY`）；Phase1A 在编排内固定使用 **HTTP** `createFeedHttpProviderFromEnv()`。
+- Phase1B 默认 HTTP。`workflow:run` 虽支持 `--phase1b-channel mcp`，但 MCP 需 `mcpCallTool` 注入；**仅命令行使用时请保持默认 `http`**（传 `mcp` 且无注入会在运行期失败）。在自定义代码中可调用 `collectPhase1BQualitative(..., { mcpCallTool })`。
+- 编排内的 `data_pack_market.md` 由 Phase1A 数据**合成**，含编排层说明（如部分字段估算）；与「手写 golden 市场包」用途不同。
+- 独立 `phase3:run` 支持 `--interim-report-md`；**workflow 编排当前未接入**中期报告参数。
+
+**Phase 0 何时触发**：仅当传入 `--report-url` 时，内部会调用 Phase0 下载器拉取 PDF；若只传 `--pdf` 指向本地文件，**不执行** Phase0 下载。
+
+**PDF 支路**：传 `--pdf` 或 `--report-url`（下载后）会跑 Phase2A/2B；两者都不传则 Phase3 仅有市场包、无 `data_pack_report.md`。
+
+**产物**（均在 `--output-dir` 或默认 `output/workflow/<code>/` 下）：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、`valuation_computed.json`、`analysis_report.md` / `analysis_report.html`、`workflow_manifest.json`。
 
 ### Screener：独立 + 组合模式
 
@@ -195,28 +200,43 @@ pnpm --filter @trade-signal/research-strategies run screener:run -- \
 
 Screener 产出：
 - `screener_results.json`
+- `screener_input.csv`（输入 universe 的 CSV 导出）
 - `screener_report.md`
 - `screener_report.html`
 
 ### Next.js 在线运行（MVP）
 
+在 **monorepo 根目录**启动（保证 `process.cwd()` 下存在 `packages/research-strategies/dist/...`，供 API 动态加载 pipeline）：
+
+```bash
+pnpm run web:dev
+```
+
+等价于：
+
 ```bash
 pnpm --filter @trade-signal/screener-web run dev
 ```
 
-默认页面提供市场与模式切换，并通过 `/api/screener/run` 在线触发筛选。
+`screener-web` 的 `prebuild` 会先构建 `research-strategies`。开发时若改了策略代码，请重新 `pnpm run build`（或对该包 build）。
 
-### Quality Gate：Phase3 Golden 校验
+默认页面提供市场与模式切换，并通过 `/api/screener/run` 在线触发筛选；Universe 在有 `FEED_BASE_URL` 时优先请求 Feed 的 `/stock/screener/universe`，失败则回退内置 mock。
+
+### Quality Gate
+
+单测 golden 文件校验（对比 `output/phase3_golden/run/golden_manifest.json` 中的 sha256 与字节数）：
 
 ```bash
 pnpm run quality:phase3-golden
 ```
 
-完整质量门禁：
+完整质量门禁（依次执行）：
 
 ```bash
 pnpm run quality:all
 ```
+
+包含：`quality:conformance`（HTTP/MCP fixture 语义一致）→ `quality:contract`（市场包与估值 JSON 契约）→ `quality:regression`（重跑 Phase3 与 golden 基线对比，时间戳已规范化）→ `quality:phase3-golden`。`contract` / `regression` / `phase3-golden` 依赖仓库内 `output/phase3_golden/` 基线文件。
 
 ### 环境变量配置（packages 统一口径）
 
@@ -235,11 +255,13 @@ pnpm run quality:all
 
 ```text
 trade-signal-schema-kit/
+├── apps/
+│   └── screener-web/        # Next.js 选股 MVP（在线触发 screener pipeline）
 ├── packages/
-│   ├── core-schema/         # 标准字段与 Provider 契约
+│   ├── core-schema/         # 标准字段与 Provider 契约（npm: @trade-signal/schema-core）
 │   ├── provider-http/       # HTTP 数据适配器
 │   ├── provider-mcp/        # MCP 数据适配器
-│   ├── research-strategies/ # 策略与研究流程编排
+│   ├── research-strategies/ # 策略与研究流程编排（Phase 0~3、workflow、screener、quality）
 │   └── reporting/           # 报告输出
 ├── package.json
 ├── tsconfig.base.json
@@ -258,6 +280,7 @@ trade-signal-schema-kit/
 - AI/Agent 场景：`MCP`（交互式检索、工具编排、按需补充）
 - 同一语义输出：HTTP/MCP 只更换通道，不更换标准字段语义
 - 建议实践：默认先走 HTTP，只有在需要 Agent 能力时再切 MCP
+- **`workflow:run` 编排**：Phase1A 固定 HTTP Provider；Phase1B 可在代码层配置 MCP，默认 HTTP
 
 ## 参考与致谢
 

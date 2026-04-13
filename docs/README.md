@@ -16,4 +16,4 @@
 
 1. 先看 `README` 了解项目定位与核心流程
 2. 再看本页选择对应细节文档
-3. 实现时优先对照 `workflows` 与 `roadmap`
+3. 实现时优先对照 `workflows` 与 `roadmap`；**一键编排 `workflow:run` 的实际顺序、产物与约束以 `workflows.md` 与源码为准**（与方法论示意图可能不完全等同）

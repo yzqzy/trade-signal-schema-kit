@@ -56,14 +56,16 @@ provider-http   provider-mcp    ← Bottom: data adapters
 
 ## Main Workflow (Phase 0-3)
 
+Logical stages (Turtle-aligned). `workflow:run` executes **sequentially**: 1A → 1B → optional 2A/2B → 3. Phase 0 in that path only when `--report-url` is used.
+
 ```
-User Input (stock code + annual report PDF)
+User Input (stock code [+ PDF or report URL])
          │
-    ┌────▼────┐ Phase 0: Annual report fetch & cache
+    ┌────▼────┐ Phase 0: Optional fetch/cache (CLI or workflow --report-url)
     └────┬────┘
          │
-    ┌────▼──────────┐ Phase 1A: Structured data collection (HTTP/MCP)
-    │ Phase 2A: PDF preprocessing (chapter locating/slicing)
+    ┌────▼──────────┐ Phase 1A: Structured data (MarketDataProvider; workflow uses HTTP)
+    │ Phase 2A: PDF preprocessing (optional branch)
     └────┬──────────┴──────────┐
          │                    │
     ┌────▼────┐            ┌──▼────┐
@@ -77,7 +79,7 @@ User Input (stock code + annual report PDF)
                 │Qualitative+Quantitative+Valuation
                 └────┬──────┘
                      │
-   output/{code}_analysis_report.md + .html
+   <output-dir>/analysis_report.md + .html
 ```
 
 ## Environment Requirements

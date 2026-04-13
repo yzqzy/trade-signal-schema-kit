@@ -76,6 +76,8 @@ const dataPack = await collectPhase1ADataPack(provider, {
 });
 ```
 
+**`workflow:run` 编排**：当前固定使用 HTTP `createFeedHttpProviderFromEnv()` 采集 Phase1A，需配置 `FEED_BASE_URL`。若要在编排链路中用 MCP 采结构化数据，需在自定义代码中传入 `FeedMcpProvider`。
+
 ## Phase1B（外部信息补全）调用方式
 
 - 聚合入口：`collectPhase1BQualitative(input, options)`（默认 `channel=http`）
@@ -106,10 +108,19 @@ MCP 场景（AI/Agent）：
 
 ## 质量门禁（v0.1 当前实现）
 
-- conformance：`pnpm run quality:conformance`
-  - 以同源 fixture 驱动 `provider-http` 与 `provider-mcp`，校验 `instrument/quote/klines/financial/corporateActions/tradingCalendar` 的语义一致性
-- contract：`pnpm run quality:contract`
-  - 校验关键产物契约：`data_pack_market.md`（关键字段）与 `valuation_computed.json`（结构+方法集）
-- regression：`pnpm run quality:regression`
-  - 重跑 Phase3（golden 输入）并对比 manifest（sha256 + bytes）
-- 全量：`pnpm run quality:all`
+- **全量**：`pnpm run quality:all`  
+  顺序为：`quality:conformance` → `quality:contract` → `quality:regression` → `quality:phase3-golden`。
+
+- **conformance**：`pnpm run quality:conformance`  
+  - 以同源 fixture 驱动已构建的 `provider-http` 与 `provider-mcp`，校验 `instrument/quote/klines/financial/corporateActions/tradingCalendar` 的语义一致性（不访问真实 Feed）。
+
+- **contract**：`pnpm run quality:contract`  
+  - 读取仓库根 `output/phase3_golden/data_pack_market.md` 与 `output/phase3_golden/run/valuation_computed.json`，校验关键字段/结构与方法枚举。
+
+- **regression**：`pnpm run quality:regression`  
+  - 使用 golden 输入重跑 Phase3，将生成的 `valuation_computed.json`、`analysis_report.md/html` 与 **golden 目录下的同名基线文件**做对比（对时间戳等字段规范化后计算 sha256）。**与下面 `phase3-golden` 不同**：后者校验的是 manifest 清单，而非「重算 vs 基线文件」这一路径。
+
+- **phase3-golden**：`pnpm run quality:phase3-golden`  
+  - 按 `output/phase3_golden/run/golden_manifest.json`（可用 `--manifest` 指定）校验清单内各文件的 **sha256 + 字节数**（通常为已提交的 golden 产物快照）。
+
+**依赖**：`contract`、`regression`、`phase3-golden` 均要求仓库内已存在 `output/phase3_golden/` 树；缺失会导致检查失败。

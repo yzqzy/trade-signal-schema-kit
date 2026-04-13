@@ -2,17 +2,19 @@
 
 [返回 README](../README.md) · [文档索引](./README.md)
 
-## 策略主流程
+## 策略主流程（逻辑阶段）
+
+与 [README](../README.md) 一致：下图为**方法论阶段**；各阶段可独立 CLI 执行，或由 `workflow:run` **串行**串联。Phase 1A 与 Phase 2A 逻辑上可并行准备数据，**当前一键编排为顺序执行**。
 
 ```text
-用户输入 (股票代码 + 年报PDF)
+用户输入 (股票代码 [+ PDF / 报告 URL])
          │
     ┌────▼────┐
-    │ Phase 0 │  年报获取与缓存
+    │ Phase 0 │  年报获取与缓存（可选：phase0 CLI 或 workflow 的 --report-url）
     └────┬────┘
          │
     ┌────▼──────────────┬───────────────────┐
-    │ Phase 1A          │ Phase 2A          │
+    │ Phase 1A          │ Phase 2A          │  ← 逻辑上可并行准备
     │ 标准字段数据采集    │ PDF 预处理         │
     └────┬──────────────┴──────────┬────────┘
          │                         │
@@ -28,28 +30,22 @@
             │ 定性 + 定量 + 估值 │
             └───────┬────────┘
                     │
-      output/{code}_analysis_report.md + .html
+      <output-dir>/analysis_report.md + .html
 ```
 
-## 独立商业分析流程
+## `workflow:run` 实际顺序
 
 ```text
-/business-analysis {code}
-         │
-    ┌────▼────────────────┐
-    │ 年报 PDF 获取/缓存    │
-    └────┬────────────────┘
-         │
-    ┌────▼────────────────┐
-    │ 标准字段数据采集      │
-    └────┬────────────────┘
-         │
-    ┌────▼────────────────┐
-    │ 单 Agent 定性分析     │
-    └────┬────────────────┘
-         │
-    report.md + report.html
+Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
 ```
+
+- **Phase 0**：仅 `--report-url` 触发下载；**仅 `--pdf` 不经过 Phase0**。
+- **依赖**：`FEED_BASE_URL`（Phase1A 固定 HTTP Provider）；编排内合成的 `data_pack_market.md` 与手写 golden 用途不同。
+- **与 `phase3:run` 差异**：编排不传 `--interim-report-md`。
+
+## 独立商业分析流程（规划中）
+
+对应 Turtle 等产品中的「单 Agent 商业分析」；**本仓库无 `/business-analysis` 单一命令**，由 Phase 0~3 与 `workflow:run` 组合实现。
 
 ## 阶段职责
 
@@ -127,10 +123,12 @@ pnpm --filter @trade-signal/research-strategies run workflow:run -- \
   --output-dir "./output/workflow/600887"
 ```
 
+根目录等价：`pnpm run workflow:run -- ...`。运行前需 `pnpm run build`（或对该包 build）以生成 `dist/`。
+
 说明：
 - 必填：`--code`
-- 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B）
-- 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`workflow_manifest.json`
+- 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
+- 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`workflow_manifest.json`
 
 Screener CLI（独立/组合双模式）：
 
@@ -152,19 +150,32 @@ pnpm --filter @trade-signal/research-strategies run screener:run -- \
 
 Screener 输出：
 - `screener_results.json`
+- `screener_input.csv`
 - `screener_report.md`
 - `screener_report.html`
 
-质量门禁（当前基线）：
+质量门禁：
 
 ```bash
+# 全量：conformance → contract → regression → phase3-golden
+pnpm run quality:all
+```
+
+或分项（根目录 `pnpm run quality:<name>` 与 filter 等价）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run quality:conformance
+pnpm --filter @trade-signal/research-strategies run quality:contract
+pnpm --filter @trade-signal/research-strategies run quality:regression
 pnpm --filter @trade-signal/research-strategies run quality:phase3-golden
 ```
 
-Next.js 在线 MVP：
+说明：`contract` / `regression` / `phase3-golden` 依赖仓库内 `output/phase3_golden/`。`regression` 为重跑 Phase3 后与 golden 基线做规范化哈希对比；`phase3-golden` 为 manifest 中文件的 sha256+字节数校验。详见 [数据源与字段契约](./data-source.md)。
+
+Next.js 在线 MVP（请在 **monorepo 根目录**启动，以便 API 解析 `packages/research-strategies/dist/...`）：
 
 ```bash
-pnpm --filter @trade-signal/screener-web run dev
+pnpm run web:dev
 ```
 
 ### `qualitative_report`（Phase 1B/2B 输出）
