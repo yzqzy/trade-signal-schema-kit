@@ -117,6 +117,35 @@ pnpm --filter @trade-signal/research-strategies run phase3:run -- \
 - `output/analysis_report.md`
 - `output/analysis_report.html`
 
+Screener CLI（独立/组合双模式）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run screener:run -- \
+  --market CN_A \
+  --mode standalone \
+  --input-json "./output/screener_samples/cn_a_universe.json" \
+  --output-dir "./output/screener_run/cn_a_standalone"
+```
+
+```bash
+pnpm --filter @trade-signal/research-strategies run screener:run -- \
+  --market HK \
+  --mode composed \
+  --input-json "./output/screener_samples/hk_universe.json" \
+  --output-dir "./output/screener_run/hk_composed"
+```
+
+Screener 输出：
+- `screener_results.json`
+- `screener_report.md`
+- `screener_report.html`
+
+Next.js 在线 MVP：
+
+```bash
+pnpm --filter @trade-signal/screener-web run dev
+```
+
 ### `qualitative_report`（Phase 1B/2B 输出）
 
 - 用途：为 Phase 3 的定性与估值假设提供依据

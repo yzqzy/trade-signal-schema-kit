@@ -25,3 +25,7 @@ references/
 
 # output files
 output/
+
+# Next.js build artifacts
+.next/
+apps/*/.next/

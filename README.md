@@ -152,6 +152,45 @@ pnpm --filter @trade-signal/research-strategies run phase3:run -- \
 - `output/analysis_report.md`
 - `output/analysis_report.html`
 
+### Screener：独立 + 组合模式
+
+Screener 支持两种运行模式：
+- `standalone`：独立快筛（不依赖财报分析流水线）
+- `composed`：候选标的串联 Phase3 严格分析后融合评分
+
+示例（A 股独立模式）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run screener:run -- \
+  --market CN_A \
+  --mode standalone \
+  --input-json "./output/screener_samples/cn_a_universe.json" \
+  --output-dir "./output/screener_run/cn_a_standalone"
+```
+
+示例（港股组合模式）：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run screener:run -- \
+  --market HK \
+  --mode composed \
+  --input-json "./output/screener_samples/hk_universe.json" \
+  --output-dir "./output/screener_run/hk_composed"
+```
+
+Screener 产出：
+- `screener_results.json`
+- `screener_report.md`
+- `screener_report.html`
+
+### Next.js 在线运行（MVP）
+
+```bash
+pnpm --filter @trade-signal/screener-web run dev
+```
+
+默认页面提供市场与模式切换，并通过 `/api/screener/run` 在线触发筛选。
+
 ### 环境变量配置（packages 统一口径）
 
 仅入口读取 `.env`，库层保持显式参数。  

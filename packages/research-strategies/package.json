@@ -15,7 +15,8 @@
     "phase1b:demo": "node dist/packages/research-strategies/src/phase1b/demo.js",
     "phase2a:extract": "node dist/packages/research-strategies/src/phase2a/cli.js",
     "phase2b:render": "node dist/packages/research-strategies/src/phase2b/cli.js",
-    "phase3:run": "node dist/packages/research-strategies/src/phase3/cli.js"
+    "phase3:run": "node dist/packages/research-strategies/src/phase3/cli.js",
+    "screener:run": "node dist/packages/research-strategies/src/screener/cli.js"
   },
   "dependencies": {
     "@trade-signal/schema-core": "workspace:*",
