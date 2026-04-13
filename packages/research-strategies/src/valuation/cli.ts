@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
 import { runPhase3Strict } from "../phase3/analyzer.js";
+import { renderPhase3Html, renderPhase3Markdown } from "../phase3/report-renderer.js";
 import type { Phase3ExecutionResult } from "../phase3/types.js";
 
 type CliArgs = {
@@ -13,18 +14,26 @@ type CliArgs = {
   interimReportMdPath?: string;
   outputDir: string;
   fromManifest?: string;
+  fullReport?: boolean;
 };
 
+const VALUATION_BOOLEAN_FLAGS = new Set(["full-report"]);
+
 function parseArgs(argv: string[]): CliArgs {
+  const flags = new Set<string>();
   const values: Record<string, string> = {};
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
     if (key === "--") continue;
     if (!key.startsWith("--")) continue;
     const name = key.slice(2);
-    const value = argv[i + 1];
-    if (!value || value.startsWith("--")) throw new Error(`Missing value for argument: ${key}`);
-    values[name] = value;
+    if (VALUATION_BOOLEAN_FLAGS.has(name)) {
+      flags.add(name);
+      continue;
+    }
+    const next = argv[i + 1];
+    if (!next || next.startsWith("--")) throw new Error(`Missing value for argument: --${name}`);
+    values[name] = next;
     i += 1;
   }
   return {
@@ -33,6 +42,7 @@ function parseArgs(argv: string[]): CliArgs {
     interimReportMdPath: values["interim-report-md"],
     outputDir: values["output-dir"] ?? "output",
     fromManifest: values["from-manifest"],
+    fullReport: flags.has("full-report"),
   };
 }
 
@@ -62,7 +72,7 @@ type BusinessAnalysisManifest = {
   };
 };
 
-function renderValuationSummaryMarkdown(result: Phase3ExecutionResult): string {
+function renderValuationSummaryMarkdown(result: Phase3ExecutionResult, fullReport?: boolean): string {
   const { report, valuation } = result;
   const methods = valuation.methods ?? [];
   const rows = methods.map((m) => {
@@ -83,7 +93,9 @@ function renderValuationSummaryMarkdown(result: Phase3ExecutionResult): string {
     "|:-----|:-----|:-----|",
     ...(rows.length > 0 ? rows : ["| — | 无方法输出 | — |"]),
     "",
-    "> 完整 Phase3 报告请使用 `phase3:run` 或 `workflow:run`；本命令仅输出估值 JSON 与摘要。",
+    fullReport
+      ? "> 已通过 `--full-report` 输出同目录 `analysis_report.md` / `analysis_report.html`。"
+      : "> 完整 Phase3 报告可使用 `phase3:run`、`workflow:run`，或 `valuation:run --full-report`。",
     "",
   ].join("\n");
 }
@@ -159,7 +171,7 @@ async function main(): Promise<void> {
     interimReportMarkdown,
   });
 
-  const summaryMd = renderValuationSummaryMarkdown(result);
+  const summaryMd = renderValuationSummaryMarkdown(result, args.fullReport);
   const valuationPath = path.join(outDir, "valuation_computed.json");
   const summaryPath = path.join(outDir, "valuation_summary.md");
 
@@ -168,6 +180,16 @@ async function main(): Promise<void> {
 
   console.log(`[valuation] valuation -> ${valuationPath}`);
   console.log(`[valuation] summary(md) -> ${summaryPath}`);
+
+  if (args.fullReport) {
+    const fullMd = renderPhase3Markdown(result);
+    const reportMdPath = path.join(outDir, "analysis_report.md");
+    const reportHtmlPath = path.join(outDir, "analysis_report.html");
+    await writeText(reportMdPath, fullMd);
+    await writeText(reportHtmlPath, renderPhase3Html(fullMd));
+    console.log(`[valuation] report(md) -> ${reportMdPath}`);
+    console.log(`[valuation] report(html) -> ${reportHtmlPath}`);
+  }
 }
 
 void main();

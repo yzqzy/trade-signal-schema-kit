@@ -22,7 +22,7 @@ pnpm run business-analysis:run -- \
 ## 输入校验
 
 - `--code`：必填。
-- `--strict`：必须同时提供 `--pdf` 或 `--report-url`，且需成功生成 `data_pack_report.md`；否则 fail-fast（报错前缀 `[strict:business-analysis]`）。
+- `--strict`：必须同时提供 `--pdf` 或 `--report-url`，且需成功生成 `data_pack_report.md`；否则 fail-fast（报错前缀 `[strict:business-analysis]`）。同时启用 Phase1A **Pre-flight**（前缀 `[strict:preflight]`）：校验行情/财报关键字段与市场包 `§13 Warnings` 结构。
 - 无 PDF / 无 URL：非 strict 模式下仍会产出 `data_pack_market.md` 与 `qualitative_report.md`（Phase1B），但不会生成 `data_pack_report.md`。
 
 ## 降级与补充
@@ -33,6 +33,7 @@ pnpm run business-analysis:run -- \
 ## 主要产物（`--output-dir` 或默认 `output/workflow/<code>/`）
 
 - `qualitative_report.md`（定性补充，含 Phase1B 渲染正文）
+- `qualitative_d1_d6.md`（Turtle **D1~D6** 契约骨架，供 PDF-first 单 Agent 对齐）
 - `data_pack_market.md`
 - 可选 `data_pack_report.md`（有 PDF 分支时）
 - `business_analysis_manifest.json`（含 `pipeline.valuation`，可接 `/valuation`）

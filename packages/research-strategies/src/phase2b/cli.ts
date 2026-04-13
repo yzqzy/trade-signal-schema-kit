@@ -14,6 +14,7 @@ type CliArgs = {
   outputPath: string;
   phase2aOutputPath?: string;
   verbose: boolean;
+  noMda: boolean;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -23,7 +24,7 @@ function parseArgs(argv: string[]): CliArgs {
     if (key === "--") continue;
     if (!key.startsWith("--")) continue;
     const name = key.slice(2);
-    if (name === "verbose") {
+    if (name === "verbose" || name === "no-mda") {
       values[name] = true;
       continue;
     }
@@ -39,6 +40,7 @@ function parseArgs(argv: string[]): CliArgs {
     outputPath: values["output"] ? String(values["output"]) : "output/data_pack_report.md",
     phase2aOutputPath: values["phase2a-output"] ? String(values["phase2a-output"]) : undefined,
     verbose: Boolean(values["verbose"]),
+    noMda: Boolean(values["no-mda"]),
   };
 }
 
@@ -65,7 +67,7 @@ async function writeTextFile(filePath: string, content: string): Promise<void> {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const sections = await loadSectionsByArgs(args);
-  const markdown = renderPhase2BDataPackReport({ sections });
+  const markdown = renderPhase2BDataPackReport({ sections, includeMda: !args.noMda });
   await writeTextFile(args.outputPath, markdown);
 
   console.log(`[phase2b] done -> ${args.outputPath}`);

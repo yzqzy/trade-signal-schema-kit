@@ -1,6 +1,6 @@
 ---
 name: business-analysis
-description: "独立商业分析入口：先采集市场数据与 Phase1B 外部补充，再可选 PDF→2A/2B；输出 qualitative_report 与 data_pack_*。"
+description: "独立商业分析入口：先采集市场数据与 Phase1B 外部补充，再可选 PDF→2A/2B；输出 qualitative_report、qualitative_d1_d6（Turtle 六维契约）与 data_pack_*。"
 ---
 
 # business-analysis 执行规范
@@ -19,6 +19,7 @@ description: "独立商业分析入口：先采集市场数据与 Phase1B 外部
 ## 输出标准
 
 - `qualitative_report.md`：含元信息头 + Phase1B 正文。
+- `qualitative_d1_d6.md`：Turtle PDF-first **D1~D6** 结构化契约稿（工程骨架 + Phase1B 摘录；深度叙事由上层 LLM 补全）。
 - `business_analysis_manifest.json`：记录输入与产物路径；含 `pipeline.valuation` 供 `valuation:run --from-manifest` 串接。
 
 ## CLI / 命令映射

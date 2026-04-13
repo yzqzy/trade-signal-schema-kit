@@ -14,6 +14,7 @@ type CliArgs = {
   category?: string;
   phase1bChannel?: "http" | "mcp";
   mode?: WorkflowMode;
+  preflight?: "off" | "strict";
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -38,6 +39,11 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error(`Invalid --mode: ${mode} (expected standard|turtle-strict)`);
   }
 
+  const preflight = values.preflight as CliArgs["preflight"] | undefined;
+  if (preflight && preflight !== "off" && preflight !== "strict") {
+    throw new Error(`Invalid --preflight: ${preflight} (expected off|strict)`);
+  }
+
   return {
     code: values.code,
     year: values.year,
@@ -50,6 +56,7 @@ function parseArgs(argv: string[]): CliArgs {
     category: values.category,
     phase1bChannel: channel as "http" | "mcp" | undefined,
     mode,
+    preflight,
   };
 }
 
@@ -69,6 +76,7 @@ async function main(): Promise<void> {
     category: args.category,
     phase1bChannel: args.phase1bChannel,
     mode: args.mode,
+    preflight: args.preflight,
   });
 
   console.log(`[workflow] outputDir -> ${result.outputDir}`);

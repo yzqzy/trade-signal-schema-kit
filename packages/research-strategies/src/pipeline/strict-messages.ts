@@ -2,6 +2,7 @@
 
 export const STRICT_BUSINESS_ANALYSIS_PREFIX = "[strict:business-analysis]";
 export const STRICT_WORKFLOW_TURTLE_PREFIX = "[strict:workflow:turtle-strict]";
+export const STRICT_PREFLIGHT_PREFIX = "[strict:preflight]";
 
 export function strictBusinessAnalysisMissingPdf(): string {
   return `${STRICT_BUSINESS_ANALYSIS_PREFIX} 缺少 PDF 输入：请提供 --pdf <path> 或 --report-url <url>（用于生成 data_pack_report.md）。`;
@@ -21,4 +22,8 @@ export function strictWorkflowTurtleMissingReportPack(): string {
 
 export function strictWorkflowTurtleDiscoveryFailed(detail: string): string {
   return `${STRICT_WORKFLOW_TURTLE_PREFIX} 自动发现年报失败：${detail}。请改传 --report-url <url> 或 --pdf <path>。`;
+}
+
+export function strictPreflightPhase1AFailed(detail: string): string {
+  return `${STRICT_PREFLIGHT_PREFIX} Phase1A Pre-flight 未通过：${detail}`;
 }

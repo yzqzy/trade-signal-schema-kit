@@ -88,6 +88,27 @@ type StockFinancialPayload = {
     netCashflowOper?: number;
     totalAssets?: number;
     totalLiabilities?: number;
+    capex?: number;
+    capitalExpenditure?: number;
+    interestBearingDebt?: number;
+    interestDebt?: number;
+    monetaryFunds?: number;
+    cash?: number;
+    cashAndEquivalents?: number;
+    minorityInterest?: number;
+    minorityInterestPnL?: number;
+    minorityPnL?: number;
+    eps?: number;
+    basicEps?: number;
+    earningsPerShare?: number;
+    dps?: number;
+    dividendsPerShare?: number;
+    dividendPerShare?: number;
+    totalMv?: number;
+    marketCap?: number;
+    marketCapBaiWan?: number;
+    totalShares?: number;
+    totalSharesOutstandingMm?: number;
   };
 };
 
@@ -225,6 +246,20 @@ export class FeedMcpProvider implements MarketDataProvider {
       operatingCashFlow: asNumber(financial.operatingCashFlow ?? financial.netCashflowOper),
       totalAssets: asNumber(financial.totalAssets),
       totalLiabilities: asNumber(financial.totalLiabilities),
+      capitalExpenditure: asNumber(financial.capex ?? financial.capitalExpenditure),
+      interestBearingDebt: asNumber(financial.interestBearingDebt ?? financial.interestDebt),
+      cashAndEquivalents: asNumber(
+        financial.monetaryFunds ?? financial.cash ?? financial.cashAndEquivalents,
+      ),
+      minorityInterestPnL: asNumber(
+        financial.minorityInterestPnL ?? financial.minorityPnL ?? financial.minorityInterest,
+      ),
+      earningsPerShare: asNumber(financial.earningsPerShare ?? financial.basicEps ?? financial.eps),
+      dividendsPerShare: asNumber(
+        financial.dividendsPerShare ?? financial.dps ?? financial.dividendPerShare,
+      ),
+      marketCapBaiWan: asNumber(financial.marketCapBaiWan ?? financial.totalMv ?? financial.marketCap),
+      totalSharesOutstandingMm: asNumber(financial.totalSharesOutstandingMm ?? financial.totalShares),
     };
   }
 

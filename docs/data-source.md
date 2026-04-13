@@ -33,7 +33,7 @@
 - `Instrument`：代码、市场、名称、交易最小单位信息
 - `Quote`：价格、涨跌幅、成交量、时间戳
 - `KlineBar[]`：周期、OHLC、成交量
-- `FinancialSnapshot`：估值与筛选所需财务核心字段
+- `FinancialSnapshot`：营收/净利/OCF/资产负债、可选 Capex、有息负债、货币资金、少数股东损益、EPS/DPS、总市值（百万元）、总股本（百万股）等扩展字段（均可选，映射自 feed）
 - `CorporateAction[]`：分红、拆合股、供股、送股等企业行动
 - `TradingCalendar[]`：交易日、半日市、休市状态
 

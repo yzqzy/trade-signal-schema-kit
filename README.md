@@ -70,9 +70,9 @@ pnpm run report-to-html:run -- \
 
 | 入口 | 关键文件 |
 |------|-----------|
-| `business-analysis:run` | `qualitative_report.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json` |
+| `business-analysis:run` | `qualitative_report.md`、`qualitative_d1_d6.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json` |
 | `workflow:run` | `analysis_report.md/html`、`valuation_computed.json`、`workflow_manifest.json` |
-| `valuation:run` | `valuation_computed.json`、`valuation_summary.md` |
+| `valuation:run` | `valuation_computed.json`、`valuation_summary.md`（可选 `--full-report` 追加完整报告 md/html） |
 | `phase3:run` | 同 workflow 中 Phase3 三件套（见 [docs/workflows.md](docs/workflows.md)） |
 
 `business_analysis_manifest.json` / `workflow_manifest.json` 内含 `pipeline.valuation.relativePaths`，便于串接 `valuation:run`。
@@ -81,6 +81,7 @@ pnpm run report-to-html:run -- \
 
 - `business-analysis --strict`：`[strict:business-analysis]`
 - `workflow --mode turtle-strict`：`[strict:workflow:turtle-strict]`
+- Phase1A Pre-flight（`turtle-strict` / `business-analysis --strict` / `--preflight strict`）：`[strict:preflight]`
 
 ## 常见故障
 
@@ -94,6 +95,7 @@ pnpm run report-to-html:run -- \
 
 ```bash
 pnpm run quality:all
+pnpm run test:linkage   # build + 链路烟测（市场包/2B/D1D6 结构）
 ```
 
 默认覆盖 `cn_a` 与 `hk` 回归/黄金快照（港股基线用于防回归，不代表深度能力已齐）。详见 [docs/data-source.md](docs/data-source.md)。

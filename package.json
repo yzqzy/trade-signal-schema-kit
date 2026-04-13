@@ -18,6 +18,7 @@
     "quality:regression": "pnpm --filter @trade-signal/research-strategies run quality:regression",
     "quality:phase3-golden": "pnpm --filter @trade-signal/research-strategies run quality:phase3-golden",
     "quality:all": "pnpm --filter @trade-signal/research-strategies run quality:all",
+    "test:linkage": "pnpm run build && pnpm --filter @trade-signal/research-strategies run test:linkage",
     "screener:run": "pnpm --filter @trade-signal/research-strategies run screener:run",
     "web:dev": "pnpm --filter @trade-signal/screener-web run dev"
   },

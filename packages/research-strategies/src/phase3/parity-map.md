@@ -16,3 +16,9 @@
 | P3-CHECKPOINT | 每因子追加 checkpoint | `phase3/analyzer.ts::appendCheckpoint` | implemented |
 | P3-TEMPLATE | 报告模板章节 1:1 | `phase3/report-renderer.ts::renderPhase3Markdown` | implemented |
 | P3-CLI-CONTRACT | CLI 支持 market/report markdown 输入 | `phase3/cli.ts::parseArgs/loadInput` | implemented |
+| P1A-MARKET-PACK | 编排生成 `data_pack_market.md`：§1~§17 骨架、多年表、§13 Warnings | `workflow/build-market-pack.ts` | implemented |
+| PREFLIGHT-1A | `turtle-strict` / `business-analysis --strict` 下 Phase1A 后门禁 | `pipeline/preflight.ts` | implemented |
+| P2B-MDA | `data_pack_report.md` 默认含 **MDA**（`--no-mda` 可关闭） | `phase2b/renderer.ts` | implemented |
+| QUAL-D1D6 | 输出 `qualitative_d1_d6.md`（Turtle D1~D6 契约骨架） | `business-analysis/d1-d6-scaffold.ts` | implemented |
+| HTML-SEM | Phase3 / `report-to-html` 默认语义化 HTML（`--legacy-pre` 回退） | `phase3/markdown-to-html.ts` | implemented |
+| VAL-FULL-REPORT | `valuation:run --full-report` 额外写 `analysis_report.md/html` | `valuation/cli.ts` | implemented |

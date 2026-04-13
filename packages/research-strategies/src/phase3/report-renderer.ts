@@ -1,5 +1,6 @@
 import type { AnalysisReport } from "@trade-signal/schema-core";
 
+import { renderMarkdownToSemanticHtml } from "./markdown-to-html.js";
 import type { Phase3ExecutionResult } from "./types.js";
 
 function escapeHtml(text: string): string {
@@ -164,20 +165,45 @@ export function renderPhase3Markdown(result: Phase3ExecutionResult): string {
   ].join("\n");
 }
 
-export function renderPhase3Html(markdownOrReport: string | AnalysisReport): string {
-  const markdown = typeof markdownOrReport === "string" ? markdownOrReport : `# ${markdownOrReport.title}`;
-  return [
-    "<!doctype html>",
-    '<html lang="zh-CN">',
-    "<head>",
-    '<meta charset="utf-8" />',
-    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
-    "<title>Phase3 Strict Report</title>",
-    "<style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:24px;max-width:1100px;margin:0 auto}pre{white-space:pre-wrap;line-height:1.5;background:#f7f7f8;padding:12px;border-radius:8px}</style>",
-    "</head>",
-    "<body>",
-    `<pre>${escapeHtml(markdown)}</pre>`,
-    "</body>",
-    "</html>",
-  ].join("");
+export type Phase3HtmlOptions = {
+  /** 为 true 时使用旧版 `<pre>` 全量转义（仅调试） */
+  legacyPre?: boolean;
+  /** 在 HTML 正文前插入目录 */
+  toc?: boolean;
+};
+
+export function renderPhase3Html(
+  markdownOrReport: string | AnalysisReport,
+  options: Phase3HtmlOptions = {},
+): string {
+  const markdown =
+    typeof markdownOrReport === "string" ? markdownOrReport : `# ${markdownOrReport.title}`;
+  const title =
+    typeof markdownOrReport === "string"
+      ? markdown.match(/^#\s+(.+)/)?.[1]?.trim() ?? "Phase3 Strict Report"
+      : markdownOrReport.title;
+
+  if (options.legacyPre) {
+    return [
+      "<!doctype html>",
+      '<html lang="zh-CN">',
+      "<head>",
+      '<meta charset="utf-8" />',
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
+      "<title>Phase3 Strict Report</title>",
+      "<style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;padding:24px;max-width:1100px;margin:0 auto}pre{white-space:pre-wrap;line-height:1.5;background:#f7f7f8;padding:12px;border-radius:8px}</style>",
+      "</head>",
+      "<body>",
+      `<pre>${escapeHtml(markdown)}</pre>`,
+      "</body>",
+      "</html>",
+    ].join("");
+  }
+
+  return renderMarkdownToSemanticHtml(markdown, {
+    documentTitle: title,
+    toc: options.toc,
+  });
 }
+
+export { renderMarkdownToSemanticHtml } from "./markdown-to-html.js";

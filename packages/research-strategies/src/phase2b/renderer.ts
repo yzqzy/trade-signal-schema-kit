@@ -2,9 +2,11 @@ import type { PdfSectionBlock, PdfSections } from "@trade-signal/schema-core";
 
 import { runPhase2AExtractPdfSections } from "../phase2a/extractor.js";
 
-type Phase2BSectionId = "P2" | "P3" | "P4" | "P6" | "P13" | "SUB";
+type Phase2BSectionId = "P2" | "P3" | "P4" | "P6" | "P13" | "MDA" | "SUB";
 
-const PHASE2B_ORDER: Phase2BSectionId[] = ["P2", "P3", "P4", "P6", "P13", "SUB"];
+const PHASE2B_ORDER_FULL: Phase2BSectionId[] = ["P2", "P3", "P4", "P6", "P13", "MDA", "SUB"];
+
+const PHASE2B_ORDER_NO_MDA: Phase2BSectionId[] = ["P2", "P3", "P4", "P6", "P13", "SUB"];
 
 const PHASE2B_TITLES: Record<Phase2BSectionId, string> = {
   P2: "受限资产",
@@ -12,11 +14,14 @@ const PHASE2B_TITLES: Record<Phase2BSectionId, string> = {
   P4: "关联方交易",
   P6: "或有负债",
   P13: "非经常性损益",
+  MDA: "管理层讨论与分析（MD&A）",
   SUB: "主要控股参股公司",
 };
 
 export interface Phase2BRenderInput {
   sections: PdfSections;
+  /** 默认 true：与 Turtle 7 章口径对齐，输出 MDA 区块 */
+  includeMda?: boolean;
 }
 
 export interface Phase2BRenderFromPdfInput {
@@ -43,10 +48,14 @@ function renderOneSection(id: Phase2BSectionId, section: PdfSectionBlock | undef
 }
 
 export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
+  const includeMda = input.includeMda !== false;
+  const order = includeMda ? PHASE2B_ORDER_FULL : PHASE2B_ORDER_NO_MDA;
   const header = [
     "# data_pack_report",
     "",
-    "> 语义对齐 Turtle 5+1 可选输入（P2/P3/P4/P6/P13/SUB，不含 MDA）。",
+    includeMda
+      ? "> 语义对齐 Turtle：P2/P3/P4/P6/P13 + **MDA** + SUB（7 章关键块）。"
+      : "> 语义对齐 Turtle 5+1（P2/P3/P4/P6/P13/SUB，不含 MDA）。",
     "",
     `- pdfFile: ${input.sections.metadata.pdfFile}`,
     `- totalPages: ${input.sections.metadata.totalPages}`,
@@ -61,9 +70,10 @@ export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
     P4: input.sections.P4,
     P6: input.sections.P6,
     P13: input.sections.P13,
+    MDA: input.sections.MDA,
     SUB: input.sections.SUB,
   };
-  const body = PHASE2B_ORDER.map((id) => renderOneSection(id, sectionMap[id])).join("\n\n");
+  const body = order.map((id) => renderOneSection(id, sectionMap[id])).join("\n\n");
   return `${header}${body}\n`;
 }
 

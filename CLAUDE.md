@@ -18,6 +18,10 @@ pnpm run typecheck
 # Build all packages
 pnpm run build
 
+# Linkage smoke (after build) + quality gates
+pnpm run test:linkage
+pnpm run quality:all
+
 # Work on specific package
 pnpm --filter @trade-signal/schema-core run typecheck
 pnpm --filter @trade-signal/provider-http run build

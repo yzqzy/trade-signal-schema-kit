@@ -23,6 +23,9 @@ export * from "./phase3/types.js";
 export * from "./phase3/valuation-engine.js";
 export * from "./phase3/analyzer.js";
 export * from "./workflow/orchestrator.js";
+export { buildMarketPackMarkdown } from "./workflow/build-market-pack.js";
+export { runPreflightAfterPhase1A } from "./pipeline/preflight.js";
+export { normalizeCodeForFeed } from "./pipeline/normalize-stock-code.js";
 export * from "./business-analysis/orchestrator.js";
 export * from "./screener/index.js";
 

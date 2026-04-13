@@ -41,25 +41,27 @@ Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
 
 - **Phase 0**：`workflow` 内仅 `--report-url` 触发下载；**仅 `--pdf` 不经过 Phase0**。独立 `phase0:download` 可无 `--url`，由 Feed `/stock/report/search` 自动发现 PDF（需 `FEED_BASE_URL`）。
 - **依赖**：`FEED_BASE_URL`（Phase1A 固定 HTTP Provider）；编排内合成的 `data_pack_market.md` 与手写 golden 用途不同。
+- **Pre-flight**：`--mode turtle-strict` 时，Phase1A 后会校验行情/财报关键字段及市场包是否含 `## §13 Warnings`；亦可用 `--preflight strict` 在 `standard` 下强制开启。`business-analysis --strict` 等价打开 Pre-flight。
 - **与 `phase3:run` 差异**：编排不传 `--interim-report-md`。
 
 ## 独立商业分析流程（已实现）
 
 CLI：`pnpm run business-analysis:run`（根目录）或 filter 等价命令。Claude：`/business-analysis`（见 `.claude/commands/business-analysis.md`）。规范：`.claude/skills/business-analysis/SKILL.md`。
 
-产出：`qualitative_report.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
+产出：`qualitative_report.md`、**`qualitative_d1_d6.md`（Turtle D1~D6 契约骨架）**、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
 
 `business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths` 与建议的 `valuation:run --from-manifest ...`，便于与独立估值入口串接。
 
 ## 独立估值与 HTML 转换
 
-**Valuation**（仅输出 `valuation_computed.json` + `valuation_summary.md`，不生成完整 Phase3 长报告）：
+**Valuation**（默认：`valuation_computed.json` + `valuation_summary.md`；加 `--full-report` 时额外输出与 `phase3:run` 同构的 `analysis_report.md` / `analysis_report.html`）：
 
 ```bash
 pnpm run valuation:run -- \
   --market-md "./output/workflow/600887/data_pack_market.md" \
   [--report-md "./output/workflow/600887/data_pack_report.md"] \
-  [--output-dir "./output/workflow/600887"]
+  [--output-dir "./output/workflow/600887"] \
+  [--full-report]
 ```
 
 或从 manifest 解析路径：
@@ -68,11 +70,12 @@ pnpm run valuation:run -- \
 pnpm run valuation:run -- --from-manifest "./output/workflow/600887/business_analysis_manifest.json"
 ```
 
-**report-to-html**（任意 Markdown → HTML，包装与 Phase3 一致）：
+**report-to-html**（Markdown → **语义化 HTML**：标题/表格/列表/代码块；`--toc` 生成目录；`--legacy-pre` 回退旧版整页 `<pre>`）：
 
 ```bash
 pnpm run report-to-html:run -- \
-  --input-md "./output/workflow/600887/analysis_report.md"
+  --input-md "./output/workflow/600887/analysis_report.md" \
+  [--toc] [--legacy-pre]
 ```
 
 Claude：`/valuation`、`/report-to-html`（见 `.claude/commands/`）。
@@ -94,6 +97,7 @@ Claude：`/valuation`、`/report-to-html`（见 `.claude/commands/`）。
 
 - 用途：提供 Phase 3 定量与估值的基础输入
 - 最小字段集合：`instrument`、`quote`、`klines`、`financialSnapshot`
+- 编排 Markdown：§1~§17 骨架、多年财务表（无历史时由单期快照外推复制并写入 §13 警告）、**§13 Warnings** 区块
 - 要求：仅使用标准字段命名，不出现供应商原始字段
 
 ### `pdf_sections`（Phase 2A 输出）

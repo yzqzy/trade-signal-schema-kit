@@ -73,6 +73,7 @@ async function main(): Promise<void> {
 
   console.log(`[business-analysis] outputDir -> ${result.outputDir}`);
   console.log(`[business-analysis] qualitative_report -> ${result.qualitativeReportPath}`);
+  console.log(`[business-analysis] qualitative_d1_d6 -> ${result.qualitativeD1D6Path}`);
   console.log(`[business-analysis] data_pack_market -> ${result.marketPackPath}`);
   if (result.dataPackReportPath) console.log(`[business-analysis] data_pack_report -> ${result.dataPackReportPath}`);
   console.log(`[business-analysis] manifest -> ${result.manifestPath}`);

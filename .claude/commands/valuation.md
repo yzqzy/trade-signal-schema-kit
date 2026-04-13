@@ -11,7 +11,8 @@ argument-hint: [--market-md] [--report-md] [--from-manifest]
 pnpm run valuation:run -- \
   --market-md "./output/workflow/600887/data_pack_market.md" \
   [--report-md "./output/workflow/600887/data_pack_report.md"] \
-  [--output-dir "./output/workflow/600887"]
+  [--output-dir "./output/workflow/600887"] \
+  [--full-report]
 ```
 
 自 `business-analysis` manifest 解析路径（推荐）：
@@ -24,7 +25,8 @@ pnpm run valuation:run -- \
 ## 产物
 
 - `valuation_computed.json`
-- `valuation_summary.md`（摘要；完整报告请用 `phase3:run` 或 `workflow:run`）
+- `valuation_summary.md`
+- 可选 `--full-report`：同目录追加 `analysis_report.md` + `analysis_report.html`（与 `phase3:run` 同构）
 
 ## 与 business-analysis 衔接
 

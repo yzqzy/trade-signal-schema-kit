@@ -98,6 +98,28 @@ type FinancialPayload = {
   netCashflowOper?: number;
   totalAssets?: number;
   totalLiabilities?: number;
+  capex?: number;
+  capitalExpenditure?: number;
+  interestBearingDebt?: number;
+  interestDebt?: number;
+  monetaryFunds?: number;
+  cash?: number;
+  cashAndEquivalents?: number;
+  minorityInterest?: number;
+  minorityInterestPnL?: number;
+  minorityPnL?: number;
+  eps?: number;
+  basicEps?: number;
+  earningsPerShare?: number;
+  dps?: number;
+  dividendsPerShare?: number;
+  dividendPerShare?: number;
+  totalMv?: number;
+  marketCap?: number;
+  marketCapBaiWan?: number;
+  totalShares?: number;
+  totalSharesOutstandingMm?: number;
+  floatShares?: number;
 };
 
 const PERIOD_TO_FQT: Record<"none" | "forward" | "backward", "none" | "pre" | "after"> = {
@@ -275,6 +297,20 @@ export class FeedHttpProvider implements MarketDataProvider {
       operatingCashFlow: asNumber(payload.operatingCashFlow ?? payload.netCashflowOper),
       totalAssets: asNumber(payload.totalAssets),
       totalLiabilities: asNumber(payload.totalLiabilities),
+      capitalExpenditure: asNumber(payload.capex ?? payload.capitalExpenditure),
+      interestBearingDebt: asNumber(payload.interestBearingDebt ?? payload.interestDebt),
+      cashAndEquivalents: asNumber(
+        payload.monetaryFunds ?? payload.cash ?? payload.cashAndEquivalents,
+      ),
+      minorityInterestPnL: asNumber(
+        payload.minorityInterestPnL ?? payload.minorityPnL ?? payload.minorityInterest,
+      ),
+      earningsPerShare: asNumber(payload.earningsPerShare ?? payload.basicEps ?? payload.eps),
+      dividendsPerShare: asNumber(
+        payload.dividendsPerShare ?? payload.dps ?? payload.dividendPerShare,
+      ),
+      marketCapBaiWan: asNumber(payload.marketCapBaiWan ?? payload.totalMv ?? payload.marketCap),
+      totalSharesOutstandingMm: asNumber(payload.totalSharesOutstandingMm ?? payload.totalShares),
     };
   }
 

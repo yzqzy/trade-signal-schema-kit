@@ -45,6 +45,22 @@ export interface FinancialSnapshot {
   operatingCashFlow?: number;
   totalAssets?: number;
   totalLiabilities?: number;
+  /** 资本性支出（百万元口径，与利润表/现金流量表对齐） */
+  capitalExpenditure?: number;
+  /** 有息负债（百万元） */
+  interestBearingDebt?: number;
+  /** 货币资金及等价物（百万元） */
+  cashAndEquivalents?: number;
+  /** 少数股东损益（百万元） */
+  minorityInterestPnL?: number;
+  /** 每股收益（元/股） */
+  earningsPerShare?: number;
+  /** 每股分红（元/股） */
+  dividendsPerShare?: number;
+  /** 总市值（百万元） */
+  marketCapBaiWan?: number;
+  /** 总股本（百万股） */
+  totalSharesOutstandingMm?: number;
 }
 
 export interface CorporateAction {

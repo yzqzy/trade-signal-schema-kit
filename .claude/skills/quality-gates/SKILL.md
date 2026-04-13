@@ -1,6 +1,6 @@
 ---
 name: quality-gates
-description: "质量门禁：conformance → contract → regression → phase3-golden；regression/golden 支持 cn_a、hk、all 套件。"
+description: "质量门禁：conformance → contract → regression → phase3-golden；另可跑 test:linkage 做链路结构烟测；regression/golden 支持 cn_a、hk、all 套件。"
 ---
 
 # quality-gates 规范
@@ -26,6 +26,7 @@ description: "质量门禁：conformance → contract → regression → phase3-
 
 ```bash
 pnpm run quality:all
+pnpm run test:linkage
 pnpm --filter @trade-signal/research-strategies run quality:regression -- --suite hk
 pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --suite cn_a
 ```

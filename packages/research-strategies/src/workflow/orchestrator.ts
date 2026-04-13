@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { DataPackMarket } from "@trade-signal/schema-core";
 import { createFeedHttpProviderFromEnv } from "@trade-signal/provider-http";
 
 import { runPhase0DownloadAndCache } from "../phase0/downloader.js";
@@ -14,10 +13,13 @@ import { runPhase2AExtractPdfSections } from "../phase2a/extractor.js";
 import { renderPhase2BDataPackReport } from "../phase2b/renderer.js";
 import { runPhase3Strict } from "../phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../phase3/report-renderer.js";
+import { runPreflightAfterPhase1A, type PreflightLevel } from "../pipeline/preflight.js";
+import { normalizeCodeForFeed } from "../pipeline/normalize-stock-code.js";
 import {
   strictWorkflowTurtleDiscoveryFailed,
   strictWorkflowTurtleMissingReportPack,
 } from "../pipeline/strict-messages.js";
+import { buildMarketPackMarkdown } from "./build-market-pack.js";
 
 export type WorkflowMode = "standard" | "turtle-strict";
 
@@ -34,6 +36,11 @@ export interface RunWorkflowInput {
   phase1bChannel?: "http" | "mcp";
   /** standard：兼容旧行为；turtle-strict：关键输入缺失时 fail-fast */
   mode?: WorkflowMode;
+  /**
+   * Phase1A 后 Pre-flight：`strict` 时校验行情/财报/市场包结构。
+   * 默认：`turtle-strict` 自动启用；也可由 business-analysis `--strict` 显式打开。
+   */
+  preflight?: "off" | "strict";
 }
 
 export interface WorkflowArtifacts {
@@ -71,106 +78,6 @@ export interface WorkflowDataPipelineResult {
 function asYear(value?: string): string {
   if (value && /^\d{4}$/.test(value)) return value;
   return String(new Date().getFullYear() - 1);
-}
-
-function normalizeCodeForFeed(code: string): string {
-  const trimmed = code.trim().toUpperCase();
-  const sixDigits = trimmed.match(/\d{6}/)?.[0];
-  return sixDigits ?? trimmed;
-}
-
-function safeNum(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function yearFromPeriod(period?: string): string {
-  const matched = period?.match(/20\d{2}/)?.[0];
-  return matched ?? String(new Date().getFullYear() - 1);
-}
-
-function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket): string {
-  const instrument = dataPack.instrument;
-  const quote = dataPack.quote;
-  const fin = dataPack.financialSnapshot;
-  const reportYear = yearFromPeriod(fin?.period);
-  const marketCap = quote.price > 0 && quote.price < Number.POSITIVE_INFINITY && fin
-    ? undefined
-    : undefined;
-  const derivedMarketCap = safeNum((quote.price ?? 0) * (safeNum(fin?.totalAssets, 0) > 0 ? 100 : 0), 0);
-  const finalMarketCap = safeNum(marketCap, derivedMarketCap);
-  const revenue = safeNum(fin?.revenue, 0);
-  const netProfit = safeNum(fin?.netProfit, 0);
-  const ocf = safeNum(fin?.operatingCashFlow, netProfit);
-  const capex = Math.max(0, Math.round(Math.abs(ocf) * 0.2));
-  const totalAssets = safeNum(fin?.totalAssets, 0);
-  const totalLiabilities = safeNum(fin?.totalLiabilities, 0);
-  const hasFullBalanceSheet = totalAssets > 0 && totalLiabilities >= 0;
-  const interestBearingDebt = hasFullBalanceSheet ? totalLiabilities * 0.4 : 0;
-  const cash = hasFullBalanceSheet ? totalAssets * 0.1 : 0;
-  const totalShares = quote.price > 0 ? finalMarketCap / quote.price : undefined;
-  const basicEps = totalShares && totalShares > 0 ? netProfit / totalShares : undefined;
-  const div0 = dataPack.corporateActions?.find((a) => a.cashDividendPerShare != null);
-  const dps = safeNum(div0?.cashDividendPerShare, 0);
-  const rfEnv = process.env.PHASE1A_RF_RATE?.trim() || process.env.MARKET_PACK_RF_RATE?.trim();
-  const rfParsed = rfEnv ? Number(rfEnv) : Number.NaN;
-  const rf = Number.isFinite(rfParsed) ? rfParsed : 2.5;
-
-  const riskLines: string[] = [];
-  if (!fin?.totalAssets || fin.totalAssets <= 0) {
-    riskLines.push(
-      `- [数据完整性|中] Phase1A 财务快照缺少有效总资产，市值/资产负债表多项为编排层占位推算，仅用于联调。`,
-    );
-  }
-  if (!dataPack.corporateActions?.length) {
-    riskLines.push(`- [数据完整性|低] 未返回企业行动记录，每股分红 DPS 记为 0。`);
-  }
-  riskLines.push(
-    `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF*20% 做保守估算（${capex.toFixed(2)}）。`,
-  );
-
-  return [
-    `# ${instrument.name}（${normalizeCodeForFeed(code)}）`,
-    "",
-    "## §1 基础信息",
-    `- 股票代码：${normalizeCodeForFeed(code)}`,
-    `- 市场：${instrument.market}`,
-    `- 币种：${instrument.currency ?? "CNY"}`,
-    `- 行业：未知`,
-    `- 最新股价：${safeNum(quote.price, 0).toFixed(4)}`,
-    `- 最新市值：${finalMarketCap.toFixed(2)}`,
-    `- 总股本：${safeNum(totalShares, 0).toFixed(2)}`,
-    `- 无风险利率：${rf.toFixed(2)}${rfEnv ? "（来自环境变量）" : "（默认占位）"}`,
-    "",
-    "## §2 风险提示",
-    ...riskLines,
-    "",
-    "## §3 利润表（百万元）",
-    `| 指标 | ${reportYear} |`,
-    "|---|---:|",
-    `| 营业收入 | ${revenue.toFixed(2)} |`,
-    `| 归母净利润 | ${netProfit.toFixed(2)} |`,
-    `| 每股收益EPS | ${safeNum(basicEps, 0).toFixed(4)} |`,
-    "",
-    "## §4 现金流量表（百万元）",
-    `| 指标 | ${reportYear} |`,
-    "|---|---:|",
-    `| 经营活动现金流OCF | ${ocf.toFixed(2)} |`,
-    `| 资本开支Capex | ${capex.toFixed(2)} |`,
-    "",
-    "## §5 资产负债表（百万元）",
-    `| 指标 | ${reportYear} |`,
-    "|---|---:|",
-    `| 总资产 | ${totalAssets.toFixed(2)} |`,
-    `| 总负债 | ${totalLiabilities.toFixed(2)} |`,
-    `| 有息负债 | ${interestBearingDebt.toFixed(2)} |`,
-    `| 货币资金 | ${cash.toFixed(2)} |`,
-    "",
-    "## §6 每股与分红（百万元）",
-    `| 指标 | ${reportYear} |`,
-    "|---|---:|",
-    `| 每股分红DPS | ${dps.toFixed(4)} |`,
-    "",
-  ].join("\n");
 }
 
 async function writeText(filePath: string, content: string): Promise<void> {
@@ -230,6 +137,14 @@ export async function executeWorkflowDataPipeline(
   const marketPackMarkdown = buildMarketPackMarkdown(input.code, phase1a);
   const marketPackPath = path.join(outputDir, "data_pack_market.md");
   await writeText(marketPackPath, marketPackMarkdown);
+
+  const preflightEffective: PreflightLevel =
+    input.preflight ?? (input.mode === "turtle-strict" ? "strict" : "off");
+  runPreflightAfterPhase1A({
+    dataPack: phase1a,
+    marketPackMarkdown,
+    level: preflightEffective,
+  });
 
   const phase1b = await collectPhase1BQualitative(
     {
