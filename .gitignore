@@ -9,7 +9,9 @@ pnpm-lock.yaml
 
 # IDE / AI tools
 .cursor/
-.claude/
+
+# Claude Code：commands/skills 随仓库版本化；仅本地覆盖不入库
+.claude/settings.local.json
 
 # Editor settings
 .vscode/

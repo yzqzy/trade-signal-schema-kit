@@ -115,12 +115,12 @@ MCP 场景（AI/Agent）：
   - 以同源 fixture 驱动已构建的 `provider-http` 与 `provider-mcp`，校验 `instrument/quote/klines/financial/corporateActions/tradingCalendar` 的语义一致性（不访问真实 Feed）。
 
 - **contract**：`pnpm run quality:contract`  
-  - 读取仓库根 `output/phase3_golden/data_pack_market.md` 与 `output/phase3_golden/run/valuation_computed.json`，校验关键字段/结构与方法枚举。
+  - 读取 `output/phase3_golden/cn_a/data_pack_market.md` 与 `output/phase3_golden/cn_a/run/valuation_computed.json`，校验关键字段/结构与方法枚举。
 
-- **regression**：`pnpm run quality:regression`  
-  - 使用 golden 输入重跑 Phase3，将生成的 `valuation_computed.json`、`analysis_report.md/html` 与 **golden 目录下的同名基线文件**做对比（对时间戳等字段规范化后计算 sha256）。**与下面 `phase3-golden` 不同**：后者校验的是 manifest 清单，而非「重算 vs 基线文件」这一路径。
+- **regression**：`pnpm run quality:regression`（默认 `--suite all`，覆盖 **cn_a + hk**）  
+  - 使用各套件下 `data_pack_market.md` + `data_pack_report.md` 重跑 Phase3，将生成物与 `run/` 下基线做规范化哈希对比。可选：`--suite cn_a|hk|all`。
 
-- **phase3-golden**：`pnpm run quality:phase3-golden`  
-  - 按 `output/phase3_golden/run/golden_manifest.json`（可用 `--manifest` 指定）校验清单内各文件的 **sha256 + 字节数**（通常为已提交的 golden 产物快照）。
+- **phase3-golden**：`pnpm run quality:phase3-golden`（默认 `--suite all`）  
+  - 依次校验 `output/phase3_golden/<suite>/run/golden_manifest.json` 清单内各文件的 **sha256 + 字节数**。也可用 `--manifest <path>` 指定单个 manifest（忽略 `--suite`）。
 
-**依赖**：`contract`、`regression`、`phase3-golden` 均要求仓库内已存在 `output/phase3_golden/` 树；缺失会导致检查失败。
+**依赖**：`contract`、`regression`、`phase3-golden` 均要求仓库内已存在 `output/phase3_golden/cn_a/` 与 `output/phase3_golden/hk/`（及其中 `run/` 基线）；缺失会导致检查失败。

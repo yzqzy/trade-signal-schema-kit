@@ -82,6 +82,18 @@ User Input (stock code [+ PDF or report URL])
    <output-dir>/analysis_report.md + .html
 ```
 
+## CLI & Claude entrypoints
+
+| Goal | Root command | Claude slash |
+|------|----------------|--------------|
+| Business analysis (no Phase3 by default) | `pnpm run business-analysis:run -- ...` | `/business-analysis` |
+| Full workflow, strict PDF branch | `pnpm run workflow:run -- --mode turtle-strict ...` | `/turtle-analysis` |
+| Annual report download | `pnpm run phase0:download -- ...` | `/download-annual-report` |
+
+- Skills: `.claude/skills/business-analysis/SKILL.md`, `turtle-strict/SKILL.md`, `quality-gates/SKILL.md`.
+- `workflow:run --mode standard` keeps legacy behavior (Phase3 may run without `data_pack_report.md`).
+- Quality: `pnpm run quality:all` runs regression + golden for **cn_a** and **hk** (`output/phase3_golden/<suite>/`).
+
 ## Environment Requirements
 
 - Node.js >= 20

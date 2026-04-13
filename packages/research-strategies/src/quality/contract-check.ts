@@ -10,11 +10,11 @@ function resolveRoot(cwd: string): string {
 
 async function main(): Promise<void> {
   const root = resolveRoot(process.cwd());
-  const marketPackPath = path.join(root, "output/phase3_golden/data_pack_market.md");
-  const valuationPath = path.join(root, "output/phase3_golden/run/valuation_computed.json");
+  const marketPackPath = path.join(root, "output/phase3_golden/cn_a/data_pack_market.md");
+  const valuationPath = path.join(root, "output/phase3_golden/cn_a/run/valuation_computed.json");
 
   const marketPack = await readFile(marketPackPath, "utf-8");
-  assert.match(marketPack, /#\s*.+（\d{6}）/, "data_pack_market title/code contract mismatch");
+  assert.match(marketPack, /#\s*.+（\d{5,6}）/, "data_pack_market title/code contract mismatch");
   assert.match(marketPack, /经营活动现金流OCF/, "data_pack_market missing OCF field");
   assert.match(marketPack, /资本开支Capex/, "data_pack_market missing Capex field");
 

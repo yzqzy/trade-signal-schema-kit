@@ -17,11 +17,12 @@
     "phase2b:render": "node dist/packages/research-strategies/src/phase2b/cli.js",
     "phase3:run": "node dist/packages/research-strategies/src/phase3/cli.js",
     "workflow:run": "node dist/packages/research-strategies/src/workflow/cli.js",
+    "business-analysis:run": "node dist/packages/research-strategies/src/business-analysis/cli.js",
     "screener:run": "node dist/packages/research-strategies/src/screener/cli.js",
-    "quality:phase3-golden": "node dist/packages/research-strategies/src/quality/phase3-golden-check.js",
+    "quality:phase3-golden": "node dist/packages/research-strategies/src/quality/phase3-golden-check.js --suite all",
     "quality:conformance": "pnpm --filter @trade-signal/provider-http run build && pnpm --filter @trade-signal/provider-mcp run build && node dist/packages/research-strategies/src/quality/conformance-check.js",
     "quality:contract": "node dist/packages/research-strategies/src/quality/contract-check.js",
-    "quality:regression": "node dist/packages/research-strategies/src/quality/regression-check.js",
+    "quality:regression": "node dist/packages/research-strategies/src/quality/regression-check.js --suite all",
     "quality:all": "pnpm run quality:conformance && pnpm run quality:contract && pnpm run quality:regression && pnpm run quality:phase3-golden"
   },
   "dependencies": {

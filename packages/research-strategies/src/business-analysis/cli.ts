@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runResearchWorkflow, type WorkflowMode } from "./orchestrator.js";
+import { runBusinessAnalysis } from "./orchestrator.js";
 
 type CliArgs = {
   code?: string;
@@ -13,14 +13,19 @@ type CliArgs = {
   reportUrl?: string;
   category?: string;
   phase1bChannel?: "http" | "mcp";
-  mode?: WorkflowMode;
+  strict?: boolean;
 };
 
 function parseArgs(argv: string[]): CliArgs {
   const values: Record<string, string> = {};
+  const flags = new Set<string>();
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
     if (key === "--") continue;
+    if (key === "--strict") {
+      flags.add("strict");
+      continue;
+    }
     if (!key.startsWith("--")) continue;
     const value = argv[i + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for argument: ${key}`);
@@ -31,11 +36,6 @@ function parseArgs(argv: string[]): CliArgs {
   const channel = values["phase1b-channel"];
   if (channel && channel !== "http" && channel !== "mcp") {
     throw new Error(`Invalid --phase1b-channel: ${channel}`);
-  }
-
-  const mode = values.mode as WorkflowMode | undefined;
-  if (mode && mode !== "standard" && mode !== "turtle-strict") {
-    throw new Error(`Invalid --mode: ${mode} (expected standard|turtle-strict)`);
   }
 
   return {
@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): CliArgs {
     reportUrl: values["report-url"],
     category: values.category,
     phase1bChannel: channel as "http" | "mcp" | undefined,
-    mode,
+    strict: flags.has("strict"),
   };
 }
 
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (!args.code) throw new Error("Missing required argument: --code <stock-code>");
 
-  const result = await runResearchWorkflow({
+  const result = await runBusinessAnalysis({
     code: args.code,
     year: args.year,
     companyName: args.companyName,
@@ -68,19 +68,14 @@ async function main(): Promise<void> {
     reportUrl: args.reportUrl,
     category: args.category,
     phase1bChannel: args.phase1bChannel,
-    mode: args.mode,
+    strict: args.strict,
   });
 
-  console.log(`[workflow] outputDir -> ${result.outputDir}`);
-  console.log(`[workflow] phase1a -> ${result.phase1aJsonPath}`);
-  console.log(`[workflow] marketPack -> ${result.marketPackPath}`);
-  console.log(`[workflow] phase1b -> ${result.phase1bMarkdownPath}`);
-  if (result.phase2aJsonPath) console.log(`[workflow] phase2a -> ${result.phase2aJsonPath}`);
-  if (result.phase2bMarkdownPath) console.log(`[workflow] phase2b -> ${result.phase2bMarkdownPath}`);
-  console.log(`[workflow] phase3 valuation -> ${result.valuationPath}`);
-  console.log(`[workflow] phase3 report(md) -> ${result.reportMarkdownPath}`);
-  console.log(`[workflow] phase3 report(html) -> ${result.reportHtmlPath}`);
-  console.log(`[workflow] manifest -> ${result.manifestPath}`);
+  console.log(`[business-analysis] outputDir -> ${result.outputDir}`);
+  console.log(`[business-analysis] qualitative_report -> ${result.qualitativeReportPath}`);
+  console.log(`[business-analysis] data_pack_market -> ${result.marketPackPath}`);
+  if (result.dataPackReportPath) console.log(`[business-analysis] data_pack_report -> ${result.dataPackReportPath}`);
+  console.log(`[business-analysis] manifest -> ${result.manifestPath}`);
 }
 
 void main();

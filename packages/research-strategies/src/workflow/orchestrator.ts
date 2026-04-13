@@ -7,11 +7,14 @@ import { createFeedHttpProviderFromEnv } from "@trade-signal/provider-http";
 import { runPhase0DownloadAndCache } from "../phase0/downloader.js";
 import { collectPhase1ADataPack } from "../phase1a/collector.js";
 import { collectPhase1BQualitative } from "../phase1b/collector.js";
+import type { Phase1BQualitativeSupplement } from "../phase1b/types.js";
 import { renderPhase1BMarkdown } from "../phase1b/renderer.js";
 import { runPhase2AExtractPdfSections } from "../phase2a/extractor.js";
 import { renderPhase2BDataPackReport } from "../phase2b/renderer.js";
 import { runPhase3Strict } from "../phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../phase3/report-renderer.js";
+
+export type WorkflowMode = "standard" | "turtle-strict";
 
 export interface RunWorkflowInput {
   code: string;
@@ -24,6 +27,8 @@ export interface RunWorkflowInput {
   reportUrl?: string;
   category?: string;
   phase1bChannel?: "http" | "mcp";
+  /** standard：兼容旧行为；turtle-strict：关键输入缺失时 fail-fast */
+  mode?: WorkflowMode;
 }
 
 export interface WorkflowArtifacts {
@@ -39,6 +44,32 @@ export interface WorkflowArtifacts {
   reportMarkdownPath: string;
   reportHtmlPath: string;
   manifestPath: string;
+}
+
+/** Phase 0~2B 数据管线产物（不含 Phase3），供 business-analysis 与 workflow 复用 */
+export interface WorkflowDataPipelineResult {
+  outputDir: string;
+  normalizedCode: string;
+  phase1aJsonPath: string;
+  marketPackPath: string;
+  marketPackMarkdown: string;
+  phase1bJsonPath: string;
+  phase1bMarkdownPath: string;
+  phase1b: Phase1BQualitativeSupplement;
+  pdfPath?: string;
+  phase2aJsonPath?: string;
+  phase2bMarkdownPath?: string;
+  reportPackMarkdown?: string;
+}
+
+function validateTurtleStrictInput(input: RunWorkflowInput): void {
+  const hasPdf = Boolean(input.pdfPath?.trim());
+  const hasUrl = Boolean(input.reportUrl?.trim());
+  if (!hasPdf && !hasUrl) {
+    throw new Error(
+      "[workflow --mode turtle-strict] 缺少 PDF 输入：请提供 --pdf <path> 或 --report-url <url>（用于生成 data_pack_report.md 并进入 Phase3）。",
+    );
+  }
 }
 
 function asYear(value?: string): string {
@@ -132,8 +163,13 @@ async function writeText(filePath: string, content: string): Promise<void> {
   await writeFile(filePath, content, "utf-8");
 }
 
-export async function runResearchWorkflow(input: RunWorkflowInput): Promise<WorkflowArtifacts> {
-  const outputDir = path.resolve(input.outputDir ?? path.join("output", "workflow", normalizeCodeForFeed(input.code)));
+export async function executeWorkflowDataPipeline(
+  input: RunWorkflowInput,
+): Promise<WorkflowDataPipelineResult> {
+  const normalizedCode = normalizeCodeForFeed(input.code);
+  const outputDir = path.resolve(
+    input.outputDir ?? path.join("output", "workflow", normalizedCode),
+  );
   await mkdir(outputDir, { recursive: true });
 
   const provider = createFeedHttpProviderFromEnv();
@@ -155,8 +191,8 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
 
   const phase1b = await collectPhase1BQualitative(
     {
-      stockCode: normalizeCodeForFeed(input.code),
-      companyName: input.companyName ?? phase1a.instrument.name ?? normalizeCodeForFeed(input.code),
+      stockCode: normalizedCode,
+      companyName: input.companyName ?? phase1a.instrument.name ?? normalizedCode,
       year: asYear(input.year),
       channel: input.phase1bChannel ?? "http",
     },
@@ -170,11 +206,11 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
   let pdfPath = input.pdfPath;
   if (!pdfPath && input.reportUrl) {
     const downloaded = await runPhase0DownloadAndCache({
-      code: normalizeCodeForFeed(input.code),
+      code: normalizedCode,
       reportUrl: input.reportUrl,
       fiscalYear: asYear(input.year),
       category: input.category ?? "年报",
-      saveDir: path.join(outputDir, "reports", normalizeCodeForFeed(input.code)),
+      saveDir: path.join(outputDir, "reports", normalizedCode),
     });
     pdfPath = downloaded.filePath;
   }
@@ -194,6 +230,49 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
     await writeText(phase2bMarkdownPath, reportPackMarkdown);
   }
 
+  return {
+    outputDir,
+    normalizedCode,
+    phase1aJsonPath,
+    marketPackPath,
+    marketPackMarkdown,
+    phase1bJsonPath,
+    phase1bMarkdownPath,
+    phase1b,
+    pdfPath,
+    phase2aJsonPath,
+    phase2bMarkdownPath,
+    reportPackMarkdown,
+  };
+}
+
+export async function runResearchWorkflow(input: RunWorkflowInput): Promise<WorkflowArtifacts> {
+  if (input.mode === "turtle-strict") {
+    validateTurtleStrictInput(input);
+  }
+
+  const pipeline = await executeWorkflowDataPipeline(input);
+
+  if (input.mode === "turtle-strict" && !pipeline.reportPackMarkdown) {
+    throw new Error(
+      "[workflow --mode turtle-strict] 未生成 data_pack_report.md：请确认 PDF 可读且 Phase2A/2B 成功（或检查 --pdf / --report-url）。",
+    );
+  }
+
+  const {
+    outputDir,
+    normalizedCode,
+    phase1aJsonPath,
+    marketPackPath,
+    marketPackMarkdown,
+    phase1bJsonPath,
+    phase1bMarkdownPath,
+    pdfPath,
+    phase2aJsonPath,
+    phase2bMarkdownPath,
+    reportPackMarkdown,
+  } = pipeline;
+
   const phase3 = runPhase3Strict({
     marketMarkdown: marketPackMarkdown,
     reportMarkdown: reportPackMarkdown,
@@ -212,7 +291,7 @@ export async function runResearchWorkflow(input: RunWorkflowInput): Promise<Work
     generatedAt: new Date().toISOString(),
     input: {
       ...input,
-      code: normalizeCodeForFeed(input.code),
+      code: normalizedCode,
     },
     outputs: {
       phase1aJsonPath,

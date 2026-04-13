@@ -7,7 +7,9 @@
 ## v0.1（流程复刻）
 
 - 复刻并打通主流程能力：Phase 0（独立 CLI + workflow 内 `--report-url`）、Phase 1A/1B/2A/2B/3（独立 CLI）及 **`workflow:run` 串行编排**（默认顺序 1A→1B→可选 2A/2B→3）
-- **独立流程 `/business-analysis`**：方法论对齐，**本仓库暂无单一 CLI 入口**（由上述阶段组合覆盖）
+- **独立流程 `business-analysis`**：已实现 CLI `pnpm run business-analysis:run` 与 Claude `/business-analysis`（定性 + 数据包，默认不跑 Phase3）
+- **workflow `turtle-strict` 模式**：已实现 `--mode turtle-strict`（PDF/报告包前置校验 + fail-fast），Claude `/turtle-analysis`
+- **质量回归**：`cn_a` + `hk` 双套件 golden（`quality:regression` / `quality:phase3-golden` 默认 `--suite all`）
 - 输出：独立 `phase3:run` 与编排均在指定目录下产出 `analysis_report.md` / `analysis_report.html`（文件名固定；可用输出目录区分标的）
 - A 股优先可用，港股基础可用（实时、日周月 K、基础信息）
 

@@ -61,15 +61,18 @@
                  （文件名固定；可用目录名区分标的）
 ```
 
-### 独立商业分析流程（规划中）
+### 独立商业分析流程（已实现）
 
-以下对应 Turtle 等产品形态中的「单 Agent 商业分析」路径；**本仓库当前无 `/business-analysis` 单一命令**，能力由 Phase 0~3 各 CLI 与 `workflow:run` 组合覆盖。
+对应「商业分析」独立入口：**CLI** `pnpm run business-analysis:run`；Claude **slash command** `/business-analysis`（见 `.claude/commands/business-analysis.md`）。产出以 `qualitative_report.md`、`data_pack_market.md` 为主，可选 `data_pack_report.md`（需 PDF 分支）。
 
 ```text
-/business-analysis {code}   （规划/外部产品形态，非本仓库 CLI）
+business-analysis / /business-analysis
          │
          ▼
-    年报 PDF + 结构化数据 → 定性/报告输出（report.md + report.html）
+Phase1A → Phase1B →（可选 PDF / report-url）Phase2A/2B
+         │
+         ▼
+qualitative_report.md + data_pack_market.md [+ data_pack_report.md]
 ```
 
 ### 各阶段实现范围
@@ -136,8 +139,8 @@ pnpm --filter @trade-signal/research-strategies run phase2b:render -- \
 
 ```bash
 pnpm --filter @trade-signal/research-strategies run phase3:run -- \
-  --market-md "./output/phase3_golden/data_pack_market.md" \
-  --report-md "./output/data_pack_report.md" \
+  --market-md "./output/phase3_golden/cn_a/data_pack_market.md" \
+  --report-md "./output/phase3_golden/cn_a/data_pack_report.md" \
   --output-dir "./output"
 ```
 
@@ -170,7 +173,35 @@ pnpm run workflow:run -- \
 
 **PDF 支路**：传 `--pdf` 或 `--report-url`（下载后）会跑 Phase2A/2B；两者都不传则 Phase3 仅有市场包、无 `data_pack_report.md`。
 
+**模式 `--mode`**（默认 `standard`）：
+- `standard`：与历史行为兼容；可无 PDF 仍进入 Phase3。
+- `turtle-strict`：**必须** `--pdf` 或 `--report-url`，且必须成功生成 `data_pack_report.md`，否则 fail-fast（对齐严格编排语义）。Claude：`/turtle-analysis`。
+
 **产物**（均在 `--output-dir` 或默认 `output/workflow/<code>/` 下）：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、`valuation_computed.json`、`analysis_report.md` / `analysis_report.html`、`workflow_manifest.json`。
+
+### Business analysis：定性 + 数据包（无 Phase3）
+
+```bash
+pnpm run business-analysis:run -- \
+  --code 600887 \
+  --year 2024 \
+  [--pdf "./path/to/annual.pdf"] \
+  [--report-url "https://..."] \
+  [--strict] \
+  [--output-dir "./output/business-analysis/600887"]
+```
+
+**产物**：`qualitative_report.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`（及 Phase1A/1B 中间 JSON/MD）。
+
+### Claude Commands / Skills 与 CLI 对照
+
+| Slash（Claude） | 根目录 pnpm 脚本 |
+|-----------------|------------------|
+| `/business-analysis` | `pnpm run business-analysis:run -- ...` |
+| `/turtle-analysis` | `pnpm run workflow:run -- --mode turtle-strict ...` |
+| `/download-annual-report` | `pnpm run phase0:download -- ...` |
+
+Skills（执行顺序与门禁）：`.claude/skills/business-analysis/SKILL.md`、`.claude/skills/turtle-strict/SKILL.md`、`.claude/skills/quality-gates/SKILL.md`。
 
 ### Screener：独立 + 组合模式
 
@@ -224,10 +255,12 @@ pnpm --filter @trade-signal/screener-web run dev
 
 ### Quality Gate
 
-单测 golden 文件校验（对比 `output/phase3_golden/run/golden_manifest.json` 中的 sha256 与字节数）：
+Golden 快照校验（默认 **`cn_a` + `hk`** 两套，`quality:all` 已传 `--suite all`）：
 
 ```bash
 pnpm run quality:phase3-golden
+# 或单项套件：
+pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --suite hk
 ```
 
 完整质量门禁（依次执行）：
@@ -236,7 +269,7 @@ pnpm run quality:phase3-golden
 pnpm run quality:all
 ```
 
-包含：`quality:conformance`（HTTP/MCP fixture 语义一致）→ `quality:contract`（市场包与估值 JSON 契约）→ `quality:regression`（重跑 Phase3 与 golden 基线对比，时间戳已规范化）→ `quality:phase3-golden`。`contract` / `regression` / `phase3-golden` 依赖仓库内 `output/phase3_golden/` 基线文件。
+包含：`quality:conformance` → `quality:contract`（读取 `output/phase3_golden/cn_a/`）→ `quality:regression`（`--suite all`：对 `cn_a` 与 `hk` 输入重跑 Phase3 并比对基线）→ `quality:phase3-golden`（两套 `run/golden_manifest.json`）。基线树见 `output/phase3_golden/cn_a/`、`output/phase3_golden/hk/`。
 
 ### 环境变量配置（packages 统一口径）
 

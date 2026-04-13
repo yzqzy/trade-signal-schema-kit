@@ -43,9 +43,11 @@ Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
 - **依赖**：`FEED_BASE_URL`（Phase1A 固定 HTTP Provider）；编排内合成的 `data_pack_market.md` 与手写 golden 用途不同。
 - **与 `phase3:run` 差异**：编排不传 `--interim-report-md`。
 
-## 独立商业分析流程（规划中）
+## 独立商业分析流程（已实现）
 
-对应 Turtle 等产品中的「单 Agent 商业分析」；**本仓库无 `/business-analysis` 单一命令**，由 Phase 0~3 与 `workflow:run` 组合实现。
+CLI：`pnpm run business-analysis:run`（根目录）或 filter 等价命令。Claude：`/business-analysis`（见 `.claude/commands/business-analysis.md`）。规范：`.claude/skills/business-analysis/SKILL.md`。
+
+产出：`qualitative_report.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
 
 ## 阶段职责
 
@@ -101,8 +103,8 @@ Phase3 CLI（research-strategies，输入市场数据 + 可选附注包，输出
 
 ```bash
 pnpm --filter @trade-signal/research-strategies run phase3:run -- \
-  --market-md "./output/phase3_golden/data_pack_market.md" \
-  --report-md "./output/data_pack_report.md" \
+  --market-md "./output/phase3_golden/cn_a/data_pack_market.md" \
+  --report-md "./output/phase3_golden/cn_a/data_pack_report.md" \
   --output-dir "./output"
 ```
 
@@ -123,12 +125,33 @@ pnpm --filter @trade-signal/research-strategies run workflow:run -- \
   --output-dir "./output/workflow/600887"
 ```
 
+严格模式（与 `/turtle-analysis` 对齐）：
+
+```bash
+pnpm run workflow:run -- \
+  --code 600887 \
+  --year 2024 \
+  --mode turtle-strict \
+  --pdf "./path/to/annual.pdf"
+```
+
 根目录等价：`pnpm run workflow:run -- ...`。运行前需 `pnpm run build`（或对该包 build）以生成 `dist/`。
 
 说明：
 - 必填：`--code`
+- `--mode`：`standard`（默认）或 `turtle-strict`（要求 PDF 输入且必须生成 `data_pack_report.md`）
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`workflow_manifest.json`
+
+Business analysis CLI（Phase3 前停，定性 + 数据包）：
+
+```bash
+pnpm run business-analysis:run -- \
+  --code 600887 \
+  --year 2024 \
+  [--pdf "..."] \
+  [--strict]
+```
 
 Screener CLI（独立/组合双模式）：
 
@@ -166,11 +189,11 @@ pnpm run quality:all
 ```bash
 pnpm --filter @trade-signal/research-strategies run quality:conformance
 pnpm --filter @trade-signal/research-strategies run quality:contract
-pnpm --filter @trade-signal/research-strategies run quality:regression
-pnpm --filter @trade-signal/research-strategies run quality:phase3-golden
+pnpm --filter @trade-signal/research-strategies run quality:regression -- --suite hk
+pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --suite cn_a
 ```
 
-说明：`contract` / `regression` / `phase3-golden` 依赖仓库内 `output/phase3_golden/`。`regression` 为重跑 Phase3 后与 golden 基线做规范化哈希对比；`phase3-golden` 为 manifest 中文件的 sha256+字节数校验。详见 [数据源与字段契约](./data-source.md)。
+说明：`contract` 使用 `output/phase3_golden/cn_a/`；`regression` / `phase3-golden` 支持 `--suite cn_a|hk|all`（`quality:all` 默认 `all`）。`regression` 为重跑 Phase3 后与 golden 基线做规范化哈希对比；`phase3-golden` 为各套件 `run/golden_manifest.json` 中文件的 sha256+字节数校验。详见 [数据源与字段契约](./data-source.md)。
 
 Next.js 在线 MVP（请在 **monorepo 根目录**启动，以便 API 解析 `packages/research-strategies/dist/...`）：
 

@@ -10,6 +10,7 @@
     "typecheck": "pnpm -r run typecheck",
     "phase0:download": "pnpm --filter @trade-signal/research-strategies run phase0:download",
     "workflow:run": "pnpm --filter @trade-signal/research-strategies run workflow:run",
+    "business-analysis:run": "pnpm --filter @trade-signal/research-strategies run business-analysis:run",
     "quality:conformance": "pnpm --filter @trade-signal/research-strategies run quality:conformance",
     "quality:contract": "pnpm --filter @trade-signal/research-strategies run quality:contract",
     "quality:regression": "pnpm --filter @trade-signal/research-strategies run quality:regression",
