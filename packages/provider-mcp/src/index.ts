@@ -49,6 +49,9 @@ type StockInfoDetail = {
   lot_size?: number;
   tickSize?: number;
   tick_size?: number;
+  industry?: string;
+  sector?: string;
+  hybk?: string;
 };
 
 type StockQuotePayload = {
@@ -109,8 +112,48 @@ type StockFinancialPayload = {
     marketCapBaiWan?: number;
     totalShares?: number;
     totalSharesOutstandingMm?: number;
+    parentRevenue?: number;
+    parentOperatingRevenue?: number;
+    parentOperatingCashFlow?: number;
+    parentTotalAssets?: number;
+    parentTotalLiabilities?: number;
   };
 };
+
+function mapMcpFinancial(
+  financial: NonNullable<StockFinancialPayload["financial"]>,
+  code: string,
+  period: string,
+): FinancialSnapshot {
+  return {
+    code: financial.code ?? financial.secucode ?? code,
+    period: financial.period ?? financial.reportDate ?? period,
+    revenue: asNumber(financial.revenue ?? financial.operatingRevenue ?? financial.totalRevenue),
+    netProfit: asNumber(financial.netProfit ?? financial.parentNetProfit),
+    operatingCashFlow: asNumber(financial.operatingCashFlow ?? financial.netCashflowOper),
+    totalAssets: asNumber(financial.totalAssets),
+    totalLiabilities: asNumber(financial.totalLiabilities),
+    capitalExpenditure: asNumber(financial.capex ?? financial.capitalExpenditure),
+    interestBearingDebt: asNumber(financial.interestBearingDebt ?? financial.interestDebt),
+    cashAndEquivalents: asNumber(
+      financial.monetaryFunds ?? financial.cash ?? financial.cashAndEquivalents,
+    ),
+    minorityInterestPnL: asNumber(
+      financial.minorityInterestPnL ?? financial.minorityPnL ?? financial.minorityInterest,
+    ),
+    earningsPerShare: asNumber(financial.earningsPerShare ?? financial.basicEps ?? financial.eps),
+    dividendsPerShare: asNumber(
+      financial.dividendsPerShare ?? financial.dps ?? financial.dividendPerShare,
+    ),
+    marketCapBaiWan: asNumber(financial.marketCapBaiWan ?? financial.totalMv ?? financial.marketCap),
+    totalSharesOutstandingMm: asNumber(financial.totalSharesOutstandingMm ?? financial.totalShares),
+    parentRevenue: asNumber(financial.parentRevenue ?? financial.parentOperatingRevenue),
+    parentNetProfit: asNumber(financial.parentNetProfit),
+    parentOperatingCashFlow: asNumber(financial.parentOperatingCashFlow),
+    parentTotalAssets: asNumber(financial.parentTotalAssets),
+    parentTotalLiabilities: asNumber(financial.parentTotalLiabilities),
+  };
+}
 
 const ADJ_TO_FQT: Record<"none" | "forward" | "backward", "none" | "pre" | "after"> = {
   none: "none",
@@ -191,6 +234,7 @@ export class FeedMcpProvider implements MarketDataProvider {
       currency: detail.currency,
       lotSize: asNumber(detail.lotSize ?? detail.lot_size),
       tickSize: asNumber(detail.tickSize ?? detail.tick_size),
+      industry: detail.industry ?? detail.sector ?? detail.hybk,
     };
   }
 
@@ -236,31 +280,23 @@ export class FeedMcpProvider implements MarketDataProvider {
   }
 
   async getFinancialSnapshot(code: string, period: string): Promise<FinancialSnapshot> {
-    const payload = await this.callTool<StockFinancialPayload>("get_stock_financial", { code });
+    const payload = await this.callTool<StockFinancialPayload>("get_stock_financial", {
+      code,
+      reportDate: period,
+    });
     const financial = payload.financial ?? {};
-    return {
-      code: financial.code ?? financial.secucode ?? code,
-      period: financial.period ?? financial.reportDate ?? period,
-      revenue: asNumber(financial.revenue ?? financial.operatingRevenue ?? financial.totalRevenue),
-      netProfit: asNumber(financial.netProfit ?? financial.parentNetProfit),
-      operatingCashFlow: asNumber(financial.operatingCashFlow ?? financial.netCashflowOper),
-      totalAssets: asNumber(financial.totalAssets),
-      totalLiabilities: asNumber(financial.totalLiabilities),
-      capitalExpenditure: asNumber(financial.capex ?? financial.capitalExpenditure),
-      interestBearingDebt: asNumber(financial.interestBearingDebt ?? financial.interestDebt),
-      cashAndEquivalents: asNumber(
-        financial.monetaryFunds ?? financial.cash ?? financial.cashAndEquivalents,
-      ),
-      minorityInterestPnL: asNumber(
-        financial.minorityInterestPnL ?? financial.minorityPnL ?? financial.minorityInterest,
-      ),
-      earningsPerShare: asNumber(financial.earningsPerShare ?? financial.basicEps ?? financial.eps),
-      dividendsPerShare: asNumber(
-        financial.dividendsPerShare ?? financial.dps ?? financial.dividendPerShare,
-      ),
-      marketCapBaiWan: asNumber(financial.marketCapBaiWan ?? financial.totalMv ?? financial.marketCap),
-      totalSharesOutstandingMm: asNumber(financial.totalSharesOutstandingMm ?? financial.totalShares),
-    };
+    return mapMcpFinancial(financial, code, period);
+  }
+
+  async getFinancialHistory(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]> {
+    const settled = await Promise.allSettled(
+      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${y}-12-31`)),
+    );
+    const out: FinancialSnapshot[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") out.push(r.value);
+    }
+    return out;
   }
 
   async getCorporateActions(

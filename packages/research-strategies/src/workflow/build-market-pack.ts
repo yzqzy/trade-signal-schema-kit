@@ -1,4 +1,4 @@
-import type { DataPackMarket } from "@trade-signal/schema-core";
+import type { DataPackMarket, FinancialSnapshot } from "@trade-signal/schema-core";
 
 import { normalizeCodeForFeed } from "../pipeline/normalize-stock-code.js";
 
@@ -11,7 +11,7 @@ function yearFromPeriod(period?: string): string {
   return matched ?? String(new Date().getFullYear() - 1);
 }
 
-/** 生成最近 5 个财报年度列（用于与 Phase3 解析器多年表对齐；无历史时数值重复并打标） */
+/** 生成最近 5 个财报年度列（仅作无历史时的回退） */
 function recentFiveYears(anchorYear: string): string[] {
   const y = Number(anchorYear);
   if (!Number.isFinite(y)) return [anchorYear];
@@ -22,43 +22,167 @@ function fmt(n: number, digits = 2): string {
   return n.toFixed(digits);
 }
 
+function snapshotYearLabel(s: FinancialSnapshot): string {
+  return yearFromPeriod(s.period);
+}
+
 /**
- * 由 Phase1A 数据包生成 A股 `data_pack_market.md`（§1~§17 骨架 + 多年财务表 + §13 Warnings）
+ * 将 `financialHistory` 转为按年度降序、最多 5 年的列定义；不足时与 `financialSnapshot` 合并。
+ */
+function resolveYearColumns(
+  fin: FinancialSnapshot | undefined,
+  history: FinancialSnapshot[] | undefined,
+): { years: string[]; byYear: Map<string, FinancialSnapshot>; replicatedFallback: boolean } {
+  const merged = normalizeFinancialHistoryLocal(
+    [...(history ?? []), ...(fin ? [fin] : [])].filter(Boolean),
+  );
+  const byYear = new Map<string, FinancialSnapshot>();
+  for (const s of merged) {
+    const y = snapshotYearLabel(s);
+    if (!/^20\d{2}$/.test(y)) continue;
+    if (!byYear.has(y)) byYear.set(y, s);
+  }
+  const distinctYears = [...byYear.keys()].sort((a, b) => b.localeCompare(a));
+  if (distinctYears.length >= 2) {
+    const years = distinctYears.slice(0, 5);
+    return { years, byYear, replicatedFallback: false };
+  }
+  const anchor = yearFromPeriod(fin?.period);
+  const years = recentFiveYears(anchor);
+  const single = fin ?? merged[0];
+  const fill = new Map<string, FinancialSnapshot>();
+  if (single) for (const y of years) fill.set(y, single);
+  return { years, byYear: fill, replicatedFallback: true };
+}
+
+function normalizeFinancialHistoryLocal(rows: FinancialSnapshot[]): FinancialSnapshot[] {
+  const byYear = new Map<string, FinancialSnapshot>();
+  for (const row of rows) {
+    const y = snapshotYearLabel(row);
+    if (!/^20\d{2}$/.test(y)) continue;
+    const existing = byYear.get(y);
+    if (!existing) {
+      byYear.set(y, row);
+      continue;
+    }
+    const score = (s: FinancialSnapshot) =>
+      [s.revenue, s.netProfit, s.totalAssets].filter((v) => v != null && Number.isFinite(v)).length;
+    if (score(row) > score(existing)) byYear.set(y, row);
+  }
+  return [...byYear.values()].sort((a, b) => snapshotYearLabel(b).localeCompare(snapshotYearLabel(a)));
+}
+
+function buildSection17Derived(
+  years: string[],
+  byYear: Map<string, FinancialSnapshot>,
+): string[] {
+  const rows: string[] = [
+    "## §17 衍生指标（预计算，供因子/Phase3 引用）",
+    "",
+    "> 本节由编排层根据 §3~§5 同源数值 **确定性计算**；若某年为单期回退复制，与 §13 警告一致。",
+    "> **FCF** = 经营活动现金流 OCF − |资本开支 Capex|（百万元）。",
+    "",
+    "| 年度 | FCF | 净利率(%) | DPS/EPS(%) | 资产负债率(%) | 有息负债/总资产(%) |",
+    "| --- | ---: | ---: | ---: | ---: | ---: |",
+  ];
+  for (const y of years) {
+    const s = byYear.get(y);
+    if (!s) continue;
+    const rev = safeNum(s.revenue, 0);
+    const net = safeNum(s.netProfit, 0);
+    const ocf = safeNum(s.operatingCashFlow, net);
+    const capex =
+      s.capitalExpenditure !== undefined && s.capitalExpenditure !== null
+        ? safeNum(s.capitalExpenditure, 0)
+        : Math.max(0, Math.round(Math.abs(ocf) * 0.2));
+    const fcf = ocf - Math.abs(capex);
+    const npm = rev > 0 ? (net / rev) * 100 : 0;
+    const eps = safeNum(s.earningsPerShare, 0);
+    const dps = safeNum(s.dividendsPerShare, 0);
+    const payout = eps > 0 ? (dps / eps) * 100 : 0;
+    const ta = safeNum(s.totalAssets, 0);
+    const tl = safeNum(s.totalLiabilities, 0);
+    const debt = safeNum(s.interestBearingDebt, ta > 0 && tl >= 0 ? tl * 0.4 : 0);
+    const lev = ta > 0 ? (tl / ta) * 100 : 0;
+    const debtToA = ta > 0 ? (debt / ta) * 100 : 0;
+    rows.push(
+      `| ${y} | ${fmt(fcf)} | ${fmt(npm)} | ${fmt(payout)} | ${fmt(lev)} | ${fmt(debtToA)} |`,
+    );
+  }
+  rows.push("");
+  return rows;
+}
+
+/**
+ * 由 Phase1A 数据包生成 A股 `data_pack_market.md`（§1~§17 + 多年财务表 + §3P/§4P + §17 + §13 Warnings）
  */
 export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket): string {
   const instrument = dataPack.instrument;
   const quote = dataPack.quote;
   const fin = dataPack.financialSnapshot;
   const reportYear = yearFromPeriod(fin?.period);
-  const years = recentFiveYears(reportYear);
+  const { years, byYear, replicatedFallback } = resolveYearColumns(fin, dataPack.financialHistory);
   const norm = normalizeCodeForFeed(code);
 
-  const revenue = safeNum(fin?.revenue, 0);
-  const netProfit = safeNum(fin?.netProfit, 0);
-  const ocf = safeNum(fin?.operatingCashFlow, netProfit);
-  const capex =
-    fin?.capitalExpenditure !== undefined && fin.capitalExpenditure !== null
-      ? safeNum(fin.capitalExpenditure, 0)
-      : Math.max(0, Math.round(Math.abs(ocf) * 0.2));
-  const totalAssets = safeNum(fin?.totalAssets, 0);
-  const totalLiabilities = safeNum(fin?.totalLiabilities, 0);
-  const hasFullBalanceSheet = totalAssets > 0 && totalLiabilities >= 0;
-  const interestBearingDebt =
-    fin?.interestBearingDebt !== undefined && fin.interestBearingDebt !== null
-      ? safeNum(fin.interestBearingDebt, 0)
-      : hasFullBalanceSheet
-        ? totalLiabilities * 0.4
-        : 0;
-  const cash =
-    fin?.cashAndEquivalents !== undefined && fin.cashAndEquivalents !== null
-      ? safeNum(fin.cashAndEquivalents, 0)
-      : hasFullBalanceSheet
-        ? totalAssets * 0.1
-        : 0;
-  const minorityPnL =
-    fin?.minorityInterestPnL !== undefined && fin.minorityInterestPnL !== null
-      ? safeNum(fin.minorityInterestPnL, 0)
-      : 0;
+  const latest = fin ?? [...byYear.values()].sort((a, b) => snapshotYearLabel(b).localeCompare(snapshotYearLabel(a)))[0];
+  if (!latest) {
+    throw new Error("buildMarketPackMarkdown: 缺少 financialSnapshot / financialHistory，无法生成市场包");
+  }
+
+  const parentMetric = (
+    y: string,
+    key: "parentRevenue" | "parentNetProfit" | "parentOperatingCashFlow" | "parentTotalAssets" | "parentTotalLiabilities",
+  ): number => {
+    const row = byYear.get(y) ?? latest;
+    const v = row[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    const fb = latest[key];
+    return typeof fb === "number" && Number.isFinite(fb) ? fb : 0;
+  };
+
+  const pick = (y: string, field: keyof FinancialSnapshot): number => {
+    const s = byYear.get(y) ?? latest;
+    const v = s[field];
+    return typeof v === "number" && Number.isFinite(v) ? v : 0;
+  };
+
+  const revenue = (y: string) => pick(y, "revenue");
+  const netProfit = (y: string) => pick(y, "netProfit");
+  const ocf = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    const v = s.operatingCashFlow;
+    if (v !== undefined && v !== null && Number.isFinite(v)) return v;
+    return safeNum(s.netProfit, 0);
+  };
+  const capexFor = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    if (s.capitalExpenditure !== undefined && s.capitalExpenditure !== null) {
+      return safeNum(s.capitalExpenditure, 0);
+    }
+    return Math.max(0, Math.round(Math.abs(ocf(y)) * 0.2));
+  };
+
+  const totalAssets = (y: string) => pick(y, "totalAssets");
+  const totalLiabilities = (y: string) => pick(y, "totalLiabilities");
+  const interestBearingDebtFor = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    if (s.interestBearingDebt !== undefined && s.interestBearingDebt !== null) {
+      return safeNum(s.interestBearingDebt, 0);
+    }
+    const ta = safeNum(s.totalAssets, 0);
+    const tl = safeNum(s.totalLiabilities, 0);
+    return ta > 0 && tl >= 0 ? tl * 0.4 : 0;
+  };
+  const cashFor = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    if (s.cashAndEquivalents !== undefined && s.cashAndEquivalents !== null) {
+      return safeNum(s.cashAndEquivalents, 0);
+    }
+    const ta = safeNum(s.totalAssets, 0);
+    const tl = safeNum(s.totalLiabilities, 0);
+    return ta > 0 && tl >= 0 ? ta * 0.1 : 0;
+  };
+  const minorityPnL = (y: string) => pick(y, "minorityInterestPnL");
 
   const marketCapBaiWan =
     fin?.marketCapBaiWan !== undefined && fin.marketCapBaiWan !== null
@@ -79,18 +203,23 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
         ? quote.price * totalSharesMm
         : 0;
 
-  const basicEps =
-    fin?.earningsPerShare !== undefined && fin.earningsPerShare !== null
-      ? safeNum(fin.earningsPerShare, 0)
-      : totalSharesMm > 0
-        ? netProfit / totalSharesMm
-        : 0;
+  const basicEpsFor = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    if (s.earningsPerShare !== undefined && s.earningsPerShare !== null) {
+      return safeNum(s.earningsPerShare, 0);
+    }
+    const np = safeNum(s.netProfit, 0);
+    return totalSharesMm > 0 ? np / totalSharesMm : 0;
+  };
 
   const div0 = dataPack.corporateActions?.find((a) => a.cashDividendPerShare != null);
-  const dps =
-    fin?.dividendsPerShare !== undefined && fin.dividendsPerShare !== null
-      ? safeNum(fin.dividendsPerShare, 0)
-      : safeNum(div0?.cashDividendPerShare, 0);
+  const dpsFor = (y: string) => {
+    const s = byYear.get(y) ?? latest;
+    if (s.dividendsPerShare !== undefined && s.dividendsPerShare !== null) {
+      return safeNum(s.dividendsPerShare, 0);
+    }
+    return safeNum(div0?.cashDividendPerShare, 0);
+  };
 
   const rfEnv = process.env.PHASE1A_RF_RATE?.trim() || process.env.MARKET_PACK_RF_RATE?.trim();
   const rfParsed = rfEnv ? Number(rfEnv) : Number.NaN;
@@ -105,26 +234,32 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     );
     warnLines.push(`- [数据完整性|中] 总资产缺失或无效，市值/杠杆相关推算可信度低。`);
   }
-  if (!dataPack.corporateActions?.length && dps === 0) {
+  if (!dataPack.corporateActions?.length && dpsFor(years[0] ?? reportYear) === 0) {
     riskLines.push(`- [数据完整性|低] 未返回企业行动记录，每股分红 DPS 可能为 0。`);
   }
   if (fin?.capitalExpenditure === undefined || fin.capitalExpenditure === null) {
-    riskLines.push(`- [数据完整性|中] Phase1A 未提供 Capex，按 OCF×20% 估算（${fmt(capex)}）。`);
+    riskLines.push(
+      `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF×20% 估算（${fmt(capexFor(years[0] ?? reportYear))}，最近年）。`,
+    );
     warnLines.push(`- [估算|中] Capex 由 OCF 比例估算，非现金流量表直接值。`);
   }
   if (fin?.interestBearingDebt === undefined || fin.interestBearingDebt === null) {
-    if (hasFullBalanceSheet) {
+    if (safeNum(fin?.totalAssets, 0) > 0) {
       warnLines.push(`- [估算|中] 有息负债按总负债比例估算，非附注直接值。`);
     }
   }
   if (fin?.cashAndEquivalents === undefined || fin.cashAndEquivalents === null) {
-    if (hasFullBalanceSheet) {
+    if (safeNum(fin?.totalAssets, 0) > 0) {
       warnLines.push(`- [估算|中] 货币资金按总资产比例估算，非资产负债表直接值。`);
     }
   }
-  if (years.length > 1) {
+  if (replicatedFallback) {
     warnLines.push(
-      `- [数据完整性|中] 多年财务列为单期快照外推复制（${years[years.length - 1]}~${years[0]}），仅用于因子多年序列回退；真实多年口径需 feed 历史接口。`,
+      `- [数据完整性|中] 多年财务列为单期快照外推复制（${years[years.length - 1]}~${years[0]}），仅用于因子多年序列回退；已尝试 financialHistory 仍不足 2 个独立财年。`,
+    );
+  } else if ((dataPack.financialHistory?.length ?? 0) >= 2) {
+    warnLines.push(
+      `- [数据完整性|低] 多年列优先使用 Phase1A financialHistory（${years.length} 个财年）；仍请核对 feed 报告期与合并口径。`,
     );
   }
   if (marketCapResolved <= 0 || totalSharesMm <= 0) {
@@ -134,23 +269,79 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
   const yearHeader = `| 指标 | ${years.join(" | ")} |`;
   const yearSep = `| --- | ${years.map(() => "---:").join(" | ")} |`;
 
-  const profitValues = years.map(() => revenue);
-  const netValues = years.map(() => netProfit);
-  const epsValues = years.map(() => basicEps);
-  const dpsValues = years.map(() => dps);
+  const profitValues = years.map((y) => revenue(y));
+  const netValues = years.map((y) => netProfit(y));
+  const epsValues = years.map((y) => basicEpsFor(y));
+  const dpsValues = years.map((y) => dpsFor(y));
 
-  const balAssets = years.map(() => totalAssets);
-  const balLiab = years.map(() => totalLiabilities);
-  const balDebt = years.map(() => interestBearingDebt);
-  const balCash = years.map(() => cash);
+  const balAssets = years.map((y) => totalAssets(y));
+  const balLiab = years.map((y) => totalLiabilities(y));
+  const balDebt = years.map((y) => interestBearingDebtFor(y));
+  const balCash = years.map((y) => cashFor(y));
 
-  const cfOcf = years.map(() => ocf);
-  const cfCapex = years.map(() => capex);
-  const cfMinor = years.map(() => minorityPnL);
+  const cfOcf = years.map((y) => ocf(y));
+  const cfCapex = years.map((y) => capexFor(y));
+  const cfMinor = years.map((y) => minorityPnL(y));
 
   const klines = dataPack.klines ?? [];
   const lastBar = klines.length > 0 ? klines[klines.length - 1] : undefined;
   const tradingDays = dataPack.tradingCalendar?.filter((d) => d.isTradingDay).length ?? 0;
+
+  const industryLabel = instrument.industry?.trim() || "未知（待 feed 行业字段或 Phase1B 补充）";
+
+  const pRev = latest.parentRevenue;
+  const pNp = latest.parentNetProfit;
+  const pOcf = latest.parentOperatingCashFlow;
+  const hasParentPnl = [pRev, pNp, pOcf].some((v) => v != null && Number.isFinite(v) && v !== 0);
+
+  const pTa = latest.parentTotalAssets;
+  const pTl = latest.parentTotalLiabilities;
+  const hasParentBal = [pTa, pTl].some((v) => v != null && Number.isFinite(v) && v !== 0);
+
+  const section3p = hasParentPnl
+    ? [
+        "## §3P 母公司利润表（百万元）",
+        "",
+        yearHeader,
+        yearSep,
+        `| 母公司营业收入 | ${years.map((y) => fmt(parentMetric(y, "parentRevenue"))).join(" | ")} |`,
+        `| 母公司净利润 | ${years.map((y) => fmt(parentMetric(y, "parentNetProfit"))).join(" | ")} |`,
+        `| 母公司经营活动现金流 | ${years.map((y) => fmt(parentMetric(y, "parentOperatingCashFlow"))).join(" | ")} |`,
+        "",
+      ]
+    : [
+        "## §3P 母公司利润表（百万元）",
+        "",
+        "> 上游 feed 未返回母公司分解科目（`parentRevenue` / `parentNetProfit` / `parentOperatingCashFlow`）；待接口对齐 `assembly.py` 母公司口径后自动填充。",
+        "",
+      ];
+
+  if (!hasParentPnl) {
+    warnLines.push(`- [数据完整性|中] §3P 母公司利润表缺失：feed 未提供母公司损益/现金流字段。`);
+  }
+
+  const section4p = hasParentBal
+    ? [
+        "## §4P 母公司资产负债表（百万元）",
+        "",
+        yearHeader,
+        yearSep,
+        `| 母公司总资产 | ${years.map((y) => fmt(parentMetric(y, "parentTotalAssets"))).join(" | ")} |`,
+        `| 母公司总负债 | ${years.map((y) => fmt(parentMetric(y, "parentTotalLiabilities"))).join(" | ")} |`,
+        "",
+      ]
+    : [
+        "## §4P 母公司资产负债表（百万元）",
+        "",
+        "> 上游 feed 未返回母公司资产负债表科目；待接口对齐后填充。",
+        "",
+      ];
+
+  if (!hasParentBal) {
+    warnLines.push(`- [数据完整性|中] §4P 母公司资产负债表缺失：feed 未提供母公司资产负债字段。`);
+  }
+
+  const section17 = buildSection17Derived(years, byYear);
 
   return [
     `# ${instrument.name}（${norm}）`,
@@ -159,7 +350,7 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     `- 股票代码：${norm}`,
     `- 市场：${instrument.market}`,
     `- 币种：${instrument.currency ?? "CNY"}`,
-    `- 行业：未知`,
+    `- 行业：${industryLabel}`,
     `- 最新股价：${safeNum(quote.price, 0).toFixed(4)}`,
     `- 最新市值：${fmt(marketCapResolved)} 百万元`,
     `- 总股本：${fmt(totalSharesMm)} 百万股`,
@@ -176,6 +367,7 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     `| 每股收益EPS | ${epsValues.map((v) => fmt(v, 4)).join(" | ")} |`,
     `| 每股分红DPS | ${dpsValues.map((v) => fmt(v, 4)).join(" | ")} |`,
     "",
+    ...section3p,
     "## §4 资产负债表（百万元）",
     yearHeader,
     yearSep,
@@ -184,6 +376,7 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     `| 有息负债 | ${balDebt.map((v) => fmt(v)).join(" | ")} |`,
     `| 货币资金 | ${balCash.map((v) => fmt(v)).join(" | ")} |`,
     "",
+    ...section4p,
     "## §5 现金流量表（百万元）",
     yearHeader,
     yearSep,
@@ -197,14 +390,15 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
       ? `- 最近一根 K 线：${lastBar.ts} 开${lastBar.open} 高${lastBar.high} 低${lastBar.low} 收${lastBar.close}`
       : `- 最近一根 K 线：无`,
     "",
-    "## §7 股东与股本（占位）",
-    "> 上游 feed 未映射前十大股东/户数时，本节保留结构占位。",
+    "## §7 股东与股本",
+    `- 采样窗口内企业行动条数：${dataPack.corporateActions?.length ?? 0}（分红/送转等；前十大股东明细待 feed 股东接口接入）`,
     "",
     "## §8 重大事件与公告（占位）",
     "> 可由后续 Phase1B / 新闻接口填充。",
     "",
-    "## §9 行业与竞争（占位）",
-    "> 行业名称当前缺省为「未知」，待行业数据接入后替换。",
+    "## §9 行业与竞争",
+    `- 行业标签：${industryLabel}`,
+    "> 竞争格局摘要建议由 Phase1B §8 或研报检索补齐。",
     "",
     "## §10 分红融资与资本运作",
     `- 采样期内企业行动条数：${dataPack.corporateActions?.length ?? 0}`,
@@ -213,7 +407,7 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     `- 采样窗口内交易日计数（来自日历接口）：${tradingDays}`,
     "",
     "## §12 数据质量与来源",
-    `- Phase1A JSON：instrument / quote / klines / financialSnapshot（+ 可选 corporateActions、tradingCalendar）`,
+    `- Phase1A JSON：instrument / quote / klines / financialSnapshot / **financialHistory（可选）**（+ 可选 corporateActions、tradingCalendar）`,
     "",
     "## §13 Warnings",
     ...warnLines,
@@ -228,7 +422,6 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
       ? `- OHLC：${fmt(safeNum(lastBar.open, 0))} / ${fmt(safeNum(lastBar.high, 0))} / ${fmt(safeNum(lastBar.low, 0))} / ${fmt(safeNum(lastBar.close, 0))}（${lastBar.ts}）`
       : "- （无）",
     "",
-    "## §17 其他（占位）",
-    "",
+    ...section17,
   ].join("\n");
 }

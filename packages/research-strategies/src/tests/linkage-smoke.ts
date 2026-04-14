@@ -8,8 +8,10 @@ import assert from "node:assert/strict";
 import type { DataPackMarket, PdfSections } from "@trade-signal/schema-core";
 
 import { renderQualitativeD1D6Scaffold } from "../business-analysis/d1-d6-scaffold.js";
+import { evaluatePhase3Preflight } from "../pipeline/phase3-preflight.js";
 import { renderPhase2BDataPackReport } from "../phase2b/renderer.js";
 import { buildMarketPackMarkdown } from "../workflow/build-market-pack.js";
+import { refreshMarketPackMarkdown } from "../workflow/refresh-market-pack.js";
 
 function sampleDataPack(): DataPackMarket {
   return {
@@ -41,7 +43,28 @@ function sampleDataPack(): DataPackMarket {
       minorityInterestPnL: 300,
       marketCapBaiWan: 180_000,
       totalSharesOutstandingMm: 6315.2,
+      parentRevenue: 80_000,
+      parentNetProfit: 9000,
+      parentTotalAssets: 120_000,
+      parentTotalLiabilities: 70_000,
     },
+    financialHistory: [
+      {
+        code: "600887",
+        period: "2023",
+        revenue: 118_000,
+        netProfit: 10_200,
+        operatingCashFlow: 14_000,
+        totalAssets: 162_000,
+        totalLiabilities: 91_000,
+        capitalExpenditure: 4100,
+        interestBearingDebt: 11_500,
+        cashAndEquivalents: 39_000,
+        minorityInterestPnL: 280,
+        earningsPerShare: 1.62,
+        dividendsPerShare: 1.05,
+      },
+    ],
     corporateActions: [
       {
         code: "600887",
@@ -71,11 +94,35 @@ function main(): void {
   const md = buildMarketPackMarkdown("600887", sampleDataPack());
   assert.match(md, /## §13 Warnings/);
   assert.match(md, /\| 指标 \| 2024 \| 2023 \|/);
-  assert.match(md, /## §17 其他/);
+  assert.match(md, /## §17 衍生指标/);
+  assert.match(md, /## §3P 母公司利润表/);
+  assert.match(md, /母公司营业收入/);
+  const refreshed = refreshMarketPackMarkdown("600887", md, {
+    ...sampleDataPack(),
+    quote: { code: "600887", price: 99, timestamp: new Date().toISOString() },
+  });
+  assert.match(refreshed, /99\.0000/);
 
-  const report = renderPhase2BDataPackReport({ sections: samplePdfSections(), includeMda: true });
+  const pf = evaluatePhase3Preflight({
+    companyName: "伊利股份",
+    marketMarkdown: md,
+    reportMarkdown: `# x\n\n## MDA 管理层讨论与分析\n${"摘录".repeat(40)}\n`,
+  });
+  assert.equal(pf.verdict, "PROCEED");
+
+  const report = renderPhase2BDataPackReport({
+    sections: samplePdfSections(),
+    includeMda: true,
+    reportKind: "annual",
+  });
+  assert.match(report, /reportKind.*annual/);
   assert.match(report, /## MDA /);
   assert.match(report, /管理层讨论与分析/);
+  const interimRep = renderPhase2BDataPackReport({
+    sections: samplePdfSections(),
+    reportKind: "interim",
+  });
+  assert.match(interimRep, /# data_pack_report_interim/);
 
   const reportNoMda = renderPhase2BDataPackReport({ sections: samplePdfSections(), includeMda: false });
   assert.ok(!reportNoMda.includes("## MDA "));
@@ -95,6 +142,7 @@ function main(): void {
   });
   assert.match(d1d6, /## D1 商业模式/);
   assert.match(d1d6, /## D6 控股结构/);
+  assert.match(d1d6, /证据约束/);
 
   console.log("[test:linkage] ok");
 }

@@ -14,6 +14,10 @@ type CliArgs = {
   category?: string;
   phase1bChannel?: "http" | "mcp";
   strict?: boolean;
+  interimReportMdPath?: string;
+  interimPdfPath?: string;
+  refreshMarket?: boolean;
+  preflightRemedyPass?: number;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -22,6 +26,10 @@ function parseArgs(argv: string[]): CliArgs {
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
     if (key === "--") continue;
+    if (key === "--refresh-market") {
+      flags.add("refresh-market");
+      continue;
+    }
     if (key === "--strict") {
       flags.add("strict");
       continue;
@@ -38,6 +46,16 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error(`Invalid --phase1b-channel: ${channel}`);
   }
 
+  const passRaw = values["preflight-remedy-pass"];
+  let preflightRemedyPass: number | undefined;
+  if (passRaw !== undefined) {
+    const n = Number(passRaw);
+    if (!Number.isFinite(n) || (n !== 0 && n !== 1)) {
+      throw new Error(`Invalid --preflight-remedy-pass: ${passRaw} (expected 0|1)`);
+    }
+    preflightRemedyPass = n;
+  }
+
   return {
     code: values.code,
     year: values.year,
@@ -50,6 +68,10 @@ function parseArgs(argv: string[]): CliArgs {
     category: values.category,
     phase1bChannel: channel as "http" | "mcp" | undefined,
     strict: flags.has("strict"),
+    interimReportMdPath: values["interim-report-md"],
+    interimPdfPath: values["interim-pdf"],
+    refreshMarket: flags.has("refresh-market"),
+    preflightRemedyPass,
   };
 }
 
@@ -69,6 +91,10 @@ async function main(): Promise<void> {
     category: args.category,
     phase1bChannel: args.phase1bChannel,
     strict: args.strict,
+    interimReportMdPath: args.interimReportMdPath,
+    interimPdfPath: args.interimPdfPath,
+    refreshMarket: args.refreshMarket,
+    preflightRemedyPass: args.preflightRemedyPass,
   });
 
   console.log(`[business-analysis] outputDir -> ${result.outputDir}`);
@@ -76,6 +102,9 @@ async function main(): Promise<void> {
   console.log(`[business-analysis] qualitative_d1_d6 -> ${result.qualitativeD1D6Path}`);
   console.log(`[business-analysis] data_pack_market -> ${result.marketPackPath}`);
   if (result.dataPackReportPath) console.log(`[business-analysis] data_pack_report -> ${result.dataPackReportPath}`);
+  if (result.dataPackReportInterimPath) {
+    console.log(`[business-analysis] data_pack_report_interim -> ${result.dataPackReportInterimPath}`);
+  }
   console.log(`[business-analysis] manifest -> ${result.manifestPath}`);
 }
 

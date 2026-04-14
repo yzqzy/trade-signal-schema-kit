@@ -53,6 +53,7 @@ function parseFinancialRows(text: string): FinancialYearData[] {
     if (activeYears.length === 0) continue;
 
     const rowName = cells[0] ?? "";
+    if (rowName.includes("母公司")) continue;
     const values = cells
       .slice(1, activeYears.length + 1)
       .map((v) => toNumber(v))

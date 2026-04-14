@@ -35,6 +35,7 @@ export function renderQualitativeD1D6Scaffold(input: {
 }): string {
   const { phase1b, pdfPath, reportUrl } = input;
   const evidenceLines = flattenPhase1BEvidenceLines(phase1b);
+  const evidenceCount = evidenceLines.length;
   const rough = phase1bRoughSummary(phase1b);
   const evidenceHint =
     pdfPath || reportUrl
@@ -47,6 +48,13 @@ export function renderQualitativeD1D6Scaffold(input: {
     "> 本文件为 **Turtle PDF-first 单 Agent** 对齐用的结构化占位 + Phase1B 事实摘录。",
     "> 各 `D*` 下「待 LLM 补全」段落应在协调器提示词中强制覆盖。",
     "",
+    "## 输出质量门槛（可执行契约）",
+    "",
+    "- 每一 `D*` 正文须含 **≥1 条可追溯证据**（PDF 页码 / 检索 URL / `data_pack_report` 段落引用）。",
+    "- **D3 / D5**：若 Phase1B 结构化证据 < 2 条，须在章节首行声明 **「证据不足，待补充检索」**，禁止编造细节。",
+    "- 禁止无来源的绝对化表述（如「必然」「毫无疑问」）；数值须标注口径（TTM / 年报 / 中报）。",
+    "- 与 `data_pack_market.md` §13 Warnings 冲突时，须在对应 `D*` 明示「以 Warning 为优先」并解释影响。",
+    "",
     "## 元数据",
     "",
     `- 股票代码：${phase1b.stockCode}`,
@@ -54,10 +62,14 @@ export function renderQualitativeD1D6Scaffold(input: {
     `- 年份：${phase1b.year ?? "（未指定）"}`,
     `- 生成时间：${phase1b.generatedAt}`,
     evidenceHint,
+    `- Phase1B 结构化证据条数：**${evidenceCount}**`,
     "",
     "---",
     "",
     "## D1 商业模式（价值创造逻辑）",
+    "",
+    "### 证据约束",
+    "- 至少 1 条来源指向：收入结构、分部、或财报「主营业务」描述。",
     "",
     "### 事实摘录（Phase1B）",
     rough ? `> ${rough.replace(/\n/g, " ").slice(0, 800)}` : "> （Phase1B 无可用摘要字段）",
@@ -68,11 +80,17 @@ export function renderQualitativeD1D6Scaffold(input: {
     "",
     "## D2 护城河与竞争地位（Greenwald 视角）",
     "",
+    "### 证据约束",
+    "- 竞争格局须引用 Phase1B §7/§8 或 PDF 中可核对段落，不得纯常识堆砌。",
+    "",
     "### 待 LLM 补全",
     "- 供给侧规模经济、需求侧规模经济、高转换成本、网络效应等证据链",
     "- 与行业格局、价格带的对应关系",
     "",
     "## D3 外部环境（行业与政策）",
+    "",
+    "### 证据约束",
+    "- 政策/监管论点须对应可追溯来源；无来源则列入「待核验清单」。",
     "",
     "### 事实摘录（Phase1B 证据）",
     ...(evidenceLines.length > 0
@@ -84,18 +102,33 @@ export function renderQualitativeD1D6Scaffold(input: {
     "",
     "## D4 管理层与治理",
     "",
+    "### 证据约束",
+    "- 须与 `data_pack_report` 治理/关联交易相关摘录交叉引用（若报告包缺失则声明缺口）。",
+    "",
     "### 待 LLM 补全",
     "- 资本配置记录、激励相容、关联交易与治理结构（与 data_pack_report 交叉验证）",
     "",
     "## D5 MD&A 与经营讨论",
+    "",
+    "### 证据约束",
+    "- 必须以 `data_pack_report` 的 **MDA** 块为主证据；缺失时停止展开经营细节。",
     "",
     "### 待 LLM 补全",
     "- 与 `data_pack_report` 中 **MDA** 章节对齐：经营变化、风险因素、前瞻性陈述可信度",
     "",
     "## D6 控股结构与资本架构",
     "",
+    "### 证据约束",
+    "- 控股与资本工具描述须引用 SUB/权益变动或资产负债表附注；与 `data_pack_market` 有息负债、少数股东损益对照。",
+    "",
     "### 待 LLM 补全",
     "- 控股链条、表内外杠杆、少数股东权益与利润分配（与 SUB / 资产负债表交叉验证）",
+    "",
+    "## 编排层自检（写入时生成）",
+    "",
+    evidenceCount < 2
+      ? "> ⚠️ **提示**：Phase1B 证据 < 2 条，严格 PDF-first 下应在运行前补充检索或放宽为非 strict。"
+      : "> ✅ Phase1B 证据条数达到最低参考阈值（仍以人工/LLM 复核为准）。",
     "",
   ].join("\n");
 }

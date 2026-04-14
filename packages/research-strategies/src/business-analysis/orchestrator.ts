@@ -23,6 +23,8 @@ export interface BusinessAnalysisArtifacts {
   phase1bJsonPath: string;
   phase1bMarkdownPath: string;
   dataPackReportPath?: string;
+  /** 由 `--interim-pdf` 生成的 `data_pack_report_interim.md` */
+  dataPackReportInterimPath?: string;
   manifestPath: string;
   pdfPath?: string;
 }
@@ -102,12 +104,28 @@ export async function runBusinessAnalysis(
       phase1bJsonPath: pipeline.phase1bJsonPath,
       phase1bMarkdownPath: pipeline.phase1bMarkdownPath,
       dataPackReportPath: pipeline.phase2bMarkdownPath,
+      dataPackReportInterimPath: pipeline.phase2bInterimMarkdownPath,
     },
     pipeline: {
       valuation: {
         relativePaths: {
           marketMd: marketRel,
           ...(reportRel ? { reportMd: reportRel } : {}),
+          ...(pipeline.phase2bInterimMarkdownPath
+            ? {
+                interimReportMd: path.relative(
+                  pipeline.outputDir,
+                  pipeline.phase2bInterimMarkdownPath,
+                ),
+              }
+            : input.interimReportMdPath?.trim()
+              ? {
+                  interimReportMd: path.relative(
+                    pipeline.outputDir,
+                    path.resolve(input.interimReportMdPath.trim()),
+                  ),
+                }
+              : {}),
         },
         suggestedNextCommand: `pnpm run valuation:run -- --from-manifest "${manifestPath}"`,
       },
@@ -123,6 +141,7 @@ export async function runBusinessAnalysis(
     phase1bJsonPath: pipeline.phase1bJsonPath,
     phase1bMarkdownPath: pipeline.phase1bMarkdownPath,
     dataPackReportPath: pipeline.phase2bMarkdownPath,
+    dataPackReportInterimPath: pipeline.phase2bInterimMarkdownPath,
     manifestPath,
     pdfPath: pipeline.pdfPath,
   };

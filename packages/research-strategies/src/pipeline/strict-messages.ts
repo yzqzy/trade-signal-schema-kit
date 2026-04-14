@@ -27,3 +27,11 @@ export function strictWorkflowTurtleDiscoveryFailed(detail: string): string {
 export function strictPreflightPhase1AFailed(detail: string): string {
   return `${STRICT_PREFLIGHT_PREFIX} Phase1A Pre-flight 未通过：${detail}`;
 }
+
+export function strictPreflightPhase3Abort(detail: string): string {
+  return `${STRICT_PREFLIGHT_PREFIX} Phase3 Pre-flight ABORT：${detail}`;
+}
+
+export function strictPreflightPhase3SupplementNeeded(): string {
+  return `${STRICT_PREFLIGHT_PREFIX} Phase3 Pre-flight 需要补救（SUPPLEMENT_NEEDED）。请按同目录 phase3_preflight.md 中的 SUPPLEMENT_REQUEST 补齐后，使用 --preflight-remedy-pass 1 重跑（最多一次）。`;
+}

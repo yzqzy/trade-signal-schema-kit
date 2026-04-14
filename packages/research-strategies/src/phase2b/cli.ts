@@ -15,6 +15,8 @@ type CliArgs = {
   phase2aOutputPath?: string;
   verbose: boolean;
   noMda: boolean;
+  /** 输出 `data_pack_report_interim` 契约头（中报/季报） */
+  interim: boolean;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -24,7 +26,7 @@ function parseArgs(argv: string[]): CliArgs {
     if (key === "--") continue;
     if (!key.startsWith("--")) continue;
     const name = key.slice(2);
-    if (name === "verbose" || name === "no-mda") {
+    if (name === "verbose" || name === "no-mda" || name === "interim") {
       values[name] = true;
       continue;
     }
@@ -41,6 +43,7 @@ function parseArgs(argv: string[]): CliArgs {
     phase2aOutputPath: values["phase2a-output"] ? String(values["phase2a-output"]) : undefined,
     verbose: Boolean(values["verbose"]),
     noMda: Boolean(values["no-mda"]),
+    interim: Boolean(values["interim"]),
   };
 }
 
@@ -67,7 +70,11 @@ async function writeTextFile(filePath: string, content: string): Promise<void> {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const sections = await loadSectionsByArgs(args);
-  const markdown = renderPhase2BDataPackReport({ sections, includeMda: !args.noMda });
+  const markdown = renderPhase2BDataPackReport({
+    sections,
+    includeMda: !args.noMda,
+    reportKind: args.interim ? "interim" : "annual",
+  });
   await writeTextFile(args.outputPath, markdown);
 
   console.log(`[phase2b] done -> ${args.outputPath}`);

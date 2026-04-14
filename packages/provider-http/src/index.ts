@@ -47,6 +47,9 @@ type StockDetailPayload = {
   tickSize?: number;
   tick_size?: number;
   market?: string | number;
+  industry?: string;
+  sector?: string;
+  hybk?: string;
 };
 
 type StockQuotePayload = {
@@ -120,6 +123,11 @@ type FinancialPayload = {
   totalShares?: number;
   totalSharesOutstandingMm?: number;
   floatShares?: number;
+  parentRevenue?: number;
+  parentOperatingRevenue?: number;
+  parentOperatingCashFlow?: number;
+  parentTotalAssets?: number;
+  parentTotalLiabilities?: number;
 };
 
 const PERIOD_TO_FQT: Record<"none" | "forward" | "backward", "none" | "pre" | "after"> = {
@@ -150,6 +158,33 @@ const inferMarket = (input: string): Market => {
   if (code.endsWith(".HK") || /^\d{5}$/.test(code)) return "HK";
   return "CN_A";
 };
+
+function mapFinancialPayload(payload: FinancialPayload, code: string, period: string): FinancialSnapshot {
+  return {
+    code: payload.code ?? payload.secucode ?? code,
+    period: payload.period ?? payload.reportDate ?? period,
+    revenue: asNumber(payload.revenue ?? payload.operatingRevenue ?? payload.totalRevenue),
+    netProfit: asNumber(payload.netProfit ?? payload.parentNetProfit),
+    operatingCashFlow: asNumber(payload.operatingCashFlow ?? payload.netCashflowOper),
+    totalAssets: asNumber(payload.totalAssets),
+    totalLiabilities: asNumber(payload.totalLiabilities),
+    capitalExpenditure: asNumber(payload.capex ?? payload.capitalExpenditure),
+    interestBearingDebt: asNumber(payload.interestBearingDebt ?? payload.interestDebt),
+    cashAndEquivalents: asNumber(payload.monetaryFunds ?? payload.cash ?? payload.cashAndEquivalents),
+    minorityInterestPnL: asNumber(
+      payload.minorityInterestPnL ?? payload.minorityPnL ?? payload.minorityInterest,
+    ),
+    earningsPerShare: asNumber(payload.earningsPerShare ?? payload.basicEps ?? payload.eps),
+    dividendsPerShare: asNumber(payload.dividendsPerShare ?? payload.dps ?? payload.dividendPerShare),
+    marketCapBaiWan: asNumber(payload.marketCapBaiWan ?? payload.totalMv ?? payload.marketCap),
+    totalSharesOutstandingMm: asNumber(payload.totalSharesOutstandingMm ?? payload.totalShares),
+    parentRevenue: asNumber(payload.parentRevenue ?? payload.parentOperatingRevenue),
+    parentNetProfit: asNumber(payload.parentNetProfit),
+    parentOperatingCashFlow: asNumber(payload.parentOperatingCashFlow),
+    parentTotalAssets: asNumber(payload.parentTotalAssets),
+    parentTotalLiabilities: asNumber(payload.parentTotalLiabilities),
+  };
+}
 
 const parseKlineRecord = (record: KlineRecord): {
   ts?: string;
@@ -239,6 +274,7 @@ export class FeedHttpProvider implements MarketDataProvider {
       currency: payload.currency,
       lotSize: asNumber(payload.lotSize ?? payload.lot_size),
       tickSize: asNumber(payload.tickSize ?? payload.tick_size),
+      industry: payload.industry ?? payload.sector ?? payload.hybk,
     };
   }
 
@@ -289,29 +325,18 @@ export class FeedHttpProvider implements MarketDataProvider {
     const payload = await this.request<FinancialPayload>(
       `/stock/indicator/financial/${encodeURIComponent(code)}`,
     );
-    return {
-      code: payload.code ?? payload.secucode ?? code,
-      period: payload.period ?? payload.reportDate ?? period,
-      revenue: asNumber(payload.revenue ?? payload.operatingRevenue ?? payload.totalRevenue),
-      netProfit: asNumber(payload.netProfit ?? payload.parentNetProfit),
-      operatingCashFlow: asNumber(payload.operatingCashFlow ?? payload.netCashflowOper),
-      totalAssets: asNumber(payload.totalAssets),
-      totalLiabilities: asNumber(payload.totalLiabilities),
-      capitalExpenditure: asNumber(payload.capex ?? payload.capitalExpenditure),
-      interestBearingDebt: asNumber(payload.interestBearingDebt ?? payload.interestDebt),
-      cashAndEquivalents: asNumber(
-        payload.monetaryFunds ?? payload.cash ?? payload.cashAndEquivalents,
-      ),
-      minorityInterestPnL: asNumber(
-        payload.minorityInterestPnL ?? payload.minorityPnL ?? payload.minorityInterest,
-      ),
-      earningsPerShare: asNumber(payload.earningsPerShare ?? payload.basicEps ?? payload.eps),
-      dividendsPerShare: asNumber(
-        payload.dividendsPerShare ?? payload.dps ?? payload.dividendPerShare,
-      ),
-      marketCapBaiWan: asNumber(payload.marketCapBaiWan ?? payload.totalMv ?? payload.marketCap),
-      totalSharesOutstandingMm: asNumber(payload.totalSharesOutstandingMm ?? payload.totalShares),
-    };
+    return mapFinancialPayload(payload, code, period);
+  }
+
+  async getFinancialHistory(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]> {
+    const settled = await Promise.allSettled(
+      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${y}-12-31`)),
+    );
+    const out: FinancialSnapshot[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") out.push(r.value);
+    }
+    return out;
   }
 
   async getCorporateActions(

@@ -1,5 +1,7 @@
 import type { DataPackMarket, KlinePeriod, Market, MarketDataProvider } from "@trade-signal/schema-core";
 
+import { loadFinancialHistory, normalizeFinancialHistory } from "./financial-history.js";
+
 export interface CollectPhase1AInput {
   code: string;
   period?: KlinePeriod;
@@ -7,6 +9,8 @@ export interface CollectPhase1AInput {
   to?: string;
   adj?: "none" | "forward" | "backward";
   includeFinancialSnapshot?: boolean;
+  /** A股默认 true：尝试填充 `financialHistory` 供市场包多年列真实回填 */
+  includeFinancialHistory?: boolean;
   includeCorporateActions?: boolean;
   includeTradingCalendar?: boolean;
   financialPeriod?: string;
@@ -15,6 +19,12 @@ export interface CollectPhase1AInput {
 }
 
 const DEFAULT_PERIOD: KlinePeriod = "day";
+
+function anchorFiscalYearFromSnapshot(fallback: number, fin?: { period?: string } | null): number {
+  const m = fin?.period?.match(/20\d{2}/)?.[0];
+  if (m) return Number(m);
+  return fallback;
+}
 
 async function loadOptional<T>(
   enabled: boolean,
@@ -53,6 +63,7 @@ export async function collectPhase1ADataPack(
 
   const optionalFailure = input.optionalFailure ?? "ignore";
   const includeFinancialSnapshot = input.includeFinancialSnapshot ?? true;
+  const includeFinancialHistory = input.includeFinancialHistory ?? instrument.market === "CN_A";
   const includeCorporateActions = input.includeCorporateActions ?? true;
   const includeTradingCalendar = input.includeTradingCalendar ?? true;
 
@@ -68,11 +79,33 @@ export async function collectPhase1ADataPack(
     ),
   ]);
 
+  let financialHistory: DataPackMarket["financialHistory"];
+  if (includeFinancialSnapshot && includeFinancialHistory && financialSnapshot) {
+    const anchor = anchorFiscalYearFromSnapshot(new Date().getFullYear() - 1, financialSnapshot);
+    financialHistory = await loadFinancialHistory(provider, input.code, anchor, 5);
+    if (financialHistory && financialHistory.length > 0) {
+      const latestY = financialHistory[0]?.period?.match(/20\d{2}/)?.[0];
+      const snapY = financialSnapshot.period?.match(/20\d{2}/)?.[0];
+      const already =
+        latestY &&
+        snapY &&
+        latestY === snapY &&
+        financialHistory[0]?.revenue === financialSnapshot.revenue &&
+        financialHistory[0]?.netProfit === financialSnapshot.netProfit;
+      if (!already) {
+        financialHistory = normalizeFinancialHistory([financialSnapshot, ...financialHistory]);
+      }
+    } else if (financialSnapshot) {
+      financialHistory = normalizeFinancialHistory([financialSnapshot]);
+    }
+  }
+
   return {
     instrument,
     quote,
     klines,
     financialSnapshot,
+    financialHistory,
     corporateActions,
     tradingCalendar,
   };

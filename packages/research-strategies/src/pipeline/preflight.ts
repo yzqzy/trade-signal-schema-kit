@@ -46,6 +46,15 @@ export function runPreflightAfterPhase1A(input: PreflightPhase1AInput): void {
     failures.push("data_pack_market.md 缺少「## §13 Warnings」章节（契约对齐失败）");
   }
 
+  const estimateTags = marketPackMarkdown.match(/\[估算\|/g)?.length ?? 0;
+  const maxEstRaw = process.env.PHASE1A_PREFLIGHT_MAX_ESTIMATE_TAGS?.trim();
+  const maxEst = maxEstRaw ? Number(maxEstRaw) : 6;
+  if (Number.isFinite(maxEst) && estimateTags > maxEst) {
+    failures.push(
+      `市场包中 [估算| 类警告过多（${estimateTags} > ${maxEst}）；请改进 feed 字段或调整 PHASE1A_PREFLIGHT_MAX_ESTIMATE_TAGS`,
+    );
+  }
+
   if (failures.length > 0) {
     throw new Error(strictPreflightPhase1AFailed(failures.join("；")));
   }

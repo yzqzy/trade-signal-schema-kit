@@ -67,6 +67,7 @@ type BusinessAnalysisManifest = {
       relativePaths?: {
         marketMd?: string;
         reportMd?: string;
+        interimReportMd?: string;
       };
     };
   };
@@ -102,7 +103,7 @@ function renderValuationSummaryMarkdown(result: Phase3ExecutionResult, fullRepor
 
 async function resolvePathsFromManifest(
   manifestPath: string,
-): Promise<{ marketMdPath: string; reportMdPath?: string; outputDir: string }> {
+): Promise<{ marketMdPath: string; reportMdPath?: string; interimReportMdPath?: string; outputDir: string }> {
   const absManifest = resolveInputPath(manifestPath);
   const baseDir = path.dirname(absManifest);
   const raw = await readFile(absManifest, "utf-8");
@@ -113,6 +114,7 @@ async function resolvePathsFromManifest(
     return {
       marketMdPath: path.join(baseDir, rel.marketMd),
       reportMdPath: rel.reportMd ? path.join(baseDir, rel.reportMd) : undefined,
+      interimReportMdPath: rel.interimReportMd ? path.join(baseDir, rel.interimReportMd) : undefined,
       outputDir: baseDir,
     };
   }
@@ -130,6 +132,7 @@ async function resolvePathsFromManifest(
         ? manifest.outputs.dataPackReportPath
         : path.join(baseDir, manifest.outputs.dataPackReportPath)
       : undefined,
+    interimReportMdPath: undefined,
     outputDir: baseDir,
   };
 }
@@ -139,13 +142,14 @@ async function main(): Promise<void> {
 
   let marketMdPath = args.marketMdPath;
   let reportMdPath = args.reportMdPath;
-  const interimReportMdPath = args.interimReportMdPath;
+  let interimReportMdPath = args.interimReportMdPath;
   let outDir = resolveOutputPath(args.outputDir);
 
   if (args.fromManifest) {
     const resolved = await resolvePathsFromManifest(args.fromManifest);
     marketMdPath = marketMdPath ?? resolved.marketMdPath;
     reportMdPath = reportMdPath ?? resolved.reportMdPath;
+    interimReportMdPath = interimReportMdPath ?? resolved.interimReportMdPath;
     outDir =
       args.outputDir === "output" ? resolved.outputDir : resolveOutputPath(args.outputDir);
   }

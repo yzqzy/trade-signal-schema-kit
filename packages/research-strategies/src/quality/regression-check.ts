@@ -14,6 +14,11 @@ function normalizeTimestamps(text: string): string {
   return text.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<TIMESTAMP>");
 }
 
+/** 报告中的「分析日期 / 获取日期」等随运行日变化，回归比对时抹平 */
+function normalizeRegressibleDocs(text: string): string {
+  return normalizeTimestamps(text).replace(/\b20\d{2}-\d{2}-\d{2}\b/g, "<DATE>");
+}
+
 function resolveRepoRoot(): string {
   const cwd = process.cwd();
   const base = path.basename(cwd);
@@ -65,14 +70,15 @@ async function runRegressionForSuite(root: string, name: "cn_a" | "hk"): Promise
   const valuationObj = out.valuation as unknown as Record<string, unknown>;
   valuationObj.generatedAt = "<TIMESTAMP>";
   const valuation = JSON.stringify(valuationObj, null, 2);
-  const markdown = normalizeTimestamps(renderPhase3Markdown(out));
-  const html = normalizeTimestamps(renderPhase3Html(markdown));
+  const markdownRaw = renderPhase3Markdown(out);
+  const markdown = normalizeRegressibleDocs(markdownRaw);
+  const html = normalizeRegressibleDocs(renderPhase3Html(markdownRaw));
 
   const baselineValuationObj = JSON.parse(baselineValuationRaw) as Record<string, unknown>;
   baselineValuationObj.generatedAt = "<TIMESTAMP>";
   const baselineValuation = JSON.stringify(baselineValuationObj, null, 2);
-  const baselineReportMd = normalizeTimestamps(baselineReportMdRaw);
-  const baselineReportHtml = normalizeTimestamps(baselineReportHtmlRaw);
+  const baselineReportMd = normalizeRegressibleDocs(baselineReportMdRaw);
+  const baselineReportHtml = normalizeRegressibleDocs(baselineReportHtmlRaw);
 
   assert.equal(
     createHash("sha256").update(valuation).digest("hex"),

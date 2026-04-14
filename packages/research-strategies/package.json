@@ -26,7 +26,8 @@
     "quality:contract": "node dist/packages/research-strategies/src/quality/contract-check.js",
     "quality:regression": "node dist/packages/research-strategies/src/quality/regression-check.js --suite all",
     "quality:all": "pnpm run quality:conformance && pnpm run quality:contract && pnpm run quality:regression && pnpm run quality:phase3-golden",
-    "test:linkage": "node dist/packages/research-strategies/src/tests/linkage-smoke.js"
+    "test:linkage": "node dist/packages/research-strategies/src/tests/linkage-smoke.js",
+    "test:phase2": "node dist/packages/research-strategies/src/tests/phase2a-logic-smoke.js"
   },
   "dependencies": {
     "@trade-signal/provider-http": "workspace:*",

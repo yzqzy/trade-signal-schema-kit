@@ -16,6 +16,8 @@ export interface Instrument {
   currency?: string;
   lotSize?: number;
   tickSize?: number;
+  /** 行业/板块（若 feed 提供），用于 §9 等章节 */
+  industry?: string;
 }
 
 export interface Quote {
@@ -61,6 +63,16 @@ export interface FinancialSnapshot {
   marketCapBaiWan?: number;
   /** 总股本（百万股） */
   totalSharesOutstandingMm?: number;
+  /** 母公司营业收入（百万元），用于 §3P */
+  parentRevenue?: number;
+  /** 母公司净利润（百万元） */
+  parentNetProfit?: number;
+  /** 母公司经营活动现金流（百万元） */
+  parentOperatingCashFlow?: number;
+  /** 母公司总资产（百万元），用于 §4P */
+  parentTotalAssets?: number;
+  /** 母公司总负债（百万元） */
+  parentTotalLiabilities?: number;
 }
 
 export interface CorporateAction {
@@ -98,6 +110,11 @@ export interface MarketDataProvider {
     adj?: "none" | "forward" | "backward";
   }): Promise<KlineBar[]>;
   getFinancialSnapshot(code: string, period: string): Promise<FinancialSnapshot>;
+  /**
+   * 可选：按财报年度拉取多年快照（降序或无序均可；由编排层去重排序）。
+   * 用于 `data_pack_market` 多年列真实回填，避免单期外推复制。
+   */
+  getFinancialHistory?(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]>;
   getCorporateActions(code: string, from?: string, to?: string): Promise<CorporateAction[]>;
   getTradingCalendar(market: Market, from: string, to: string): Promise<TradingCalendar[]>;
 }
@@ -130,9 +147,21 @@ export interface DataPackMarket {
   quote: Quote;
   klines: KlineBar[];
   financialSnapshot?: FinancialSnapshot;
+  /** 多年财报快照（优先于单期外推）；通常按报告期年度降序 */
+  financialHistory?: FinancialSnapshot[];
   tradingCalendar?: TradingCalendar[];
   corporateActions?: CorporateAction[];
   news?: NewsItem[];
+}
+
+export type Phase2SectionConfidence = "high" | "medium" | "low";
+
+export interface PdfSectionDiagnosticEntry {
+  bestPage: number;
+  score: number;
+  confidence: Phase2SectionConfidence;
+  runnerUpPage?: number;
+  runnerUpScore?: number;
 }
 
 export interface PdfSectionsMetadata {
@@ -141,6 +170,10 @@ export interface PdfSectionsMetadata {
   extractTime: string;
   sectionsFound: number;
   sectionsTotal: number;
+  /** Phase2A：估计的财报「附注/财务报告」起始页（启发式） */
+  annexStartPageEstimate?: number;
+  /** Phase2A：各章节定位得分与置信度（可解释性 / 回归对照） */
+  sectionDiagnostics?: Partial<Record<string, PdfSectionDiagnosticEntry>>;
 }
 
 export interface PdfSectionBlock {
@@ -148,6 +181,10 @@ export interface PdfSectionBlock {
   content?: string;
   pageFrom?: number;
   pageTo?: number;
+  /** Phase2A：本块定位置信度 */
+  confidence?: Phase2SectionConfidence;
+  /** Phase2A/2B：抽取告警（边界可疑、低置信度等） */
+  extractionWarnings?: string[];
 }
 
 export interface PdfSections {

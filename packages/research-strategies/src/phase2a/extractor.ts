@@ -3,19 +3,29 @@ import path from "node:path";
 
 import { PDFParse } from "pdf-parse";
 
-import type { PdfSectionBlock, PdfSections } from "@trade-signal/schema-core";
+import type {
+  PdfSectionBlock,
+  PdfSectionDiagnosticEntry,
+  PdfSections,
+  Phase2SectionConfidence,
+} from "@trade-signal/schema-core";
 
 import {
   PHASE2A_SECTION_BUFFER_PAGES,
   PHASE2A_SECTION_KEYWORDS,
   PHASE2A_SECTION_MAX_CHARS,
+  PHASE2A_SECTION_MAX_SPAN_PAGES,
   PHASE2A_SECTION_PHASE2B_TARGETS,
   PHASE2A_SECTION_ORDER,
   PHASE2A_SECTION_TITLES,
   type Phase2ASectionId,
 } from "./keywords.js";
+import {
+  detectPageZones,
+  PHASE2A_SECTION_ZONE_PREFERENCES,
+  type PageText,
+} from "./zones.js";
 
-type PageText = { page: number; text: string };
 type PageCandidate = { page: number; score: number };
 
 export interface Phase2AExtractInput {
@@ -76,7 +86,7 @@ function detectAnnexStartPage(pages: PageText[]): number {
   const total = pages.length;
   for (const page of pages) {
     if (!page.text) continue;
-    if (/第[十0-9一二三四五六七八九]+节\s*财务报告/.test(page.text)) {
+    if (/第[十0-9一二三四五六七八九百]+节\s*财务报告/.test(page.text)) {
       return page.page;
     }
   }
@@ -107,22 +117,126 @@ function isPhase2BTarget(sectionId: Phase2ASectionId): boolean {
   return (PHASE2A_SECTION_PHASE2B_TARGETS as readonly string[]).includes(sectionId);
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function headingBonusForKeyword(text: string, keyword: string): number {
+  const esc = escapeRegExp(keyword);
+  const pats = [new RegExp(`\\d+[、.．]\\s*${esc}`), new RegExp(`[一二三四五六七八九十百]+[、.．]\\s*${esc}`)];
+  return pats.some((p) => p.test(text)) ? 12 : 0;
+}
+
+function crossReferencePenalty(text: string, keyword: string): number {
+  const idx = text.indexOf(keyword);
+  if (idx < 0) return 0;
+  const before = text.slice(Math.max(0, idx - 40), idx);
+  return /详见|参见|参照/.test(before) ? -28 : 0;
+}
+
+function subContextAdjustment(text: string, keyword: string): number {
+  const idx = text.indexOf(keyword);
+  if (idx < 0) return 0;
+  const win = text.slice(Math.max(0, idx - 200), Math.min(text.length, idx + 200));
+  const acct = ["权益法", "账面余额", "减值准备", "成本法", "账面价值"];
+  const subs = ["主营业务", "营业收入", "净利润", "注册资本", "持股比例"];
+  let adj = 0;
+  if (acct.filter((a) => win.includes(a)).length >= 2) adj -= 20;
+  if (subs.filter((s) => win.includes(s)).length >= 2) adj += 14;
+  return adj;
+}
+
+function p3ContextAdjustment(text: string, keyword: string): number {
+  const idx = text.indexOf(keyword);
+  if (idx < 0) return 0;
+  const win = text.slice(Math.max(0, idx - 200), Math.min(text.length, idx + 200));
+  const nonAr = ["预付款项", "预付账款", "预付", "应付账款", "应付票据", "其他应付"];
+  return nonAr.some((t) => win.includes(t)) ? -24 : 0;
+}
+
+function zoneAdjustment(
+  sectionId: Phase2ASectionId,
+  zone: string | undefined,
+  pageNo: number,
+  annexStartPage: number,
+  totalPages: number,
+): number {
+  const prefs = PHASE2A_SECTION_ZONE_PREFERENCES[sectionId];
+  if (zone && prefs) {
+    if (prefs.prefer.includes(zone)) return 24;
+    if (prefs.avoid.includes(zone)) return -24;
+  }
+  if (isPhase2BTarget(sectionId)) {
+    if (pageNo >= annexStartPage) return zone ? 8 : 20;
+    return -18;
+  }
+  if (sectionId === "MDA") {
+    if (zone === "MDA_ZONE") return 24;
+    if (zone && prefs && prefs.avoid.includes(zone)) return -14;
+    return pageNo < annexStartPage ? 16 : -10;
+  }
+  if (!zone && totalPages > 0 && pageNo / totalPages > 0.32) return 4;
+  return 0;
+}
+
+function scoreSectionCandidate(
+  sectionId: Phase2ASectionId,
+  page: PageText,
+  annexStartPage: number,
+  totalPages: number,
+  pageZones: Map<number, string>,
+): number {
+  const keywords = PHASE2A_SECTION_KEYWORDS[sectionId];
+  if (!page.text) return 0;
+  let score = 0;
+  let matched = false;
+  for (const keyword of keywords) {
+    const hits = countOccurrences(page.text, keyword);
+    if (hits <= 0) continue;
+    matched = true;
+    score += 22;
+    score += hits * 3;
+    const lineHit = page.text
+      .split("\n")
+      .some((line) => line.length <= 72 && line.includes(keyword));
+    if (lineHit) score += 12;
+    score += headingBonusForKeyword(page.text, keyword);
+    score += crossReferencePenalty(page.text, keyword);
+    if (sectionId === "SUB") score += subContextAdjustment(page.text, keyword);
+    if (sectionId === "P3") score += p3ContextAdjustment(page.text, keyword);
+    break;
+  }
+  if (!matched) return 0;
+  if (isLikelyTocPage(page.text)) score -= 55;
+  const zone = pageZones.get(page.page);
+  score += zoneAdjustment(sectionId, zone, page.page, annexStartPage, totalPages);
+  return score;
+}
+
+function confidenceFromScores(top: number, runnerUp: number | undefined): Phase2SectionConfidence {
+  if (top < 22) return "low";
+  if (runnerUp === undefined || top - runnerUp >= 12) return "high";
+  if (top - runnerUp >= 6) return "medium";
+  return "low";
+}
+
 function buildSectionBoundaryMatchers(sectionId: Phase2ASectionId): RegExp[] {
   const others = PHASE2A_SECTION_ORDER.filter((id) => id !== sectionId);
   const titles = others.map((id) => PHASE2A_SECTION_TITLES[id]);
   const keywords = others.flatMap((id) => PHASE2A_SECTION_KEYWORDS[id].slice(0, 2));
-  return [...titles, ...keywords].map((token) => new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  return [...titles, ...keywords].map((token) => new RegExp(escapeRegExp(token)));
 }
 
 function findSectionEndPage(
   sectionId: Phase2ASectionId,
   bestPage: number,
+  startPage: number,
   pages: PageText[],
   annexStartPage: number,
 ): number {
   const buffer = PHASE2A_SECTION_BUFFER_PAGES[sectionId];
   const boundaryMatchers = buildSectionBoundaryMatchers(sectionId);
-  const maxPage = Math.min(pages.length, bestPage + Math.max(buffer + 2, 4));
+  const maxPage = Math.min(pages.length, bestPage + Math.max(buffer + 3, 6));
   for (let pageNo = bestPage + 1; pageNo <= maxPage; pageNo += 1) {
     const page = pages[pageNo - 1];
     if (!page?.text) continue;
@@ -138,50 +252,38 @@ function findSectionEndPage(
   return Math.min(pages.length, bestPage + buffer);
 }
 
-function scoreSectionCandidate(
+function clampEndToMaxSpan(
   sectionId: Phase2ASectionId,
-  page: PageText,
-  annexStartPage: number,
-): number {
-  const keywords = PHASE2A_SECTION_KEYWORDS[sectionId];
-  if (!page.text) return 0;
-  let score = 0;
-  for (const keyword of keywords) {
-    const hits = countOccurrences(page.text, keyword);
-    if (hits > 0) {
-      score += 20;
-      score += hits * 3;
-      const lineHit = page.text
-        .split("\n")
-        .some((line) => line.length <= 60 && line.includes(keyword));
-      if (lineHit) score += 10;
-    }
-  }
-  if (score === 0) return 0;
-  if (isLikelyTocPage(page.text)) score -= 50;
-  const isAnnexSection = isPhase2BTarget(sectionId);
-  if (isAnnexSection) {
-    score += page.page >= annexStartPage ? 28 : -22;
-  } else if (sectionId === "MDA") {
-    score += page.page < annexStartPage ? 18 : -10;
-  }
-  return score;
+  startPage: number,
+  endPage: number,
+  totalPages: number,
+): { end: number; clamped: boolean } {
+  const maxSpan = PHASE2A_SECTION_MAX_SPAN_PAGES[sectionId];
+  const maxEnd = Math.min(totalPages, startPage + maxSpan - 1);
+  if (endPage <= maxEnd) return { end: endPage, clamped: false };
+  return { end: maxEnd, clamped: true };
 }
 
-function findBestPageForSection(
+function listCandidatesForSection(
   sectionId: Phase2ASectionId,
   pages: PageText[],
   annexStartPage: number,
-): PageCandidate | undefined {
-  let best: PageCandidate | undefined;
+  pageZones: Map<number, string>,
+): PageCandidate[] {
+  const total = pages.length;
+  const scored: PageCandidate[] = [];
   for (const page of pages) {
-    const score = scoreSectionCandidate(sectionId, page, annexStartPage);
-    if (score <= 0) continue;
-    if (!best || score > best.score) {
-      best = { page: page.page, score };
-    }
+    const score = scoreSectionCandidate(sectionId, page, annexStartPage, total, pageZones);
+    if (score > 0) scored.push({ page: page.page, score });
   }
-  return best;
+  scored.sort((a, b) => b.score - a.score || a.page - b.page);
+  const bestByPage = new Map<number, number>();
+  for (const c of scored) {
+    bestByPage.set(c.page, Math.max(bestByPage.get(c.page) ?? 0, c.score));
+  }
+  return [...bestByPage.entries()]
+    .map(([p, s]) => ({ page: p, score: s }))
+    .sort((a, b) => b.score - a.score || a.page - b.page);
 }
 
 function buildSectionBlock(
@@ -189,13 +291,33 @@ function buildSectionBlock(
   pages: PageText[],
   bestPage: number,
   annexStartPage: number,
+  confidence: Phase2SectionConfidence,
+  runnerUp?: PageCandidate,
 ): PdfSectionBlock | undefined {
   const bufferPages = PHASE2A_SECTION_BUFFER_PAGES[sectionId];
   let start = Math.max(1, bestPage - bufferPages);
   if (isPhase2BTarget(sectionId)) {
     start = Math.max(start, annexStartPage);
   }
-  const end = findSectionEndPage(sectionId, bestPage, pages, annexStartPage);
+  let end = findSectionEndPage(sectionId, bestPage, start, pages, annexStartPage);
+  if (end < start) end = start;
+
+  const { end: endClamped, clamped } = clampEndToMaxSpan(sectionId, start, end, pages.length);
+  end = endClamped;
+
+  const warnings: string[] = [];
+  if (confidence === "low") {
+    warnings.push("定位置信度低：存在相近候选页或关键词上下文弱，建议人工核对页码范围。");
+  } else if (confidence === "medium" && runnerUp) {
+    warnings.push(
+      `存在备选命中页 p.${runnerUp.page}（得分 ${runnerUp.score.toFixed(0)}），边界为启发式截断。`,
+    );
+  }
+  if (clamped) {
+    warnings.push(
+      `已达章节最大跨度上限（${PHASE2A_SECTION_MAX_SPAN_PAGES[sectionId]} 页），后续内容可能被截断。`,
+    );
+  }
 
   const collected = pages
     .filter((page) => page.page >= start && page.page <= end)
@@ -214,6 +336,8 @@ function buildSectionBlock(
     ),
     pageFrom: start,
     pageTo: end,
+    confidence,
+    extractionWarnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
@@ -232,29 +356,58 @@ function writeSection(
   if (sectionId === "SUB") target.SUB = value;
 }
 
+function diagnosticEntry(
+  best: PageCandidate,
+  runnerUp: PageCandidate | undefined,
+): PdfSectionDiagnosticEntry {
+  const confidence = confidenceFromScores(best.score, runnerUp?.score);
+  return {
+    bestPage: best.page,
+    score: best.score,
+    confidence,
+    runnerUpPage: runnerUp?.page,
+    runnerUpScore: runnerUp?.score,
+  };
+}
+
 export async function runPhase2AExtractPdfSections(input: Phase2AExtractInput): Promise<PdfSections> {
   const pages = await extractPageTexts(input.pdfPath);
   const annexStartPage = detectAnnexStartPage(pages);
-  const metadata = {
+  const pageZones = detectPageZones(pages);
+
+  const metadata: PdfSections["metadata"] = {
     pdfFile: path.basename(input.pdfPath),
     totalPages: pages.length,
     extractTime: new Date().toISOString(),
     sectionsFound: 0,
     sectionsTotal: PHASE2A_SECTION_ORDER.length,
+    annexStartPageEstimate: annexStartPage,
+    sectionDiagnostics: {},
   };
 
   const sections: PdfSections = { metadata };
   for (const sectionId of PHASE2A_SECTION_ORDER) {
-    const best = findBestPageForSection(sectionId, pages, annexStartPage);
+    const ranked = listCandidatesForSection(sectionId, pages, annexStartPage, pageZones);
+    const best = ranked[0];
     if (!best) continue;
-    const block = buildSectionBlock(sectionId, pages, best.page, annexStartPage);
+    const runnerUp = ranked[1];
+    const diag = diagnosticEntry(best, runnerUp);
+    metadata.sectionDiagnostics![sectionId] = diag;
+
+    const block = buildSectionBlock(
+      sectionId,
+      pages,
+      best.page,
+      annexStartPage,
+      diag.confidence,
+      runnerUp,
+    );
     if (!block) continue;
     writeSection(sections, sectionId, block);
     sections.metadata.sectionsFound += 1;
     if (input.verbose) {
-      // Keep logs terse for CLI use.
       console.log(
-        `[phase2a] ${sectionId} -> pages ${block.pageFrom}-${block.pageTo} (score=${best.score}, annexStart=${annexStartPage})`,
+        `[phase2a] ${sectionId} -> pages ${block.pageFrom}-${block.pageTo} (score=${best.score.toFixed(1)}, conf=${diag.confidence}, annex≈${annexStartPage})`,
       );
     }
   }
