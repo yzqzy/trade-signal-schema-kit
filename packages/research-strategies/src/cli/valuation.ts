@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { resolveValuationOrPhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
+import { resolveValuationDefaultRunDirectory } from "../contracts/output-layout-v2.js";
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
   let marketMdPath = args.marketMdPath;
   let reportMdPath = args.reportMdPath;
   let interimReportMdPath = args.interimReportMdPath;
-  let outDir = resolveValuationOrPhase3DefaultRunDirectory({
+  let outDir = resolveValuationDefaultRunDirectory({
     outputDirArg: args.outputDir,
     stockCode: args.code,
   }).outputDir;

@@ -3,6 +3,8 @@
 import { createDefaultWorkflowOrchestratorAdapter } from "../orchestrator/workflow-orchestrator-adapter.js";
 import type { WorkflowMode } from "../contracts/workflow-run-types.js";
 
+type ResumeFromStage = "B" | "D";
+
 type CliArgs = {
   code?: string;
   year?: string;
@@ -22,6 +24,8 @@ type CliArgs = {
   interimPdfPath?: string;
   refreshMarket?: boolean;
   preflightRemedyPass?: number;
+  /** 从 checkpoint 续跑；必须与 `--output-dir` 指向 run 根目录同用 */
+  resumeFromStage?: ResumeFromStage;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -71,6 +75,15 @@ function parseArgs(argv: string[]): CliArgs {
     preflightRemedyPass = n;
   }
 
+  const resumeRaw = values["resume-from-stage"];
+  const resumeFromStage = resumeRaw as ResumeFromStage | undefined;
+  if (resumeRaw && resumeRaw !== "B" && resumeRaw !== "D") {
+    throw new Error(`Invalid --resume-from-stage: ${resumeRaw} (expected B|D)`);
+  }
+  if (resumeFromStage && !values["output-dir"]?.trim()) {
+    throw new Error("[workflow] --resume-from-stage 必须同时提供 --output-dir，指向含 checkpoint 的 run 根目录");
+  }
+
   return {
     code: values.code,
     year: values.year,
@@ -89,6 +102,7 @@ function parseArgs(argv: string[]): CliArgs {
     interimPdfPath: values["interim-pdf"],
     refreshMarket: flags.has("refresh-market"),
     preflightRemedyPass,
+    resumeFromStage,
   };
 }
 
@@ -115,6 +129,7 @@ async function main(): Promise<void> {
     interimPdfPath: args.interimPdfPath,
     refreshMarket: args.refreshMarket,
     preflightRemedyPass: args.preflightRemedyPass,
+    resumeFromStage: args.resumeFromStage,
   });
 
   console.log(`[workflow] outputDir -> ${result.outputDir}`);

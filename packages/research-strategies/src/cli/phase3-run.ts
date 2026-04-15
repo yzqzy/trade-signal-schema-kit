@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { resolveValuationOrPhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
+import { resolvePhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
 
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   const markdown = renderPhase3Markdown(result);
   const html = renderPhase3Html(markdown);
 
-  const outDir = resolveValuationOrPhase3DefaultRunDirectory({
+  const outDir = resolvePhase3DefaultRunDirectory({
     outputDirArg: args.outputDir,
     stockCode: args.code,
   }).outputDir;

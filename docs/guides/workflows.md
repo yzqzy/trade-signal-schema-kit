@@ -12,12 +12,43 @@
 - **workflow**：未传 `--output-dir` 时默认父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`<runId>` 为 UUID。显式 `--output-dir <父目录>` 时写入 `<父目录>/<runId>/`。
 - **business-analysis**：与 workflow 共用 LangGraph 管线；未传 `--output-dir` 时默认父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。
 - **续跑**：`--resume-from-stage` 时必须传入 `--output-dir`，且指向**已有 run 根目录**（该目录下含 `workflow_graph_checkpoint.json`）。
-- **valuation / phase3（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/valuation/<code>/<runId>/`；可用 `--code` 指定分区代码（缺省 `_adhoc`）。`valuation:run --from-manifest` 且默认 `--output-dir` 时，仍写入 manifest 所在 run 目录。
+- **`valuation:run`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/valuation/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。`--from-manifest` 且默认 `--output-dir` 时，仍写入 manifest 所在 run 目录。
+- **`run:phase3`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/phase3/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。显式 `--output-dir` 为**写入根目录**，不再追加子 UUID。
 - **report-to-html**：未传 `--output-html` 时，写入 `output/report/<code>/<runId>/<stem>.html`；可用 `--code` 指定分区（缺省 `_adhoc`）。
 - **screener**：在 `--output-dir` 根下写入 `output/screener/<market>/<mode>/<runId>/`（若根为默认 `output`，则完整路径为 `output/screener/...`）。
 - **清单字段**：`workflow_manifest.json` / `business_analysis_manifest.json` 的 `manifestVersion` 为 **`2.0`**，并含 `outputLayout: { version, area, code, runId }`。
 
 源码目录职责见 [research-strategies-src-layout.md](./research-strategies-src-layout.md)；策略注册步骤见 [strategy-registration.md](./strategy-registration.md)。
+
+### output v2 典型命令对照
+
+**1）workflow 新跑（`--output-dir` = 父目录，其下自动建 `<runId>/`）**
+
+```bash
+pnpm run workflow:run -- \
+  --code 600887 \
+  --year 2024 \
+  --pdf "./path/to/annual.pdf" \
+  --output-dir "./output/workflow/600887"
+```
+
+**2）workflow 续跑（`--output-dir` = 已有 run 根目录，与 `--resume-from-stage` 同用）**
+
+```bash
+pnpm run workflow:run -- \
+  --code 600887 \
+  --output-dir "./output/workflow/600887/<runId>" \
+  --resume-from-stage B
+```
+
+**3）valuation 写回某次 workflow 的 run 目录（`--output-dir` = 写入根，不再套子 UUID）**
+
+```bash
+pnpm run valuation:run -- \
+  --market-md "./output/workflow/600887/<runId>/data_pack_market.md" \
+  --code 600887 \
+  --output-dir "./output/workflow/600887/<runId>"
+```
 
 ## Stage 与 Phase 对照
 
@@ -252,7 +283,7 @@ pnpm run workflow:run -- \
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 中期报告：`--interim-pdf <path>` 经 Phase2A/2B 生成 `data_pack_report_interim.md` 并作为 Phase3 interim 输入；亦可 `--interim-report-md` 直接传入已渲染 md（**同时传时 PDF 优先**）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
-- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`、`agentSidecarNote`）。程序续跑可在 `RunWorkflowInput` 上设置 `resumeFromStage: "B" | "D"`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。
+- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`、`agentSidecarNote`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用等价字段为 `RunWorkflowInput.resumeFromStage`。
 - Phase2 分区/渲染契约烟测（需先 `pnpm run build`）：`pnpm --filter @trade-signal/research-strategies run test:phase2`
 
 Business analysis CLI（Stage E 前停）：

@@ -48,7 +48,7 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 ## 4. `workflow:run` CLI 契约
 
 - **必填**：`--code <stock-code>`
-- **常用可选**：`--year`、`--company-name`、`--from`、`--to`、`--output-dir`、`--pdf`、`--report-url`、`--category`、`--phase1b-channel http|mcp`、`--mode standard|turtle-strict`、`--preflight off|strict`、`--interim-report-md`、`--interim-pdf`、`--preflight-remedy-pass 0|1`、`--refresh-market`（flag）
+- **常用可选**：`--year`、`--company-name`、`--from`、`--to`、`--output-dir`、`--pdf`、`--report-url`、`--category`、`--phase1b-channel http|mcp`、`--mode standard|turtle-strict`、`--preflight off|strict`、`--interim-report-md`、`--interim-pdf`、`--preflight-remedy-pass 0|1`、`--refresh-market`（flag）、`--resume-from-stage B|D`（续跑；**必须**同时提供 `--output-dir` 指向 run 根目录）
 - **`--mode turtle-strict`**：无 `--pdf`/`--report-url` 时尝试 Feed 自动发现年报 URL；仍无报告包则按严格文案失败；**必须有** `data_pack_report.md` 等价内容（即 `reportPackMarkdown`）才能进入 Phase3
 - **`--preflight`**：未指定时，`turtle-strict` 等价 `strict`，否则默认 `off`；`business-analysis --strict` 会把管线 preflight 置为 `strict`
 - **退出**：未捕获错误以非零退出；消息体须保留 `strict-messages` 中定义的前缀（见第 7 节）
@@ -77,7 +77,7 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 ## 6. Phase3 独立 CLI（`run:phase3`）契约
 
 - **必填**：`--market-md <path>`
-- **可选**：`--report-md`、`--interim-report-md`、`--output-dir`（默认 `output`）、`--code`（仅当 `--output-dir` 为默认 `output` 时用于 v2 分区：`output/valuation/<code>/<runId>/`）
+- **可选**：`--report-md`、`--interim-report-md`、`--output-dir`（默认 `output`）、`--code`（仅当 `--output-dir` 为默认 `output` 时用于 v2 分区：`output/phase3/<code>/<runId>/`）
 - **输出**：`valuation_computed.json`、`analysis_report.md`、`analysis_report.html`（与 workflow 内 Phase3 一致）
 
 ## 7. 错误与前缀契约（严格模式）

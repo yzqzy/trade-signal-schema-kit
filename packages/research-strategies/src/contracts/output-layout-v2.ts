@@ -7,13 +7,21 @@ import { resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
 /** 产物目录布局版本（写入 workflow / business-analysis manifest） */
 export const OUTPUT_LAYOUT_VERSION = "2.0" as const;
 
+/** 产物分区（manifest `outputLayout.area`） */
+export type OutputLayoutArea =
+  | "workflow"
+  | "business-analysis"
+  | "valuation"
+  | "phase3"
+  | "report"
+  | "screener";
+
 export type OutputLayoutV2Meta = {
   version: typeof OUTPUT_LAYOUT_VERSION;
-  /** 逻辑分区：workflow | business-analysis | valuation | phase3 | report | screener */
-  area: string;
+  area: OutputLayoutArea;
   /** 归一化股票代码或占位（如 _ADHOC） */
   code: string;
-  /** 单次运行目录名（UUID） */
+  /** 单次运行目录名（UUID）；显式写入根时可为空字符串 */
   runId: string;
 };
 
@@ -51,12 +59,12 @@ export function resolveWorkflowDefaultRunDirectory(input: {
   };
 }
 
-/** 独立 valuation / phase3 CLI：默认 `output` 时落到 `output/valuation/<code>/<runId>/` */
-export function resolveValuationOrPhase3DefaultRunDirectory(input: {
-  /** 来自 CLI 的原始值，默认常为 `"output"` */
+function resolveCliDefaultRunUnderOutput(input: {
   outputDirArg: string;
-  /** 可选股票代码；缺省为 `_adhoc` */
   stockCode?: string;
+  area: "valuation" | "phase3";
+  /** `output` 下第一层目录名 */
+  segment: "valuation" | "phase3";
 }): { outputDir: string; layout: OutputLayoutV2Meta } {
   const runId = randomUUID();
   const raw = input.outputDirArg.trim() || "output";
@@ -65,23 +73,47 @@ export function resolveValuationOrPhase3DefaultRunDirectory(input: {
       outputDir: resolveOutputPath(raw),
       layout: {
         version: OUTPUT_LAYOUT_VERSION,
-        area: "valuation",
+        area: input.area,
         code: normalizeCodeForFeed(input.stockCode ?? "_adhoc"),
         runId: "",
       },
     };
   }
   const code = normalizeCodeForFeed((input.stockCode ?? "_adhoc").trim() || "_adhoc");
-  const outputDir = resolveOutputPath(path.join("output", "valuation", code, runId));
+  const outputDir = resolveOutputPath(path.join("output", input.segment, code, runId));
   return {
     outputDir,
     layout: {
       version: OUTPUT_LAYOUT_VERSION,
-      area: "valuation",
+      area: input.area,
       code,
       runId,
     },
   };
+}
+
+/** `valuation:run`：默认 `--output-dir output` → `output/valuation/<code>/<runId>/` */
+export function resolveValuationDefaultRunDirectory(input: {
+  outputDirArg: string;
+  stockCode?: string;
+}): { outputDir: string; layout: OutputLayoutV2Meta } {
+  return resolveCliDefaultRunUnderOutput({
+    ...input,
+    area: "valuation",
+    segment: "valuation",
+  });
+}
+
+/** `run:phase3`：默认 `--output-dir output` → `output/phase3/<code>/<runId>/` */
+export function resolvePhase3DefaultRunDirectory(input: {
+  outputDirArg: string;
+  stockCode?: string;
+}): { outputDir: string; layout: OutputLayoutV2Meta } {
+  return resolveCliDefaultRunUnderOutput({
+    ...input,
+    area: "phase3",
+    segment: "phase3",
+  });
 }
 
 /** report-to-html：未指定 `--output-html` 时写入 `output/report/<code>/<runId>/<stem>.html` */
