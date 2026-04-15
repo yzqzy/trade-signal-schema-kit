@@ -4,11 +4,11 @@
 
 | Rule ID | Turtle Requirement | Target File/Symbol | Status |
 |---|---|---|---|
-| REF-ASM | `assembly.py` 多年财务/母公司/衍生指标组装口径 | `workflow/build-market-pack.ts`、`phase1a/collector.ts` | partial（历史/母公司依赖 feed 字段） |
+| REF-ASM | `assembly.py` 多年财务/母公司/衍生指标组装口径 | `workflow/build-market-pack.ts`、`phase1a/collector.ts` | partial（历史/母公司依赖 feed 字段）；**关闭条件（工程）**：`financialHistory`≥2 独立财年且 §13 无 `规则=capex_ocf_20pct` / `interest_bearing_debt_tl_0_4` / `cash_and_equiv_ta_0_1`；§3P/§4P 有数据或仅有单条「上游缺失」警告 |
 | REF-PF | `strategies/turtle/phase3_preflight.md` 三态裁决 + 补救块 | `pipeline/phase3-preflight.ts`、`workflow/orchestrator.ts` | implemented |
 | REF-INT | `data_pack_report_interim.md` 可选输入 | `phase3/analyzer.ts`、`workflow/cli.ts`、`valuation/cli.ts` | implemented |
 | REF-RM | `--refresh-market` 行情敏感段刷新 | `workflow/refresh-market-pack.ts`、`workflow/orchestrator.ts`、`workflow/cli.ts` | implemented |
-| REF-QV2 | `shared/qualitative/qualitative_assessment_v2.md` 六维证据约束 | `business-analysis/d1-d6-scaffold.ts` | partial（工程模板+证据门槛，叙事仍由上层 LLM） |
+| REF-QV2 | `shared/qualitative/qualitative_assessment_v2.md` 六维证据约束 | `business-analysis/d1-d6-scaffold.ts` | partial（工程模板+证据门槛，叙事仍由上层 LLM）；**关闭条件（工程）**：`qualitative_d1_d6.md` 六维章节非空且满足 scaffold 最低证据计数；**关闭条件（叙事）**：业务侧审阅通过（本仓库不自动判定 LLM 叙事质量） |
 | P3-STEP1 | 读取 `data_pack_market.md`，优先检查 §13 Warnings | `phase3/market-pack-parser.ts::parseDataPackMarket` | implemented |
 | P3-STEP1-REPORT | 读取 `data_pack_report.md` 与可选 `interim` | `phase3/report-pack-parser.ts::parseDataPackReport` | implemented |
 | P3-STEP1-CRITICAL | 净利润/OCF/Capex 缺失终止 | `phase3/analyzer.ts::validateCriticalData` | implemented |

@@ -80,6 +80,7 @@ function buildSection17Derived(
     "## §17 衍生指标（预计算，供因子/Phase3 引用）",
     "",
     "> 本节由编排层根据 §3~§5 同源数值 **确定性计算**；若某年为单期回退复制，与 §13 警告一致。",
+    "> **数据血缘**：Capex / 有息负债 / 货币资金若上游缺失，与本节及 §4、§5 表内同行使用 **相同兜底公式**；详见 §13 中带 `规则=` 的条目。",
     "> **FCF** = 经营活动现金流 OCF − |资本开支 Capex|（百万元）。",
     "",
     "| 年度 | FCF | 净利率(%) | DPS/EPS(%) | 资产负债率(%) | 有息负债/总资产(%) |",
@@ -239,18 +240,20 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
   }
   if (fin?.capitalExpenditure === undefined || fin.capitalExpenditure === null) {
     riskLines.push(
-      `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF×20% 估算（${fmt(capexFor(years[0] ?? reportYear))}，最近年）。`,
+      `- [数据完整性|中] Phase1A 未提供 Capex，按 OCF×20% 估算（${fmt(capexFor(years[0] ?? reportYear))}，最近年）；规则=capex_ocf_20pct。`,
     );
-    warnLines.push(`- [估算|中] Capex 由 OCF 比例估算，非现金流量表直接值。`);
+    warnLines.push(`- [估算|中|规则=capex_ocf_20pct] Capex 由 OCF×20% 估算，非现金流量表直接值。`);
   }
   if (fin?.interestBearingDebt === undefined || fin.interestBearingDebt === null) {
     if (safeNum(fin?.totalAssets, 0) > 0) {
-      warnLines.push(`- [估算|中] 有息负债按总负债比例估算，非附注直接值。`);
+      warnLines.push(
+        `- [估算|中|规则=interest_bearing_debt_tl_0_4] 有息负债按 总负债×0.4 估算，非附注直接值。`,
+      );
     }
   }
   if (fin?.cashAndEquivalents === undefined || fin.cashAndEquivalents === null) {
     if (safeNum(fin?.totalAssets, 0) > 0) {
-      warnLines.push(`- [估算|中] 货币资金按总资产比例估算，非资产负债表直接值。`);
+      warnLines.push(`- [估算|中|规则=cash_and_equiv_ta_0_1] 货币资金按 总资产×0.1 估算，非资产负债表直接值。`);
     }
   }
   if (replicatedFallback) {

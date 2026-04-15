@@ -20,7 +20,7 @@
 | 观察通道质量 | FCF 边际、OCF>0、5 年 FCF 正年数等 | `validateObservationQuality` 使用 `ocf`/`capex`/`revenue`/`fcfPositiveYears` | 已对齐（需 universe 提供） |
 | Factor2 R | `R = AA*(M/100)/mkt_cap*100` | `computeFactorSummary`：`payoutRatio`(M)、AA 分项、`marketCap` | 已对齐（M 缺省弱回退） |
 | Factor4 / 打分 | 五维分位 + 权重 | `computeStandaloneScore` 同结构 | 已对齐 |
-| Floor premium | `_extract_floor_price.premium` | `floorPremium` 行字段或 `pe/3` 回退 | 部分对齐（无 5 法底价） |
+| Floor premium | `_extract_floor_price.premium` | `floorPremium` 行字段优先；否则 **受控回退**：默认 `pe/3`（`floorPremiumSource=pe_over_3_heuristic`）；`SCREENER_FLOOR_PREMIUM_FALLBACK=zero` 时为 0 | 已对齐（工程侧：**无 Turtle 五法底价**时显式标注来源；五法需 feed 提供 `floorPremium` 或后续专项实现） |
 | 缓存分层 TTL | Parquet + meta；financial/market/global | `ScreenerDiskCache` JSON + `.meta.json`；分层 TTL 配置项 | 已对齐（实现形态不同） |
 | CLI | `--tier1-only`、`--tier2-limit`、阈值覆盖、缓存刷新 | `cli.ts` 同名语义 | 已对齐 |
 | 导出 CSV/HTML | 参考脚本列顺序 | `exportScreenerResultsCsv` / 报告表列 | 已对齐 |

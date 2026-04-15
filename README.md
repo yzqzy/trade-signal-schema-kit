@@ -16,6 +16,8 @@ pnpm run build
 
 运行任意 `@trade-signal/research-strategies` CLI 前都需要先有 `dist/`（根目录 `pnpm run build` 即可）。
 
+**`apps/screener-web`**：历史实验用 Next 壳层，**已冻结**；默认不参与根目录 `pnpm run build`。选股器请用 **`pnpm run screener:run`**（产物见 [docs/workflows.md](docs/workflows.md) 选股器章节）。若仍要本地启动 `pnpm run web:dev`，请先 `pnpm run build`，并阅读 [`apps/screener-web/README.md`](apps/screener-web/README.md)。
+
 ## 5 分钟上手（A 股示例）
 
 以下均在 **仓库根目录**执行，并需配置 `FEED_BASE_URL`（见下文）。

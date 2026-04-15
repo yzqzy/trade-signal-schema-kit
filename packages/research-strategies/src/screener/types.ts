@@ -100,6 +100,8 @@ export interface ScreenerFactorSummary {
   rf?: number;
   evEbitda?: number;
   floorPremium?: number;
+  /** 底价溢价取值来源；与 Turtle 五法底价相比，`pe_over_3_heuristic` 为受控简化回退 */
+  floorPremiumSource?: "universe_field" | "pe_over_3_heuristic" | "zero_fallback";
   rVsII?: "below_rf" | "fail" | "marginal" | "pass";
   payoutM?: number;
   aa?: number;

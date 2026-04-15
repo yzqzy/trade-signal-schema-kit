@@ -110,11 +110,20 @@ export function computeFactorSummary(row: ScreenerUniverseRow, _cfg: ScreenerCon
   }
 
   const pe = num(row.pe, 0);
-  const floorPremium = Number.isFinite(num(row.floorPremium, NaN))
-    ? num(row.floorPremium, 0)
-    : pe > 0
-      ? pe / 3
-      : 0;
+  const floorRaw = num(row.floorPremium, NaN);
+  const fallbackMode = (process.env.SCREENER_FLOOR_PREMIUM_FALLBACK ?? "pe_over_3").trim().toLowerCase();
+  let floorPremium: number;
+  let floorPremiumSource: NonNullable<ScreenerFactorSummary["floorPremiumSource"]>;
+  if (Number.isFinite(floorRaw)) {
+    floorPremium = floorRaw;
+    floorPremiumSource = "universe_field";
+  } else if (fallbackMode === "zero") {
+    floorPremium = 0;
+    floorPremiumSource = "zero_fallback";
+  } else {
+    floorPremium = pe > 0 ? pe / 3 : 0;
+    floorPremiumSource = "pe_over_3_heuristic";
+  }
 
   let rVsII: ScreenerFactorSummary["rVsII"];
   if (Number.isFinite(penetrationR) && thresholdII !== undefined && Number.isFinite(rf)) {
@@ -130,6 +139,7 @@ export function computeFactorSummary(row: ScreenerUniverseRow, _cfg: ScreenerCon
     rf,
     evEbitda,
     floorPremium,
+    floorPremiumSource,
     rVsII,
     payoutM: M,
     aa,

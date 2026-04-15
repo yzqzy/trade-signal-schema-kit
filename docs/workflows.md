@@ -233,11 +233,9 @@ pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --s
 
 **港股（HK）**：质量门禁中的 `hk` 套件用于防回归快照；与 A 股同等级别的端到端深度能力 **暂未实现**，将在后续版本补齐。
 
-Next.js 在线 MVP（请在 **monorepo 根目录**启动，以便 API 解析 `packages/research-strategies/dist/...`）：
+### `apps/screener-web`（已冻结，非主链路）
 
-```bash
-pnpm run web:dev
-```
+历史实验用 Next 壳层，**默认不参与**根目录 `pnpm run build`；选股器请以 **`pnpm run screener:run`** 与产物 `screener_results.*` / `screener_report.*` 为准。若本地仍需启动，见 [`apps/screener-web/README.md`](../apps/screener-web/README.md)（不保证与当前包入口解析长期兼容）。
 
 ### `qualitative_report`（Phase 1B/2B 输出）
 

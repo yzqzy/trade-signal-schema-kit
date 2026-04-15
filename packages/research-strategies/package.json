@@ -2,8 +2,15 @@
   "name": "@trade-signal/research-strategies",
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/packages/research-strategies/src/index.js",
+  "types": "dist/packages/research-strategies/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/packages/research-strategies/src/index.d.ts",
+      "import": "./dist/packages/research-strategies/src/index.js",
+      "default": "./dist/packages/research-strategies/src/index.js"
+    }
+  },
   "bin": {
     "ts-phase0-download": "dist/packages/research-strategies/src/cli.js"
   },

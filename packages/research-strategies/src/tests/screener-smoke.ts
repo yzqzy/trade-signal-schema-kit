@@ -134,6 +134,38 @@ function testFactor2R(): void {
   assert.ok(Math.abs((f.penetrationR ?? 0) - 2.4) < 1e-6, `R expected 2.4, got ${f.penetrationR}`);
 }
 
+function testFloorPremiumSource(): void {
+  const cfg = getDefaultScreenerConfig("CN_A");
+  const prev = process.env.SCREENER_FLOOR_PREMIUM_FALLBACK;
+  try {
+    delete process.env.SCREENER_FLOOR_PREMIUM_FALLBACK;
+    const fromField = computeFactorSummary(
+      { code: "A", name: "A", market: "CN_A", floorPremium: 5, pe: 9 } as ScreenerUniverseRow,
+      cfg,
+    );
+    assert.equal(fromField.floorPremiumSource, "universe_field");
+    assert.equal(fromField.floorPremium, 5);
+
+    const peFallback = computeFactorSummary(
+      { code: "B", name: "B", market: "CN_A", pe: 9 } as ScreenerUniverseRow,
+      cfg,
+    );
+    assert.equal(peFallback.floorPremiumSource, "pe_over_3_heuristic");
+    assert.ok(Math.abs((peFallback.floorPremium ?? 0) - 3) < 1e-9);
+
+    process.env.SCREENER_FLOOR_PREMIUM_FALLBACK = "zero";
+    const zeroFb = computeFactorSummary(
+      { code: "C", name: "C", market: "CN_A", pe: 9 } as ScreenerUniverseRow,
+      cfg,
+    );
+    assert.equal(zeroFb.floorPremiumSource, "zero_fallback");
+    assert.equal(zeroFb.floorPremium, 0);
+  } finally {
+    if (prev === undefined) delete process.env.SCREENER_FLOOR_PREMIUM_FALLBACK;
+    else process.env.SCREENER_FLOOR_PREMIUM_FALLBACK = prev;
+  }
+}
+
 async function testUniverseCapabilityHkEmpty(): Promise<void> {
   const cap = buildUniverseCapability("HK", []);
   assert.equal(cap.status, "hk_not_ready");
@@ -262,6 +294,7 @@ async function main(): Promise<void> {
   testConfig();
   testTier1Filter();
   testFactor2R();
+  testFloorPremiumSource();
   testParseScreenerUniversePayload();
   await testUniverseCapabilityHkEmpty();
   await testUniverseCapabilityBlockedMissingMarketCap();
