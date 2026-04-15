@@ -39,13 +39,23 @@ A → B → C → E
 
 （A 在无 URL 场景下可能跳过或仅作占位；以当前 CLI 行为为准。）
 
-**当前 `workflow:run` 实现顺序（与目标 Stage 顺序的差异）**
+**当前 `workflow:run` 实现顺序（与文档目标对齐）**
+
+- 有年报 PDF（`--pdf`，或 `--report-url` / 自动发现后经 Phase0 得到本地 PDF，用于年报 2A/2B）：
 
 ```text
-Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
+Phase1A → Phase2A/2B → Phase1B → Phase3
 ```
 
-即：**实现侧仍为 B→C→D→E**；文档目标架构为 **B→D→C→E**（有报告源时）。后续编排改造以 Stage 顺序为准。
+即 **B→D→C→E**（Stage A 仍仅在 `--report-url` 等场景发生，见上文）。
+
+- 无年报 PDF：
+
+```text
+Phase1A → Phase1B → Phase3
+```
+
+即 **B→C→E**（无 D）。
 
 ## LangGraph 与 LangChain Deep Agents（分层）
 
@@ -68,7 +78,7 @@ Phase1A → Phase1B →（若 --pdf 或 --report-url）Phase2A/2B → Phase3
     │ 标准字段采集       │ PDF 定位与精提取   │
     └────┬──────────────┴──────────┬────────┘
          │                         │
-         │    （目标：有 PDF 时 D 在 C 之前）
+         │    （有年报 PDF 时：`workflow` 内先 D 再 C）
          │
     ┌────▼────┐
     │ Stage C │  外部证据（C1+C2）
@@ -219,9 +229,11 @@ pnpm run workflow:run -- \
 
 - 必填：`--code`
 - `--mode`：`standard`（默认）或 `turtle-strict`（优先显式 PDF/URL；若缺失则尝试按 `code+year` 自动发现，且必须生成 `data_pack_report.md`）
+- `--strategy`：`turtle`（默认）或 `value_v1`（第二策略样板；Stage E 插件切换，编排顺序不变）
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 中期报告：`--interim-pdf <path>` 经 Phase2A/2B 生成 `data_pack_report_interim.md` 并作为 Phase3 interim 输入；亦可 `--interim-report-md` 直接传入已渲染 md（**同时传时 PDF 优先**）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
+- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`、`agentSidecarNote`）。程序续跑可在 `RunWorkflowInput` 上设置 `resumeFromStage: "B" | "D"`（需相同 `--output-dir` 且存在 checkpoint；`D` 会跳过 Stage B）。
 - Phase2 分区/渲染契约烟测（需先 `pnpm run build`）：`pnpm --filter @trade-signal/research-strategies run test:phase2`
 
 Business analysis CLI（Stage E 前停）：

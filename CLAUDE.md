@@ -60,7 +60,7 @@ provider-http   provider-mcp    ← Bottom: data adapters
 
 ## Main Workflow (Phase 0-3)
 
-Logical stages (Turtle-aligned). `workflow:run` executes **sequentially**: 1A → 1B → optional 2A/2B → 3. Phase 0 in that path only when `--report-url` is used.
+Logical stages (Turtle-aligned). `workflow:run` executes **sequentially**: Phase 0 (optional) → Phase 1A → **when annual PDF is available: Phase 2A/2B before Phase 1B** → Phase 3. Phase 0 in that path only when `--report-url` is used (or auto-discovery in strict mode).
 
 ```
 User Input (stock code [+ PDF or report URL])
@@ -69,20 +69,20 @@ User Input (stock code [+ PDF or report URL])
     └────┬────┘
          │
     ┌────▼──────────┐ Phase 1A: Structured data (MarketDataProvider; workflow uses HTTP)
-    │ Phase 2A: PDF preprocessing (optional branch)
-    └────┬──────────┴──────────┐
-         │                    │
-    ┌────▼────┐            ┌──▼────┐
-    │ Phase 1B│            │Phase 2B│
-    │External │            │PDF fine│
-    │info     │            │extraction│
-    └────┬────┘            └────┬──┘
-         └──────────┬───────────┘
-                ┌───▼────────┐
-                │ Phase 3   │
-                │Qualitative+Quantitative+Valuation
-                └────┬──────┘
-                     │
+    └────┬──────────┘
+         │
+    ┌────▼──────────┐ Phase 2A/2B (optional; runs before 1B when annual PDF path exists)
+    └────┬──────────┘
+         │
+    ┌────▼────┐
+    │ Phase 1B External info
+    └────┬────┘
+         │
+    ┌────▼────────┐
+    │ Phase 3     │
+    │Qual+Quant+Valuation
+    └────┬────────┘
+         │
    <output-dir>/analysis_report.md + .html
 ```
 

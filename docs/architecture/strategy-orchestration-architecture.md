@@ -54,7 +54,7 @@
 
 **无报告源**：`A → B → C → E`。
 
-**当前 `workflow:run` 实现**：多为 `B → C → D → E`（有 PDF 时）。与目标顺序的差异以 [流程说明（Stage）](../guides/workflows.md) 与源码为准；后续编排改造以 Stage 顺序为准。
+**当前 `workflow:run` 实现**：有年报 PDF 路径时为 **`B → D → C → E`**；无年报 PDF 时为 **`B → C → E`**。详见 [流程说明（Stage）](../guides/workflows.md) 与 [契约基线](./contract-baseline.md)。
 
 ## 接口边界
 
@@ -111,7 +111,7 @@ export interface OrchestratorAdapter {
 - 通用编排与单一策略实现解耦：**新增策略不改主流程核心代码**，仅注册与配置。
 - CLI 兼容：既有命令可用；新策略通过 **`--strategy` 或等价开关**扩展。
 - 支持从中间阶段恢复（至少从 Stage B 或 D 重跑）。
-- 文档口径一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md) 不冲突。
+- 文档口径一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、[contract-baseline](./contract-baseline.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md) 不冲突。
 
 ## 与现状兼容说明
 

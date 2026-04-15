@@ -4,6 +4,9 @@ import path from "node:path";
 import { config as loadDotenv } from "dotenv";
 
 import type {
+  ExternalEvidenceC1Hit,
+  ExternalEvidenceC1Result,
+  ExternalEvidenceCatalog,
   McpToolCaller,
   Phase1BChannel,
   Phase1BEvidence,
@@ -32,7 +35,7 @@ type FeedSearchResponse = {
 };
 
 type FeedSearchQuery = {
-  section: "7" | "8" | "10";
+  catalog: ExternalEvidenceCatalog;
   item: string;
   query: string;
 };
@@ -117,72 +120,72 @@ function buildQueries(input: Phase1BInput): FeedSearchQuery[] {
   const company = input.companyName;
   return [
     {
-      section: "7",
+      catalog: "7",
       item: "控股股东及持股比例",
       query: `${company} 大股东 控股 持股比例 ${year}`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "CEO/董事长/CFO 任期",
       query: `${company} 管理层 CEO 董事长 CFO 任期 ${year}`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "管理层重大变更（5年）",
       query: `${company} 管理层变更 高管变动 近五年`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "审计师与审计意见",
       query: `${company} 审计师 审计意见 年报 ${year}`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "违规/处罚记录",
       query: `${company} 处罚 监管 财务造假`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "大股东质押/减持",
       query: `${company} 大股东 质押 减持`,
     },
     {
-      section: "7",
+      catalog: "7",
       item: "回购计划",
       query: `${company} 股份回购 计划`,
     },
     {
-      section: "8",
+      catalog: "8",
       item: "主要竞争对手",
       query: `${company} 竞争对手 市场份额 ${year}`,
     },
     {
-      section: "8",
+      catalog: "8",
       item: "行业监管动态",
       query: `${company} 行业 监管政策 ${year}`,
     },
     {
-      section: "8",
+      catalog: "8",
       item: "行业周期位置",
       query: `${company} 行业周期 景气度 ${year}`,
     },
     {
-      section: "10",
+      catalog: "10",
       item: "经营回顾",
       query: `${company} 年报 管理层讨论 经营回顾 ${year}`,
     },
     {
-      section: "10",
+      catalog: "10",
       item: "前瞻指引",
       query: `${company} 年报 管理层讨论 前瞻 ${year}`,
     },
     {
-      section: "10",
+      catalog: "10",
       item: "资本配置意图",
       query: `${company} 年报 管理层讨论 资本配置 ${year}`,
     },
     {
-      section: "10",
+      catalog: "10",
       item: "风险因素",
       query: `${company} 年报 管理层讨论 风险因素 ${year}`,
     },
@@ -238,17 +241,20 @@ async function searchMcp(
     q: query.query,
     query: query.query,
     keyword: query.query,
-    section: query.section,
+    section: query.catalog,
   });
   return normalizeHitsFromUnknown(payload)
     .map(toEvidence)
     .filter((item): item is Phase1BEvidence => Boolean(item));
 }
 
-export async function collectPhase1BQualitative(
+/**
+ * **Stage C · C1**：通用外部证据采集（HTTP/MCP），不含策略判断。
+ */
+export async function collectExternalEvidenceC1(
   input: Phase1BInput,
   options: Phase1BCollectOptions = {},
-): Promise<Phase1BQualitativeSupplement> {
+): Promise<ExternalEvidenceC1Result> {
   const channel: Phase1BChannel = input.channel ?? "http";
   initEnv();
   const queries = buildQueries(input);
@@ -276,46 +282,88 @@ export async function collectPhase1BQualitative(
     );
   }
 
-  const section7: Phase1BItem[] = results
-    .filter((item) => item.query.section === "7")
-    .map(({ query, evidences }) => ({
-      item: query.item,
-      content: summarize(evidences),
-      evidences,
-    }));
-
-  const section8: Phase1BItem[] = results
-    .filter((item) => item.query.section === "8")
-    .map(({ query, evidences }) => ({
-      item: query.item,
-      content: summarize(evidences),
-      evidences,
-    }));
-
-  const section10: Phase1BMdaSection[] = results
-    .filter((item) => item.query.section === "10")
-    .map(({ query, evidences }) => ({
-      heading: query.item,
-      points:
-        evidences.length > 0
-          ? evidences
-              .slice(0, 3)
-              .map((evidence) => evidence.snippet ?? evidence.title)
-              .filter((point) => point.trim().length > 0)
-          : [NOT_FOUND_TEXT],
-      evidences,
-    }));
+  const collectedAt = new Date().toISOString();
+  const hits: ExternalEvidenceC1Hit[] = results.map(({ query, evidences }) => ({
+    catalog: query.catalog,
+    promptItem: query.item,
+    searchQuery: query.query,
+    evidences,
+  }));
 
   return {
     stockCode: input.stockCode,
     companyName: input.companyName,
     year: input.year,
-    generatedAt: new Date().toISOString(),
+    channel,
+    collectedAt,
+    hits,
+  };
+}
+
+/**
+ * **Stage C · C2**：将 C1 命中投影为当前策略所需的 Phase1B 外形（Turtle 工作流兼容）。
+ */
+export function projectEvidenceToC2(c1: ExternalEvidenceC1Result): Phase1BQualitativeSupplement {
+  const { hits, stockCode, companyName, year, channel, collectedAt } = c1;
+
+  const section7: Phase1BItem[] = hits
+    .filter((h) => h.catalog === "7")
+    .map((h) => ({
+      item: h.promptItem,
+      content: summarize(h.evidences),
+      evidences: h.evidences,
+    }));
+
+  const section8: Phase1BItem[] = hits
+    .filter((h) => h.catalog === "8")
+    .map((h) => ({
+      item: h.promptItem,
+      content: summarize(h.evidences),
+      evidences: h.evidences,
+    }));
+
+  const section10: Phase1BMdaSection[] = hits
+    .filter((h) => h.catalog === "10")
+    .map((h) => ({
+      heading: h.promptItem,
+      points:
+        h.evidences.length > 0
+          ? h.evidences
+              .slice(0, 3)
+              .map((evidence) => evidence.snippet ?? evidence.title)
+              .filter((point) => point.trim().length > 0)
+          : [NOT_FOUND_TEXT],
+      evidences: h.evidences,
+    }));
+
+  return {
+    stockCode,
+    companyName,
+    year,
+    generatedAt: collectedAt,
     channel,
     section7,
     section8,
     section10,
   };
+}
+
+/**
+ * **Stage C**：外部证据管线（C1 → C2），供编排层显式调用（M3 前后顺序调整时接缝不变）。
+ */
+export async function runStageCExternalEvidence(
+  input: Phase1BInput,
+  options: Phase1BCollectOptions = {},
+): Promise<Phase1BQualitativeSupplement> {
+  const c1 = await collectExternalEvidenceC1(input, options);
+  return projectEvidenceToC2(c1);
+}
+
+export async function collectPhase1BQualitative(
+  input: Phase1BInput,
+  options: Phase1BCollectOptions = {},
+): Promise<Phase1BQualitativeSupplement> {
+  return runStageCExternalEvidence(input, options);
 }
 
 export async function collectPhase1BQualitativeWithMcp(

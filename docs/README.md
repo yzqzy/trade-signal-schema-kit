@@ -10,6 +10,7 @@
 |------|------|
 | [system-architecture.md](./architecture/system-architecture.md) | 三层结构、数据流、设计边界 |
 | [strategy-orchestration-architecture.md](./architecture/strategy-orchestration-architecture.md) | Stage A~E、策略插件、`StrategyPlugin` / `OrchestratorAdapter`、C1/C2 |
+| [contract-baseline.md](./architecture/contract-baseline.md) | **M0 原语义契约基线**（CLI、顺序、产物、错误前缀、门禁） |
 
 ## guides（操作与契约）
 

@@ -23,6 +23,17 @@ export * from "./phase3/types.js";
 export * from "./phase3/valuation-engine.js";
 export * from "./phase3/analyzer.js";
 export * from "./workflow/orchestrator.js";
+export * from "./orchestration/contracts.js";
+export { createTurtleStrategyPlugin } from "./orchestration/turtle-strategy-plugin.js";
+export { createValueV1StrategyPlugin } from "./orchestration/value-v1-strategy-plugin.js";
+export {
+  getDefaultWorkflowStrategyPlugin,
+  resolveWorkflowStrategyPlugin,
+} from "./orchestration/resolve-strategy-plugin.js";
+export {
+  createDefaultWorkflowOrchestratorAdapter,
+  type OrchestratorAdapter,
+} from "./orchestration/workflow-orchestrator-adapter.js";
 export { buildMarketPackMarkdown } from "./workflow/build-market-pack.js";
 export { runPreflightAfterPhase1A } from "./pipeline/preflight.js";
 export { normalizeCodeForFeed } from "./pipeline/normalize-stock-code.js";

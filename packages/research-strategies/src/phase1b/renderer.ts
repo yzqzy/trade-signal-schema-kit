@@ -1,5 +1,7 @@
 import type { Phase1BEvidence, Phase1BQualitativeSupplement } from "./types.js";
 
+/** 渲染 C2 投影后的 `Phase1BQualitativeSupplement`（与 M2 前输出结构一致）。 */
+
 const NOT_FOUND_TEXT = "⚠️ 未搜索到相关信息";
 
 function renderSources(evidences: Phase1BEvidence[]): string {

@@ -9,6 +9,7 @@ import type { DataPackMarket, PdfSections } from "@trade-signal/schema-core";
 
 import { renderQualitativeD1D6Scaffold } from "../business-analysis/d1-d6-scaffold.js";
 import { evaluatePhase3Preflight } from "../pipeline/phase3-preflight.js";
+import { projectEvidenceToC2 } from "../phase1b/collector.js";
 import { renderPhase2BDataPackReport } from "../phase2b/renderer.js";
 import { buildMarketPackMarkdown } from "../workflow/build-market-pack.js";
 import { refreshMarketPackMarkdown } from "../workflow/refresh-market-pack.js";
@@ -143,6 +144,40 @@ function main(): void {
   assert.match(d1d6, /## D1 商业模式/);
   assert.match(d1d6, /## D6 控股结构/);
   assert.match(d1d6, /证据约束/);
+
+  const c1 = {
+    stockCode: "600887",
+    companyName: "测试公司",
+    year: "2024",
+    channel: "http" as const,
+    collectedAt: new Date().toISOString(),
+    hits: [
+      {
+        catalog: "7" as const,
+        promptItem: "控股股东及持股比例",
+        searchQuery: "测试公司 大股东 控股 持股比例 2024",
+        evidences: [{ title: "公告", url: "https://example.com/1", snippet: "控股股东持股 52%" }],
+      },
+      {
+        catalog: "8" as const,
+        promptItem: "主要竞争对手",
+        searchQuery: "测试公司 竞争对手 市场份额 2024",
+        evidences: [],
+      },
+      {
+        catalog: "10" as const,
+        promptItem: "经营回顾",
+        searchQuery: "测试公司 管理层讨论 经营回顾 2024",
+        evidences: [{ title: "年报", url: "https://example.com/2", snippet: "渠道拓展与成本优化" }],
+      },
+    ],
+  };
+  assert.ok(!("decision" in c1), "C1 数据不应包含策略决策字段");
+  const c2 = projectEvidenceToC2(c1);
+  assert.equal(c2.section7.length, 1);
+  assert.equal(c2.section8.length, 1);
+  assert.equal(c2.section10.length, 1);
+  assert.match(c2.section8[0]?.content ?? "", /未搜索到相关信息/);
 
   console.log("[test:linkage] ok");
 }
