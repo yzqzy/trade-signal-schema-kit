@@ -3,6 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { resolveScreenerRunDirectory } from "../contracts/output-layout-v2.js";
 import { ScreenerDiskCache } from "./cache.js";
 import { resolveScreenerConfig, validateScreenerConfig } from "./config.js";
 import { exportScreenerResultsCsv, exportScreenerUniverseCsv } from "./export-results.js";
@@ -154,7 +155,12 @@ async function main(): Promise<void> {
     );
   }
 
-  const outDir = path.resolve(args.outputDir);
+  const { outputDir: outDir } = resolveScreenerRunDirectory({
+    outputRootArg: args.outputDir,
+    market: args.market,
+    mode: args.mode,
+  });
+  await mkdir(outDir, { recursive: true });
   await writeText(path.join(outDir, "screener_results.json"), JSON.stringify(result, null, 2));
   await writeText(path.join(outDir, "screener_input.csv"), exportScreenerUniverseCsv(universe));
   await writeText(path.join(outDir, "screener_report.md"), renderScreenerMarkdown(result));

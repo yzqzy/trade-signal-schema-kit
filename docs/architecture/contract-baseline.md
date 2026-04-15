@@ -55,6 +55,8 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 
 ## 5. `RunWorkflowInput` 与产物路径（相对 `outputDir`）
 
+**默认 `outputDir`（output v2）**：`workflow:run` 未传 `--output-dir` 时父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`business-analysis:run` 未传时父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。`<runId>` 为 UUID，与 LangGraph `thread_id` 对齐。显式 `--output-dir` 表示**父目录**，其下仍会创建 `<runId>` 子目录。**续跑**（`resumeFromStage`）必须将 `--output-dir` 指向已有 run 根目录（含 `workflow_graph_checkpoint.json`）。
+
 | 产物 | 相对路径 / 说明 |
 |------|-----------------|
 | Phase1A JSON | `phase1a_data_pack.json` |
@@ -64,17 +66,18 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 | 中报 PDF 链 | `pdf_sections_interim.json`、`data_pack_report_interim.md` |
 | Phase3 预检 | `phase3_preflight.md` |
 | Phase3 输出 | `valuation_computed.json`、`analysis_report.md`、`analysis_report.html` |
-| 编排清单 | `workflow_manifest.json`（`manifestVersion` 当前为 `"1.0"`） |
+| 编排清单 | `workflow_manifest.json`（`manifestVersion` 当前为 `"2.0"`，含 `outputLayout`） |
 
 `workflow_manifest.json` 须保留：
 
 - `generatedAt`、`input`（code 归一化后写入）、`outputs` 各路径
+- `outputLayout`：`version`（`2.0`）、`area`（`workflow`）、`code`、`runId`
 - `pipeline.valuation.relativePaths.marketMd`；若有年报包则含 `reportMd`；中报链可能含 `interimReportMd`
 
 ## 6. Phase3 独立 CLI（`run:phase3`）契约
 
 - **必填**：`--market-md <path>`
-- **可选**：`--report-md`、`--interim-report-md`、`--output-dir`（默认 `output`）
+- **可选**：`--report-md`、`--interim-report-md`、`--output-dir`（默认 `output`）、`--code`（仅当 `--output-dir` 为默认 `output` 时用于 v2 分区：`output/valuation/<code>/<runId>/`）
 - **输出**：`valuation_computed.json`、`analysis_report.md`、`analysis_report.html`（与 workflow 内 Phase3 一致）
 
 ## 7. 错误与前缀契约（严格模式）

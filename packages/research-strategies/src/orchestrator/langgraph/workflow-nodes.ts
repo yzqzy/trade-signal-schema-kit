@@ -16,7 +16,9 @@ import { renderPhase3Html, renderPhase3Markdown } from "../../stages/phase3/repo
 import { resolveWorkflowStrategyPlugin } from "../../strategies/registry.js";
 import { evaluatePhase3Preflight } from "../../pipeline/phase3-preflight.js";
 import { runPreflightAfterPhase1A, type PreflightLevel } from "../../pipeline/preflight.js";
+import { OUTPUT_LAYOUT_VERSION, resolveWorkflowDefaultRunDirectory } from "../../contracts/output-layout-v2.js";
 import { normalizeCodeForFeed } from "../../pipeline/normalize-stock-code.js";
+import { resolveOutputPath } from "../../pipeline/resolve-monorepo-path.js";
 import {
   strictPreflightPhase3Abort,
   strictPreflightPhase3SupplementNeeded,
@@ -99,10 +101,23 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
   const input = state.input;
   const runId = input.runId ?? randomUUID();
   const threadId = runId;
+
+  if (input.resumeFromStage) {
+    if (!input.outputDir?.trim()) {
+      throw new Error(
+        "[workflow:langgraph] output v2 续跑必须提供 --output-dir，指向含 workflow_graph_checkpoint.json 的 run 根目录（例如 output/workflow/600887/<runId>/）",
+      );
+    }
+  }
+
   const normalizedCode = normalizeCodeForFeed(input.code);
-  const outputDir = path.resolve(
-    input.outputDir ?? path.join("output", "workflow", normalizedCode),
-  );
+  const outputDir = input.resumeFromStage
+    ? resolveOutputPath(input.outputDir!.trim())
+    : resolveWorkflowDefaultRunDirectory({
+        code: input.code,
+        outputDir: input.outputDir,
+        runId,
+      }).outputDir;
   await mkdir(outputDir, { recursive: true });
 
   let interimReportMarkdown = state.interimReportMarkdown;
@@ -484,7 +499,13 @@ export async function nodeFinalizeManifest(state: WorkflowGraphState): Promise<P
   const reportRelW = phase2bMarkdownPath ? path.relative(outputDir, phase2bMarkdownPath) : undefined;
 
   const manifest = {
-    manifestVersion: "1.0",
+    manifestVersion: "2.0",
+    outputLayout: {
+      version: OUTPUT_LAYOUT_VERSION,
+      area: "workflow",
+      code: normalizedCode,
+      runId: state.runId,
+    },
     generatedAt: new Date().toISOString(),
     input: {
       ...input,

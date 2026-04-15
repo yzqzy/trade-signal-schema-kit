@@ -98,7 +98,7 @@ export interface OrchestratorAdapter {
 
 1. **定义策略 ID 与版本**，实现 `StrategyPlugin`（`supports` / `evaluate` / 可选 `render`）。
 2. **实现 C2**：将策略所需的证据槽位从 C1 输出投影为策略上下文（不与 C1 混写）。
-3. **注册策略**：在 `packages/research-strategies/src/strategies/registry.ts` 将 `strategyId` 映射到插件实现；编排层仅解析 ID（CLI 已支持 `--strategy <id>`，与 `--mode` 等参数共存演进）。
+3. **注册策略**：在 `packages/research-strategies/src/strategies/registry.ts` 将 `strategyId` 映射到插件实现；编排层仅解析 ID（CLI 已支持 `--strategy <id>`，与 `--mode` 等参数共存演进）。操作步骤见 [策略注册指南](../guides/strategy-registration.md)。
 4. **契约对齐**：仅使用标准字段；需要新字段时走 **schema-core 变更**，而非在插件内引用 feed 原始键。
 5. **质量门禁**：通用门（conformance / contract / regression / golden）照跑；策略专有规则单独目录或 manifest（按 `strategyId` 分类）。
 

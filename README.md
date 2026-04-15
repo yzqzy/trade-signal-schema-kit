@@ -28,8 +28,10 @@ pnpm run build
 pnpm run business-analysis:run -- \
   --code 600887 \
   --year 2024 \
-  --output-dir "./output/run/600887_ba"
+  --output-dir "./output/business-analysis/600887"
 ```
+
+实际产物在 `./output/business-analysis/600887/<runId>/`（`<runId>` 为 UUID；不传 `--output-dir` 时默认即此父目录）。
 
 **2）严格全流程（优先传 PDF/URL；缺失时尝试自动发现）**
 
@@ -39,21 +41,24 @@ pnpm run workflow:run -- \
   --year 2024 \
   --mode turtle-strict \
   --pdf "./path/to/annual.pdf" \
-  --output-dir "./output/run/600887_wf"
+  --output-dir "./output/workflow/600887"
 ```
+
+`--output-dir` 为父目录，写入 `./output/workflow/600887/<runId>/`。
 
 **3）独立估值（市场包 + 可选报告包，或从 manifest 解析）**
 
 ```bash
 pnpm run valuation:run -- \
-  --from-manifest "./output/run/600887_ba/business_analysis_manifest.json"
+  --from-manifest "./output/workflow/600887/<runId>/business_analysis_manifest.json"
 ```
 
 可选：将已有 Markdown 转为 HTML：
 
 ```bash
 pnpm run report-to-html:run -- \
-  --input-md "./output/run/600887_wf/analysis_report.md"
+  --input-md "./output/workflow/600887/<runId>/analysis_report.md" \
+  --code 600887
 ```
 
 ## Claude Slash 与 pnpm 对照
@@ -77,7 +82,7 @@ pnpm run report-to-html:run -- \
 | `valuation:run` | `valuation_computed.json`、`valuation_summary.md`（可选 `--full-report` 追加完整报告 md/html） |
 | `run:phase3`（包内） / 根目录仍可用 `workflow:run` 内含 Phase3 | 同 workflow 中 Phase3 三件套（见 [docs/guides/workflows.md](docs/guides/workflows.md)） |
 
-`business_analysis_manifest.json` / `workflow_manifest.json` 内含 `pipeline.valuation.relativePaths`，便于串接 `valuation:run`。
+`business_analysis_manifest.json` / `workflow_manifest.json` 内含 `pipeline.valuation.relativePaths` 与 `outputLayout`（`manifestVersion` 为 `2.0`），便于串接 `valuation:run`。详见 [docs/guides/workflows.md](docs/guides/workflows.md) 的 output v2 说明。
 
 ## 严格模式报错前缀
 

@@ -3,12 +3,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { resolveReportHtmlDefaultPath } from "../contracts/output-layout-v2.js";
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
 import { renderPhase3Html } from "../stages/phase3/report-renderer.js";
 
 type CliArgs = {
   inputMdPath?: string;
   outputHtmlPath?: string;
+  /** 默认输出 v2 目录分区用；缺省 `_adhoc` */
+  code?: string;
   legacyPre?: boolean;
   toc?: boolean;
 };
@@ -35,6 +38,7 @@ function parseArgs(argv: string[]): CliArgs {
   return {
     inputMdPath: values["input-md"] ?? values["markdown"],
     outputHtmlPath: values["output-html"] ?? values["output"],
+    code: values.code,
     legacyPre: flags.has("legacy-pre"),
     toc: flags.has("toc"),
   };
@@ -55,7 +59,10 @@ async function main(): Promise<void> {
   const outHtml =
     args.outputHtmlPath !== undefined
       ? resolveOutputPath(args.outputHtmlPath)
-      : path.join(path.dirname(mdAbs), `${path.basename(mdAbs, path.extname(mdAbs))}.html`);
+      : resolveReportHtmlDefaultPath({
+          inputMdAbsolute: mdAbs,
+          stockCode: args.code,
+        }).outputHtmlPath;
 
   await mkdir(path.dirname(outHtml), { recursive: true });
   await writeFile(outHtml, html, "utf-8");

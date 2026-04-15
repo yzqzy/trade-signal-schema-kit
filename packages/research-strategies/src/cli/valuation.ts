@@ -3,6 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { resolveValuationOrPhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
@@ -13,6 +14,8 @@ type CliArgs = {
   reportMdPath?: string;
   interimReportMdPath?: string;
   outputDir: string;
+  /** 默认输出 v2 目录名用（`--output-dir output` 时）；可从 manifest 推断时可不传 */
+  code?: string;
   fromManifest?: string;
   fullReport?: boolean;
 };
@@ -41,6 +44,7 @@ function parseArgs(argv: string[]): CliArgs {
     reportMdPath: values["report-md"],
     interimReportMdPath: values["interim-report-md"],
     outputDir: values["output-dir"] ?? "output",
+    code: values.code,
     fromManifest: values["from-manifest"],
     fullReport: flags.has("full-report"),
   };
@@ -143,15 +147,21 @@ async function main(): Promise<void> {
   let marketMdPath = args.marketMdPath;
   let reportMdPath = args.reportMdPath;
   let interimReportMdPath = args.interimReportMdPath;
-  let outDir = resolveOutputPath(args.outputDir);
+  let outDir = resolveValuationOrPhase3DefaultRunDirectory({
+    outputDirArg: args.outputDir,
+    stockCode: args.code,
+  }).outputDir;
 
   if (args.fromManifest) {
     const resolved = await resolvePathsFromManifest(args.fromManifest);
     marketMdPath = marketMdPath ?? resolved.marketMdPath;
     reportMdPath = reportMdPath ?? resolved.reportMdPath;
     interimReportMdPath = interimReportMdPath ?? resolved.interimReportMdPath;
-    outDir =
-      args.outputDir === "output" ? resolved.outputDir : resolveOutputPath(args.outputDir);
+    if (args.outputDir === "output") {
+      outDir = resolved.outputDir;
+    } else {
+      outDir = resolveOutputPath(args.outputDir);
+    }
   }
 
   if (!marketMdPath) {

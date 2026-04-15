@@ -1,7 +1,7 @@
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { normalizeCodeForFeed } from "../../pipeline/normalize-stock-code.js";
+import { resolveOutputPath } from "../../pipeline/resolve-monorepo-path.js";
 import type {
   RunWorkflowInput,
   WorkflowArtifacts,
@@ -20,8 +20,12 @@ function assertState<T>(value: T | undefined | null, message: string): T {
 
 export async function resolveWorkflowThreadId(input: RunWorkflowInput): Promise<string> {
   if (input.resumeFromStage) {
-    const normalizedCode = normalizeCodeForFeed(input.code);
-    const outputDir = path.resolve(input.outputDir ?? path.join("output", "workflow", normalizedCode));
+    if (!input.outputDir?.trim()) {
+      throw new Error(
+        "[workflow:langgraph] output v2 续跑必须提供 --output-dir=含 checkpoint 的 run 根目录（例如 output/workflow/600887/<runId>/）",
+      );
+    }
+    const outputDir = resolveOutputPath(input.outputDir.trim());
     const cp = await readWorkflowCheckpoint(outputDir);
     if (cp?.threadId) return cp.threadId;
     throw new Error(

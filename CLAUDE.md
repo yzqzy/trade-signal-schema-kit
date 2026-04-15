@@ -27,6 +27,7 @@ pnpm --filter @trade-signal/schema-core run typecheck
 pnpm --filter @trade-signal/provider-http run build
 
 # research-strategies：根目录仍提供 workflow:run 等聚合命令；包内直跑请用 run:*（例：pnpm --filter @trade-signal/research-strategies run run:workflow）
+# 产物目录 output v2：默认 `output/workflow/<code>/<runId>/`；business-analysis 默认 `output/business-analysis/<code>/<runId>/`；续跑必须 `--output-dir` 指向 run 根目录。详见 docs/guides/workflows.md
 ```
 
 ## Architecture

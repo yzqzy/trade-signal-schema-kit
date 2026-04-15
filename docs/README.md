@@ -17,6 +17,8 @@
 | 文档 | 说明 |
 |------|------|
 | [workflows.md](./guides/workflows.md) | **流程真源（Stage 主叙事）**、CLI、产物、PDF 分支与实现顺序说明 |
+| [research-strategies-src-layout.md](./guides/research-strategies-src-layout.md) | `research-strategies` 源码顶层目录职责（主干 vs 支撑） |
+| [strategy-registration.md](./guides/strategy-registration.md) | 新增 Stage E 策略插件：注册步骤与回归命令 |
 | [phase0-download.md](./guides/phase0-download.md) | Phase 0 年报下载、校验、CLI 与退出码 |
 | [data-source.md](./guides/data-source.md) | Feed 接入原则、字段范围、质量门禁 |
 

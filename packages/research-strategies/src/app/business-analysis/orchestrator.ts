@@ -1,7 +1,9 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { OUTPUT_LAYOUT_VERSION } from "../../contracts/output-layout-v2.js";
 import { renderPhase1BMarkdown } from "../../stages/phase1b/renderer.js";
+import { normalizeCodeForFeed } from "../../pipeline/normalize-stock-code.js";
 import {
   strictBusinessAnalysisMissingPdf,
   strictBusinessAnalysisMissingReportPack,
@@ -46,8 +48,14 @@ export async function runBusinessAnalysis(
 
   const { strict: _strict, ...workflowInput } = input;
   void _strict;
+  const defaultBaParent = path.join(
+    "output",
+    "business-analysis",
+    normalizeCodeForFeed(input.code),
+  );
   const pipeline = await executeWorkflowDataPipeline({
     ...workflowInput,
+    outputDir: workflowInput.outputDir?.trim() ? workflowInput.outputDir : defaultBaParent,
     preflight: input.strict ? "strict" : workflowInput.preflight,
   });
 
@@ -85,8 +93,15 @@ export async function runBusinessAnalysis(
     ? path.relative(pipeline.outputDir, pipeline.phase2bMarkdownPath)
     : undefined;
   const d1d6Rel = path.relative(pipeline.outputDir, qualitativeD1D6Path) || "qualitative_d1_d6.md";
+  const runId = path.basename(pipeline.outputDir);
   const manifest = {
-    manifestVersion: "1.0",
+    manifestVersion: "2.0",
+    outputLayout: {
+      version: OUTPUT_LAYOUT_VERSION,
+      area: "business-analysis",
+      code: pipeline.normalizedCode,
+      runId,
+    } as const,
     generatedAt: new Date().toISOString(),
     kind: "business-analysis",
     input: {

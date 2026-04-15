@@ -3,6 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { resolveValuationOrPhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
 
@@ -11,6 +12,7 @@ type CliArgs = {
   reportMdPath?: string;
   interimReportMdPath?: string;
   outputDir: string;
+  code?: string;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -30,6 +32,7 @@ function parseArgs(argv: string[]): CliArgs {
     reportMdPath: values["report-md"],
     interimReportMdPath: values["interim-report-md"],
     outputDir: values["output-dir"] ?? "output",
+    code: values.code,
   };
 }
 
@@ -62,7 +65,10 @@ async function main(): Promise<void> {
   const markdown = renderPhase3Markdown(result);
   const html = renderPhase3Html(markdown);
 
-  const outDir = path.resolve(args.outputDir);
+  const outDir = resolveValuationOrPhase3DefaultRunDirectory({
+    outputDirArg: args.outputDir,
+    stockCode: args.code,
+  }).outputDir;
   const valuationPath = path.join(outDir, "valuation_computed.json");
   const reportMdPath = path.join(outDir, "analysis_report.md");
   const reportHtmlPath = path.join(outDir, "analysis_report.html");
