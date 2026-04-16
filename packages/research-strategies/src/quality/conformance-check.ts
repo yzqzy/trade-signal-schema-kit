@@ -33,6 +33,50 @@ const FIXTURE = {
     totalAssets: 160_000,
     totalLiabilities: 90_000,
   },
+  financialHistory: {
+    code: "600887",
+    reportType: "annual",
+    years: 5,
+    degradeReasons: ["parent_fields_unavailable"],
+    items: [
+      {
+        code: "600887",
+        period: "2024",
+        reportDate: "2024-12-31",
+        revenue: 126_000,
+        netProfit: 9_500,
+        operatingCashFlow: 13_000,
+        totalAssets: 160_000,
+        totalLiabilities: 90_000,
+      },
+      {
+        code: "600887",
+        period: "2023",
+        reportDate: "2023-12-31",
+        revenue: 120_000,
+        netProfit: 9_000,
+        operatingCashFlow: 12_000,
+        totalAssets: 158_000,
+        totalLiabilities: 88_000,
+      },
+    ],
+  },
+  financialSnapshot: {
+    secuCode: "600887.SH",
+    code: "600887",
+    reportDate: "2024-12-31",
+    snapshot: {
+      code: "600887",
+      period: "2024",
+      reportDate: "2024-12-31",
+      revenue: 126_000,
+      netProfit: 9_500,
+      operatingCashFlow: 13_000,
+      totalAssets: 160_000,
+      totalLiabilities: 90_000,
+    },
+    degradeReasons: ["parent_fields_unavailable"],
+  },
   actions: [
     {
       code: "600887",
@@ -71,6 +115,8 @@ function installHttpFetchMock(): () => void {
     if (pathname.endsWith("/stock/indicator/realtime/600887")) return jsonResponse(FIXTURE.quote);
     if (pathname.endsWith("/stock/kline")) return jsonResponse(FIXTURE.klines);
     if (pathname.endsWith("/stock/indicator/financial/600887")) return jsonResponse(FIXTURE.financial);
+    if (pathname.includes("/stock/financial/snapshot/600887")) return jsonResponse(FIXTURE.financialSnapshot);
+    if (pathname.includes("/stock/financial/history/600887")) return jsonResponse(FIXTURE.financialHistory);
     if (pathname.endsWith("/stock/corporate-actions")) return jsonResponse(FIXTURE.actions);
     if (pathname.endsWith("/market/trading-calendar")) return jsonResponse(FIXTURE.calendar);
     return new Response("not found", { status: 404 });
@@ -85,6 +131,8 @@ async function mockMcpCall(toolName: string): Promise<unknown> {
   if (toolName === "get_stock_quote") return FIXTURE.quote;
   if (toolName === "get_stock_kline") return FIXTURE.klines;
   if (toolName === "get_stock_financial") return { financial: FIXTURE.financial };
+  if (toolName === "get_stock_financial_snapshot") return FIXTURE.financialSnapshot;
+  if (toolName === "get_stock_financial_history") return FIXTURE.financialHistory;
   if (toolName === "get_stock_corporate_actions") return FIXTURE.actions;
   if (toolName === "get_trading_calendar") return FIXTURE.calendar;
   throw new Error(`Unsupported tool in fixture: ${toolName}`);
@@ -132,6 +180,12 @@ async function main(): Promise<void> {
       mcp.getFinancialSnapshot("600887", "2024"),
     ]);
     assert.deepEqual(hFinancial, mFinancial, "financial mismatch");
+
+    const [hFinHist, mFinHist] = await Promise.all([
+      http.getFinancialHistory("600887", ["2024", "2023"]),
+      mcp.getFinancialHistory("600887", ["2024", "2023"]),
+    ]);
+    assert.deepEqual(hFinHist, mFinHist, "financial history mismatch");
 
     const [hActions, mActions] = await Promise.all([
       http.getCorporateActions("600887", "2024-01-01", "2024-12-31"),

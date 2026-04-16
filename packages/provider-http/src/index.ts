@@ -159,6 +159,11 @@ const inferMarket = (input: string): Market => {
   return "CN_A";
 };
 
+function fiscalYearToken(input: string): string {
+  const m = input.match(/(20\d{2})/);
+  return (m?.[1] ?? input.slice(0, 4)).trim();
+}
+
 function mapFinancialPayload(payload: FinancialPayload, code: string, period: string): FinancialSnapshot {
   return {
     code: payload.code ?? payload.secucode ?? code,
@@ -322,15 +327,56 @@ export class FeedHttpProvider implements MarketDataProvider {
   }
 
   async getFinancialSnapshot(code: string, period: string): Promise<FinancialSnapshot> {
-    const payload = await this.request<FinancialPayload>(
-      `/stock/indicator/financial/${encodeURIComponent(code)}`,
-    );
-    return mapFinancialPayload(payload, code, period);
+    const trimmed = period.trim();
+    const reportDate = /^\d{4}$/.test(trimmed) ? `${trimmed}-12-31` : trimmed;
+    const periodLabel = fiscalYearToken(trimmed);
+    const loadLegacy = async (): Promise<FinancialSnapshot> => {
+      const raw = await this.request<FinancialPayload | FinancialPayload[]>(
+        `/stock/indicator/financial/${encodeURIComponent(code)}`,
+      );
+      const payload = (Array.isArray(raw) ? raw[0] : raw) as FinancialPayload;
+      return mapFinancialPayload(payload, code, periodLabel);
+    };
+    try {
+      const wrapped = await this.request<{ snapshot?: FinancialPayload }>(
+        `/stock/financial/snapshot/${encodeURIComponent(code)}?reportDate=${encodeURIComponent(reportDate)}`,
+      );
+      if (wrapped?.snapshot && typeof wrapped.snapshot === "object") {
+        return mapFinancialPayload(wrapped.snapshot as FinancialPayload, code, periodLabel);
+      }
+    } catch {
+      /* feed 未升级或该期无数据：回退旧简表 */
+    }
+    return await loadLegacy();
   }
 
   async getFinancialHistory(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]> {
+    const yearSet = new Set(fiscalYears.map((y) => fiscalYearToken(y)).filter(Boolean));
+    const span = Math.max(yearSet.size || fiscalYears.length, 5);
+    const years = Math.min(15, Math.max(span + 2, 8));
+    try {
+      const payload = await this.request<{ items?: FinancialPayload[] }>(
+        `/stock/financial/history/${encodeURIComponent(code)}?reportType=annual&years=${years}`,
+      );
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      if (items.length === 0) throw new Error("empty financial history");
+      const mapped: FinancialSnapshot[] = items.map((row) => {
+        const y =
+          (typeof row.period === "string" && row.period.match(/^(\d{4})/)?.[1]) ||
+          (typeof row.reportDate === "string" && row.reportDate.match(/^(\d{4})/)?.[1]) ||
+          "";
+        return mapFinancialPayload(row, code, y || fiscalYearToken(String(row.reportDate ?? row.period ?? "")));
+      });
+      const filtered = mapped.filter((snap) => {
+        const y = snap.period.match(/^(\d{4})/)?.[1] ?? snap.period.slice(0, 4);
+        return yearSet.size === 0 || yearSet.has(y);
+      });
+      return filtered.length > 0 ? filtered : mapped;
+    } catch {
+      /* feed 未升级或限流：回退按年拉快照 */
+    }
     const settled = await Promise.allSettled(
-      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${y}-12-31`)),
+      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${fiscalYearToken(y)}-12-31`)),
     );
     const out: FinancialSnapshot[] = [];
     for (const r of settled) {

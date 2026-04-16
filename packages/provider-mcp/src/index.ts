@@ -120,6 +120,11 @@ type StockFinancialPayload = {
   };
 };
 
+function fiscalYearToken(input: string): string {
+  const m = input.match(/(20\d{2})/);
+  return (m?.[1] ?? input.slice(0, 4)).trim();
+}
+
 function mapMcpFinancial(
   financial: NonNullable<StockFinancialPayload["financial"]>,
   code: string,
@@ -280,17 +285,58 @@ export class FeedMcpProvider implements MarketDataProvider {
   }
 
   async getFinancialSnapshot(code: string, period: string): Promise<FinancialSnapshot> {
-    const payload = await this.callTool<StockFinancialPayload>("get_stock_financial", {
-      code,
-      reportDate: period,
-    });
-    const financial = payload.financial ?? {};
-    return mapMcpFinancial(financial, code, period);
+    const trimmed = period.trim();
+    const reportDateArg = /^\d{4}$/.test(trimmed) ? `${trimmed}-12-31` : trimmed;
+    const periodLabel = fiscalYearToken(trimmed);
+    try {
+      const payload = await this.callTool<{ snapshot?: Record<string, unknown> }>(
+        "get_stock_financial_snapshot",
+        { code, reportDate: reportDateArg },
+      );
+      if (payload?.snapshot && typeof payload.snapshot === "object") {
+        return mapMcpFinancial(
+          payload.snapshot as NonNullable<StockFinancialPayload["financial"]>,
+          code,
+          periodLabel,
+        );
+      }
+    } catch {
+      /* MCP 未注册 snapshot 工具或 feed 未升级 */
+    }
+    const payload = await this.callTool<StockFinancialPayload>("get_stock_financial", { code });
+    let financial: unknown = payload.financial ?? {};
+    if (Array.isArray(financial)) financial = financial[0] ?? {};
+    return mapMcpFinancial(financial as NonNullable<StockFinancialPayload["financial"]>, code, periodLabel);
   }
 
   async getFinancialHistory(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]> {
+    const yearSet = new Set(fiscalYears.map((y) => fiscalYearToken(y)).filter(Boolean));
+    const span = Math.max(yearSet.size || fiscalYears.length, 5);
+    const years = Math.min(15, Math.max(span + 2, 8));
+    try {
+      const payload = await this.callTool<{ items?: Record<string, unknown>[] }>(
+        "get_stock_financial_history",
+        { code, years, reportType: "annual" },
+      );
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      if (items.length === 0) throw new Error("empty financial history");
+      const mapped = items.map((row) =>
+        mapMcpFinancial(
+          (row ?? {}) as NonNullable<StockFinancialPayload["financial"]>,
+          code,
+          fiscalYearToken(String((row as { reportDate?: string; period?: string }).reportDate ?? (row as { period?: string }).period ?? "")),
+        ),
+      );
+      const filtered = mapped.filter((snap) => {
+        const y = snap.period.match(/^(\d{4})/)?.[1] ?? snap.period.slice(0, 4);
+        return yearSet.size === 0 || yearSet.has(y);
+      });
+      return filtered.length > 0 ? filtered : mapped;
+    } catch {
+      /* MCP 工具未注册或 feed 未升级：回退 */
+    }
     const settled = await Promise.allSettled(
-      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${y}-12-31`)),
+      fiscalYears.map((y) => this.getFinancialSnapshot(code, `${fiscalYearToken(y)}-12-31`)),
     );
     const out: FinancialSnapshot[] = [];
     for (const r of settled) {

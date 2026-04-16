@@ -24,7 +24,7 @@
 | P3-TEMPLATE | 报告模板章节 1:1 | `phase3/report-renderer.ts::renderPhase3Markdown` | implemented |
 | P3-CLI-CONTRACT | CLI 支持 market/report markdown 输入 | `phase3/cli.ts::parseArgs/loadInput` | implemented |
 | P1A-MARKET-PACK | 编排生成 `data_pack_market.md`：§1~§17、多年表（**优先 financialHistory**）、§3P/§4P、§17 预计算、§13 Warnings | `workflow/build-market-pack.ts` | implemented |
-| P1A-HISTORY | Phase1A 拉取多年财报（`getFinancialHistory` 或按年回退） | `phase1a/collector.ts`、`provider-http`、`provider-mcp` | implemented |
+| P1A-HISTORY | Phase1A 拉取多年财报（`getFinancialHistory` 优先 `feed` `/stock/financial/history`，失败按年 `getFinancialSnapshot`；`getFinancialSnapshot` 优先 `/stock/financial/snapshot`） | `phase1a/financial-history.ts`、`provider-http`、`provider-mcp`、`trade-signal-feed` | implemented |
 | P3-PREFLIGHT-MD | 输出 `phase3_preflight.md`（PROCEED / SUPPLEMENT_NEEDED / ABORT） | `pipeline/phase3-preflight.ts`、`workflow/orchestrator.ts` | implemented |
 | PREFLIGHT-EST | 严格模式：估算类 `[估算|` 条数超阈值 fail-fast | `pipeline/preflight.ts` | implemented |
 | PREFLIGHT-1A | `turtle-strict` / `business-analysis --strict` 下 Phase1A 后门禁 | `pipeline/preflight.ts` | implemented |

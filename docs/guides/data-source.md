@@ -6,6 +6,8 @@
 
 - 上层只依赖标准字段，不依赖上游原始字段名
 - 数据统一由 `trade-signal-feed` 提供
+- A 股单期合并快照：`FeedHttpProvider.getFinancialSnapshot` 优先 `GET /api/v1/stock/financial/snapshot/:code?reportDate=`，失败回退 `GET /stock/indicator/financial/:code`（简表首条）；MCP 对位 `get_stock_financial_snapshot`。
+- A 股多年财报：`FeedHttpProvider.getFinancialHistory` 优先 `GET /api/v1/stock/financial/history/:code`，失败回退按年 `getFinancialSnapshot`；MCP 对位 `get_stock_financial_history`。
 - 同一查询在 HTTP/MCP 两种通道语义一致
 
 ## 当前通道
