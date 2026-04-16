@@ -4,15 +4,17 @@ import { AgentExecutor, createOpenAIToolsAgent } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 
 import type { Phase1BQualitativeSupplement } from "../../stages/phase1b/types.js";
+import { buildProxiedFetch, parseTsLlmEnv } from "./agent-llm-config.js";
 
 /**
- * 可选：用 OpenAI tools agent 生成一条旁路说明（失败或未配置 key 时返回 undefined，主链不变）。
+ * 可选：用 OpenAI tools agent 生成一条旁路说明（失败或未配置 TS_LLM_* 时返回 undefined，主链不变）。
+ * 配置仅通过 `TS_LLM_*` 环境变量（见 README 与 agent-llm-config）。
  */
 export async function tryRunStageCAgentSidecar(
   phase1b: Phase1BQualitativeSupplement,
 ): Promise<string | undefined> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return undefined;
+  const cfg = parseTsLlmEnv();
+  if (!cfg) return undefined;
 
   const noopTool = new DynamicTool({
     name: "noop_ack",
@@ -21,10 +23,18 @@ export async function tryRunStageCAgentSidecar(
   });
 
   try {
+    const proxiedFetch = buildProxiedFetch(cfg.proxyUrl);
     const llm = new ChatOpenAI({
-      model: "gpt-4o-mini",
-      temperature: 0,
-      apiKey,
+      model: cfg.model,
+      apiKey: cfg.apiKey,
+      temperature: cfg.temperature,
+      timeout: cfg.timeoutMs,
+      maxRetries: 2,
+      configuration: {
+        baseURL: cfg.baseURL,
+        // OpenAI SDK Fetch 类型与 undici 代理 fetch 签名略有不一致，运行时兼容
+        ...(proxiedFetch ? { fetch: proxiedFetch as never } : {}),
+      },
     });
 
     const prompt = ChatPromptTemplate.fromMessages([
@@ -63,4 +73,3 @@ export async function tryRunStageCAgentSidecar(
     return undefined;
   }
 }
-

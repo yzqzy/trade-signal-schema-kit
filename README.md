@@ -107,20 +107,6 @@ pnpm run report-to-html:run -- \
 
 `business_analysis_manifest.json` / `workflow_manifest.json` 内含 `pipeline.valuation.relativePaths` 与 `outputLayout`（`manifestVersion` 为 `2.0`），便于串接 `valuation:run`。详见 [docs/guides/workflows.md](docs/guides/workflows.md) 的 output v2 说明。
 
-## 严格模式报错前缀
-
-- `business-analysis --strict`：`[strict:business-analysis]`
-- `workflow --mode turtle-strict`：`[strict:workflow:turtle-strict]`
-- Phase1A Pre-flight（`turtle-strict` / `business-analysis --strict` / `--preflight strict`）：`[strict:preflight]`
-
-## 常见故障
-
-| 现象 | 处理 |
-|------|------|
-| 找不到模块 / CLI 不运行 | 先执行 `pnpm run build` |
-| Phase1A 失败 | 检查 `FEED_BASE_URL`、网络与 API Key |
-| turtle-strict 立即报错 | 若未传 `--pdf/--report-url` 会先尝试自动发现；失败时按提示改传 `--report-url` 或 `--pdf`，并确保可生成 `data_pack_report.md` |
-
 ## 质量门禁
 
 ```bash
@@ -130,19 +116,13 @@ pnpm run test:linkage   # build + 链路烟测（市场包/2B/D1D6 结构）
 
 默认覆盖 `cn_a` 与 `hk` 回归/黄金快照；`contract` / `regression` / `phase3-golden` 依赖仓库内已跟踪的 **`output/phase3_golden/`**（离线合成基线，**不是**某次业务 run 的产物）。误删后：`pnpm --filter @trade-signal/research-strategies run build` 再 `pnpm --filter @trade-signal/research-strategies run gen:phase3-golden`，详见 [docs/guides/data-source.md](docs/guides/data-source.md)。港股基线用于防回归，不代表深度能力已齐。
 
-## 环境变量（最小集）
-
-| 变量 | 用途 |
-|------|------|
-| `FEED_BASE_URL` | Phase1A HTTP Provider（必填） |
-| `FEED_API_KEY` | 可选 |
-
-模板：`.env.example`、`.env.full`。
+**环境与 Agent（含 Feed、`TS_LLM_*`、LangGraph 与排障）** 见 [docs/guides/agent-llm-and-env.md](docs/guides/agent-llm-and-env.md)；模板：`.env.example`、`.env.full.example`。
 
 ## 更多文档
 
 - [流程与 CLI 细节](docs/guides/workflows.md)
 - [数据契约与 quality](docs/guides/data-source.md)
+- [环境与 Agent、`TS_LLM_*`、排障](docs/guides/agent-llm-and-env.md)
 - [路线图（策略与版本）](docs/strategy/strategy-roadmap.md)
 - [文档总索引](docs/README.md)
 - [Claude Code 指引](CLAUDE.md)
