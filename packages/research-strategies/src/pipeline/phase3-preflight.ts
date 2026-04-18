@@ -1,5 +1,18 @@
+import type { PdfExtractQualitySummary } from "@trade-signal/schema-core";
+
 import { parseDataPackMarket } from "../stages/phase3/market-pack-parser.js";
 import { parseDataPackReport } from "../stages/phase3/report-pack-parser.js";
+
+/** 从 `data_pack_report*.md` 头部嵌入的机器可读块解析 PDF 抽取质量（Phase2B 生成）。 */
+export function parsePdfExtractQualityFromReportMarkdown(markdown: string): PdfExtractQualitySummary | undefined {
+  const m = markdown.match(/<!--\s*PDF_EXTRACT_QUALITY:([\s\S]*?)-->/);
+  if (!m?.[1]) return undefined;
+  try {
+    return JSON.parse(m[1].trim()) as PdfExtractQualitySummary;
+  } catch {
+    return undefined;
+  }
+}
 
 export type Phase3PreflightVerdict = "PROCEED" | "SUPPLEMENT_NEEDED" | "ABORT";
 
@@ -26,6 +39,9 @@ export function evaluatePhase3Preflight(input: {
 }): Phase3PreflightResult {
   const parsed = parseDataPackMarket(input.marketMarkdown);
   const report = input.reportMarkdown ? parseDataPackReport(input.reportMarkdown) : undefined;
+  const pdfExtractQuality = input.reportMarkdown
+    ? parsePdfExtractQualityFromReportMarkdown(input.reportMarkdown)
+    : undefined;
   const estimates = countEstimateTags(input.marketMarkdown);
   const financialYears = parsed.financials.filter(
     (f) => f.netProfit !== undefined && f.netProfit !== null && Number.isFinite(f.netProfit),
@@ -88,13 +104,52 @@ export function evaluatePhase3Preflight(input: {
     });
   }
 
+  if (pdfExtractQuality?.missingCritical?.length) {
+    supplementGaps.push({
+      target: "PDF 关键章节（MDA/P4/P13）",
+      search: `${input.companyName} 年报 PDF 附注 管理层讨论与分析 关联方 非经常性损益`,
+      priority: "high",
+    });
+  }
+  if (pdfExtractQuality?.lowConfidenceCritical?.length) {
+    supplementGaps.push({
+      target: "PDF 低置信关键章节复核",
+      search: `${input.companyName} 年报 对应章节 人工核对页码`,
+      priority: "medium",
+    });
+  }
+
+  const minSectionsFound = Number(process.env.PHASE3_PREFLIGHT_PDF_MIN_SECTIONS_FOUND ?? "");
+  if (
+    pdfExtractQuality &&
+    Number.isFinite(minSectionsFound) &&
+    pdfExtractQuality.sectionsFound < minSectionsFound
+  ) {
+    supplementGaps.push({
+      target: "PDF 章节覆盖率",
+      search: `${input.companyName} 年报 PDF 文本层 附注起始页`,
+      priority: "high",
+    });
+  }
+
   const minEstForSupplement = Number(process.env.PHASE3_PREFLIGHT_SUPPLEMENT_MIN_ESTIMATE_TAGS ?? "8");
   const estThreshold = Number.isFinite(minEstForSupplement) ? minEstForSupplement : 8;
+
+  const pdfGate = (process.env.PHASE3_PREFLIGHT_PDF_GATE ?? "off").trim().toLowerCase();
+  const pdfGateNeedsSupplement =
+    pdfExtractQuality &&
+    ((pdfGate === "missing" && pdfExtractQuality.gateVerdict === "CRITICAL") ||
+      (pdfGate === "strict" &&
+        (pdfExtractQuality.gateVerdict === "CRITICAL" || pdfExtractQuality.lowConfidenceCritical.length > 0)) ||
+      (pdfGate === "sections" &&
+        Number.isFinite(minSectionsFound) &&
+        pdfExtractQuality.sectionsFound < minSectionsFound));
 
   let verdict: Phase3PreflightVerdict = "PROCEED";
   if (abortReasons.length > 0) verdict = "ABORT";
   else if (estimates >= estThreshold) verdict = "SUPPLEMENT_NEEDED";
   else if (financialYears === 2 && estimates >= 4) verdict = "SUPPLEMENT_NEEDED";
+  else if (pdfGateNeedsSupplement) verdict = "SUPPLEMENT_NEEDED";
 
   const supplementBlock =
     verdict === "SUPPLEMENT_NEEDED" && supplementGaps.length > 0
@@ -142,6 +197,14 @@ export function evaluatePhase3Preflight(input: {
     `- 可解析净利润的财报年度数：**${financialYears}**`,
     `- data_pack_report：${input.reportMarkdown ? "已提供" : "缺失"}`,
     `- data_pack_report_interim：${input.interimReportMarkdown ? "已提供" : "未提供"}`,
+    ...(pdfExtractQuality
+      ? [
+          `- **PDF 抽取质量**：gate=\`${pdfExtractQuality.gateVerdict}\`；缺失关键块=${JSON.stringify(pdfExtractQuality.missingCritical)}；低置信关键块=${JSON.stringify(pdfExtractQuality.lowConfidenceCritical)}；sections=${pdfExtractQuality.sectionsFound}/${pdfExtractQuality.sectionsTotal}`,
+          `- **PHASE3_PREFLIGHT_PDF_GATE** 当前=\`${pdfGate}\`（off | missing | strict | sections；默认 off，仅诊断不落盘改 verdict）`,
+        ]
+      : input.reportMarkdown
+        ? ["- **PDF 抽取质量**：未解析到嵌入块（可能为旧版 data_pack_report）"]
+        : []),
     ...mvpPdfBlock,
     "## 说明",
     "",

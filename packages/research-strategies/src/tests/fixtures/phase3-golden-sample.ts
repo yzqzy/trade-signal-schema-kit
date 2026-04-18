@@ -1,5 +1,7 @@
 import type { DataPackMarket, PdfSections } from "@trade-signal/schema-core";
 
+import { computePdfExtractQuality } from "../../stages/phase2a/extract-quality.js";
+
 /** A 股黄金样例（与 linkage-smoke 一致，供契约/回归/插件烟测复用） */
 export function sampleCnADataPack(): DataPackMarket {
   return {
@@ -93,15 +95,19 @@ export function sampleHkDataPack(): DataPackMarket {
 }
 
 export function samplePdfSections(): PdfSections {
-  return {
+  const sections: PdfSections = {
     metadata: {
       pdfFile: "fixture.pdf",
       totalPages: 10,
       extractTime: new Date().toISOString(),
-      sectionsFound: 3,
+      sectionsFound: 5,
       sectionsTotal: 7,
     },
-    P2: { content: "受限资产摘录", pageFrom: 1, pageTo: 2 },
-    MDA: { content: "MD&A 摘录", pageFrom: 5, pageTo: 6 },
+    P2: { content: "受限资产摘录", pageFrom: 1, pageTo: 2, confidence: "high" },
+    P4: { content: "关联方交易摘录", pageFrom: 3, pageTo: 3, confidence: "high" },
+    P13: { content: "非经常性损益摘录", pageFrom: 4, pageTo: 4, confidence: "high" },
+    MDA: { content: "MD&A 摘录", pageFrom: 5, pageTo: 6, confidence: "high" },
   };
+  sections.metadata.extractQuality = computePdfExtractQuality(sections);
+  return sections;
 }

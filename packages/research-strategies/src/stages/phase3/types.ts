@@ -138,6 +138,8 @@ export interface Phase3ExecutionResult {
   report: AnalysisReport;
   decision: Phase3Decision;
   confidence: Confidence;
+  /** 早停否决时使用精简报告模板，避免满篇占位符 */
+  reportMode?: "full" | "reject";
   factor1A?: Factor1AResult;
   factor1B?: Factor1BResult;
   factor2?: Factor2Result;

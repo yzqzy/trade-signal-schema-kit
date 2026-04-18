@@ -26,7 +26,27 @@ function yesNo(hit: boolean): string {
   return hit ? "是→否决" : "否";
 }
 
+function renderPhase3RejectMarkdown(result: Phase3ExecutionResult): string {
+  const report = result.report;
+  const blocks = report.sections.map((s) => [`### ${s.heading}`, "", s.content.trim(), ""].join("\n"));
+  return [
+    `# ${report.title}`,
+    "",
+    "> **报告类型：REJECT（早停）** — 仅输出否决因子、阈值对比与补救指引；不包含完整因子 3/4 定量展开，避免无意义 `—` 占位。",
+    "",
+    ...blocks,
+    "---",
+    "",
+    "*本模板由 `reportMode=reject` 触发；完整分析请解决否决项后重跑。*",
+    "",
+  ].join("\n");
+}
+
 export function renderPhase3Markdown(result: Phase3ExecutionResult): string {
+  if (result.reportMode === "reject") {
+    return renderPhase3RejectMarkdown(result);
+  }
+
   const report = result.report;
   const f1a = result.factor1A;
   const f1b = result.factor1B;

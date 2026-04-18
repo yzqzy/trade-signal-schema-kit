@@ -207,3 +207,26 @@ export function computePhase1bEvidenceQualityMetrics(
     evaluatedAt: new Date().toISOString(),
   };
 }
+
+/** 环境变量硬门槛（默认关闭：值为空或非有限数时不生效）。 */
+export function evaluatePhase1bEvidenceHardGates(metrics: Phase1bEvidenceQualityMetrics): {
+  passed: boolean;
+  violations: string[];
+} {
+  const minS8Topic = Number(process.env.PHASE1B_GATE_S8_TOPIC_HIT_MIN ?? "");
+  const maxS8Dup = Number(process.env.PHASE1B_GATE_S8_DUP_MAX ?? "");
+  const violations: string[] = [];
+
+  if (Number.isFinite(minS8Topic) && metrics.section8.topicHitRatio < minS8Topic) {
+    violations.push(
+      `section8.topicHitRatio=${metrics.section8.topicHitRatio.toFixed(3)} < PHASE1B_GATE_S8_TOPIC_HIT_MIN=${minS8Topic}`,
+    );
+  }
+  if (Number.isFinite(maxS8Dup) && metrics.section8.crossItemDuplicateUrlRatio > maxS8Dup) {
+    violations.push(
+      `section8.crossItemDuplicateUrlRatio=${metrics.section8.crossItemDuplicateUrlRatio.toFixed(3)} > PHASE1B_GATE_S8_DUP_MAX=${maxS8Dup}`,
+    );
+  }
+
+  return { passed: violations.length === 0, violations };
+}

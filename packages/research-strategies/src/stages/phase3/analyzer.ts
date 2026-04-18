@@ -53,7 +53,31 @@ function confidenceFromContext(ctx: Phase3Context, trust?: "high" | "medium" | "
   return "medium";
 }
 
-function buildRejectReport(code: string, reason: string, checkpoints: string[]): AnalysisReport {
+function buildRejectReport(
+  code: string,
+  companyName: string | undefined,
+  reason: string,
+  checkpoints: string[],
+  opts?: { thresholdCompare?: string },
+): AnalysisReport {
+  const label =
+    companyName?.trim() && companyName.trim() !== code ? `${companyName.trim()}（${code}）` : code;
+  const sections: AnalysisReport["sections"] = [
+    { heading: "否决摘要（早停）", content: reason },
+  ];
+  if (opts?.thresholdCompare?.trim()) {
+    sections.push({ heading: "关键阈值对比", content: opts.thresholdCompare.trim() });
+  }
+  sections.push({ heading: "Checkpoint 轨迹", content: checkpoints.join("\n\n") || "(无)" });
+  sections.push({
+    heading: "证据与数据缺口 / 补救建议",
+    content: [
+      "- 核对 `data_pack_market.md`：财务口径（合并/母公司）、OCF/Capex/净利润等关键行是否可解析。",
+      "- 若已进入 PDF 分支：查看 `data_pack_report.md` 顶部 **PDF 抽取缺陷摘要** 与 `phase3_preflight.md` 的 PDF 门禁提示。",
+      "- Phase1B 外部证据：查看 `phase1b_evidence_quality.json`（§8 `topicHitRatio` / `crossItemDuplicateUrlRatio`）与 `phase1b_qualitative.json` 的 `retrievalDiagnostics`（宽召回 / AI 重排标记）。",
+      "- 解决否决原因后使用同一 `--output-dir` 续跑或重新发起 workflow。",
+    ].join("\n"),
+  });
   return {
     meta: {
       code,
@@ -62,13 +86,10 @@ function buildRejectReport(code: string, reason: string, checkpoints: string[]):
       generatedAt: new Date().toISOString(),
       capabilityFlags: [],
     },
-    title: `龟龟投资策略 · 选股分析报告：${code}`,
+    title: `龟龟投资策略 · 选股分析报告：${label}`,
     decision: "avoid",
     confidence: "medium",
-    sections: [
-      { heading: "执行中断（否决门触发）", content: reason },
-      { heading: "Checkpoint", content: checkpoints.join("\n\n") || "(无)" },
-    ],
+    sections,
   };
 }
 
@@ -92,7 +113,12 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
   const f1a = runFactor1A(ctx.marketPack);
   appendCheckpoint(ctx, `因子1A: ${f1a.passed ? "通过" : f1a.reason}`);
   if (!f1a.passed) {
-    const report = buildRejectReport(ctx.marketPack.code, f1a.reason ?? "因子1A否决", ctx.checkpoints);
+    const report = buildRejectReport(
+      ctx.marketPack.code,
+      ctx.marketPack.name,
+      f1a.reason ?? "因子1A否决",
+      ctx.checkpoints,
+    );
     return {
       valuation: {
         code: ctx.marketPack.code,
@@ -102,6 +128,7 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
       report,
       decision: "avoid",
       confidence: "medium",
+      reportMode: "reject",
       factor1A: f1a,
       methods: [],
     };
@@ -111,7 +138,12 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
   const f1b = runFactor1B(ctx.marketPack, ctx.reportPack);
   appendCheckpoint(ctx, `因子1B: ${f1b.passed ? "通过" : f1b.reason}`);
   if (!f1b.passed) {
-    const report = buildRejectReport(ctx.marketPack.code, f1b.reason ?? "因子1B否决", ctx.checkpoints);
+    const report = buildRejectReport(
+      ctx.marketPack.code,
+      ctx.marketPack.name,
+      f1b.reason ?? "因子1B否决",
+      ctx.checkpoints,
+    );
     return {
       valuation: {
         code: ctx.marketPack.code,
@@ -121,6 +153,7 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
       report,
       decision: "avoid",
       confidence: "medium",
+      reportMode: "reject",
       factor1A: f1a,
       factor1B: f1b,
       methods: [],
@@ -131,7 +164,24 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
   const f2 = runFactor2(ctx.marketPack, f1b);
   appendCheckpoint(ctx, `因子2: ${f2.passed ? "通过" : f2.reason}`);
   if (!f2.passed) {
-    const report = buildRejectReport(ctx.marketPack.code, f2.reason ?? "因子2否决", ctx.checkpoints);
+    const thresholdCompare =
+      f2.R !== undefined && f2.II !== undefined
+        ? [
+            `- **粗算穿透回报率 R**：${f2.R.toFixed(2)}%`,
+            `- **门槛 II**（max(3.5%, Rf+2%)）：${f2.II.toFixed(2)}%`,
+            `- **Rf（无风险）**：${(ctx.marketPack.rf ?? 2.5).toFixed(2)}%（用于 R 与 Rf 比较）`,
+            f2.rejectType ? `- **否决类型**：${f2.rejectType}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : undefined;
+    const report = buildRejectReport(
+      ctx.marketPack.code,
+      ctx.marketPack.name,
+      f2.reason ?? "因子2否决",
+      ctx.checkpoints,
+      thresholdCompare ? { thresholdCompare } : undefined,
+    );
     return {
       valuation: {
         code: ctx.marketPack.code,
@@ -141,6 +191,7 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
       report,
       decision: "avoid",
       confidence: "medium",
+      reportMode: "reject",
       factor1A: f1a,
       factor1B: f1b,
       factor2: f2,
@@ -152,7 +203,12 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
   const f3 = runFactor3(ctx.marketPack, f1b, f2);
   appendCheckpoint(ctx, `因子3: ${f3.passed ? "通过" : f3.reason}`);
   if (!f3.passed) {
-    const report = buildRejectReport(ctx.marketPack.code, f3.reason ?? "因子3否决", ctx.checkpoints);
+    const report = buildRejectReport(
+      ctx.marketPack.code,
+      ctx.marketPack.name,
+      f3.reason ?? "因子3否决",
+      ctx.checkpoints,
+    );
     return {
       valuation: {
         code: ctx.marketPack.code,
@@ -162,6 +218,7 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
       report,
       decision: "avoid",
       confidence: "medium",
+      reportMode: "reject",
       factor1A: f1a,
       factor1B: f1b,
       factor2: f2,
@@ -218,6 +275,7 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
     report,
     decision,
     confidence,
+    reportMode: "full",
     factor1A: f1a,
     factor1B: f1b,
     factor2: f2,

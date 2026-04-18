@@ -162,6 +162,24 @@ export interface PdfSectionDiagnosticEntry {
   confidence: Phase2SectionConfidence;
   runnerUpPage?: number;
   runnerUpScore?: number;
+  /** Phase2A：除最佳页外保留的 top-k 候选（页码+得分），供重排 / AI 校验 */
+  topCandidates?: Array<{ page: number; score: number }>;
+}
+
+/** Phase2A/2B 抽取质量摘要（门禁与报告嵌入用） */
+export type PdfExtractGateVerdict = "OK" | "DEGRADED" | "CRITICAL";
+
+export interface PdfExtractQualitySummary {
+  gateVerdict: PdfExtractGateVerdict;
+  /** 至少应存在的 Turtle 关键块：MDA + P4 + P13 */
+  criticalSectionIds: readonly string[];
+  missingCritical: string[];
+  lowConfidenceCritical: string[];
+  sectionsFound: number;
+  sectionsTotal: number;
+  /** 可选：AI 语义校验摘要（不替代原始文本） */
+  aiVerifierApplied?: boolean;
+  aiVerifierNote?: string;
 }
 
 export interface PdfSectionsMetadata {
@@ -174,6 +192,8 @@ export interface PdfSectionsMetadata {
   annexStartPageEstimate?: number;
   /** Phase2A：各章节定位得分与置信度（可解释性 / 回归对照） */
   sectionDiagnostics?: Partial<Record<string, PdfSectionDiagnosticEntry>>;
+  /** Phase2A：关键章节缺失 / 低置信度聚合（供 Phase3 preflight 与报告引用） */
+  extractQuality?: PdfExtractQualitySummary;
 }
 
 export interface PdfSectionBlock {

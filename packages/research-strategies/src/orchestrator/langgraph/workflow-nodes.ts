@@ -12,6 +12,7 @@ import { runStageCExternalEvidence } from "../../stages/phase1b/collector.js";
 import { computePhase1bEvidenceQualityMetrics } from "../../stages/phase1b/evidence-quality.js";
 import { renderPhase1BMarkdown } from "../../stages/phase1b/renderer.js";
 import { runPhase2AExtractPdfSections } from "../../stages/phase2a/extractor.js";
+import { tryApplyPdfSectionVerifier } from "./pdf-section-verifier.js";
 import { renderPhase2BDataPackReport } from "../../stages/phase2b/renderer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../../stages/phase3/report-renderer.js";
 import { resolveWorkflowStrategyPlugin } from "../../strategies/registry.js";
@@ -132,6 +133,8 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
       pdfPath: interimPdfAbs,
       outputPath: phase2aInterimJsonPath,
     });
+    await tryApplyPdfSectionVerifier(interimSections);
+    await writeText(phase2aInterimJsonPath, JSON.stringify(interimSections, null, 2));
     const interimMd = renderPhase2BDataPackReport({ sections: interimSections, reportKind: "interim" });
     phase2bInterimMarkdownPath = path.join(outputDir, "data_pack_report_interim.md");
     await writeText(phase2bInterimMarkdownPath, interimMd);
@@ -328,6 +331,8 @@ export async function nodeStageD(state: WorkflowGraphState): Promise<Partial<Wor
     pdfPath,
     outputPath: phase2aJsonPath,
   });
+  await tryApplyPdfSectionVerifier(sections);
+  await writeText(phase2aJsonPath, JSON.stringify(sections, null, 2));
   const reportPackMarkdown = renderPhase2BDataPackReport({ sections, reportKind: "annual" });
   const phase2bMarkdownPath = path.join(outputDir, "data_pack_report.md");
   await writeText(phase2bMarkdownPath, reportPackMarkdown);

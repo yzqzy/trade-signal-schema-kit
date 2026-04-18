@@ -1,6 +1,7 @@
-import type { PdfSectionBlock, PdfSections } from "@trade-signal/schema-core";
+import type { PdfExtractQualitySummary, PdfSectionBlock, PdfSections } from "@trade-signal/schema-core";
 
 import { runPhase2AExtractPdfSections } from "../phase2a/extractor.js";
+import { computePdfExtractQuality } from "../phase2a/extract-quality.js";
 
 type Phase2BSectionId = "P2" | "P3" | "P4" | "P6" | "P13" | "MDA" | "SUB";
 
@@ -43,6 +44,17 @@ export function sanitizePhase2ExtractedText(raw: string): string {
     .trim();
 }
 
+function sectionMetaLines(section: PdfSectionBlock): string[] {
+  const codes: string[] = [];
+  if (section.confidence === "low") codes.push("LOW_CONFIDENCE");
+  if (section.extractionWarnings?.length) codes.push("EXTRACTION_WARNINGS");
+  const codeStr = codes.length > 0 ? codes.join(",") : "none";
+  return [
+    `> **sourcePageRange**: p.${section.pageFrom}–p.${section.pageTo}；**confidence**: \`${section.confidence ?? "n/a"}\`；**warningCodes**: \`${codeStr}\``,
+    "",
+  ];
+}
+
 function toEvidenceBlock(section: PdfSectionBlock): string {
   const body = sanitizePhase2ExtractedText((section.content ?? "").trim() || "(空内容)");
   const conf = section.confidence ? `定位置信度：**${section.confidence}**` : "";
@@ -58,18 +70,37 @@ function toEvidenceBlock(section: PdfSectionBlock): string {
   ].join("\n");
 }
 
+function resolveExtractQuality(sections: PdfSections): PdfExtractQualitySummary {
+  return sections.metadata.extractQuality ?? computePdfExtractQuality(sections);
+}
+
+function renderPdfExtractQualityMachineComment(q: PdfExtractQualitySummary): string {
+  const payload = JSON.stringify({
+    gateVerdict: q.gateVerdict,
+    missingCritical: q.missingCritical,
+    lowConfidenceCritical: q.lowConfidenceCritical,
+    sectionsFound: q.sectionsFound,
+    sectionsTotal: q.sectionsTotal,
+    aiVerifierApplied: q.aiVerifierApplied ?? false,
+    aiVerifierNote: q.aiVerifierNote ?? null,
+  });
+  return `<!-- PDF_EXTRACT_QUALITY:${payload} -->`;
+}
+
 function renderOneSection(id: Phase2BSectionId, section: PdfSectionBlock | undefined): string {
   const title = PHASE2B_TITLES[id];
   if (!section) {
     return [
       `## ${id} ${title}`,
       "",
+      "> **sourcePageRange**: —；**confidence**: —；**warningCodes**: `SECTION_MISSING`",
+      "",
       "> ⚠️ [PHASE2B|high] **章节缺失**：Phase2A 未定位到可靠命中，未静默占位正文。",
       "",
       "（空缺 — 请检查 PDF 是否含对应附注/章节标题，或启用更清晰的文本层 PDF。）",
     ].join("\n");
   }
-  return [`## ${id} ${title}`, "", toEvidenceBlock(section)].join("\n");
+  return [`## ${id} ${title}`, "", ...sectionMetaLines(section), toEvidenceBlock(section)].join("\n");
 }
 
 export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
@@ -80,8 +111,32 @@ export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
   const lowConf = diag
     ? PHASE2B_ORDER_FULL.filter((id) => diag[id]?.confidence === "low")
     : [];
+  const extractQ = resolveExtractQuality(input.sections);
+  const defectLines = [
+    "## PDF 抽取缺陷摘要（机器可读）",
+    "",
+    "```json",
+    JSON.stringify(
+      {
+        gateVerdict: extractQ.gateVerdict,
+        missingCritical: extractQ.missingCritical,
+        lowConfidenceCritical: extractQ.lowConfidenceCritical,
+        sectionsFound: extractQ.sectionsFound,
+        sectionsTotal: extractQ.sectionsTotal,
+        criticalSectionIds: extractQ.criticalSectionIds,
+        aiVerifierApplied: extractQ.aiVerifierApplied ?? false,
+        aiVerifierNote: extractQ.aiVerifierNote ?? null,
+      },
+      null,
+      2,
+    ),
+    "```",
+    "",
+  ].join("\n");
   const header = [
     reportKind === "interim" ? "# data_pack_report_interim" : "# data_pack_report",
+    "",
+    renderPdfExtractQualityMachineComment(extractQ),
     "",
     `- **reportKind**: \`${reportKind}\`（${reportKind === "interim" ? "中期/季度报告契约，章节结构可能与年报不同" : "年度报告契约"}）`,
     includeMda
@@ -93,14 +148,19 @@ export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
     `- sectionsFound: ${input.sections.metadata.sectionsFound}/${input.sections.metadata.sectionsTotal}`,
     `- annexStartPageEstimate: ${input.sections.metadata.annexStartPageEstimate ?? "（未估计）"}`,
     `- extractTime: ${input.sections.metadata.extractTime}`,
+    `- **extractQuality.gateVerdict**: \`${extractQ.gateVerdict}\`（关键块缺失→CRITICAL；关键块低置信→DEGRADED）`,
     "",
+    defectLines,
     ...(lowConf.length > 0
       ? [
           "> ⚠️ [PHASE2B|high] **低置信度章节**（建议人工复核）：",
           ...lowConf.map((id) => {
             const d = diag?.[id];
             const scoreStr = d?.score != null ? d.score.toFixed(1) : "?";
-            return `> - \`${id}\`（最佳页 p.${d?.bestPage ?? "?"}，score≈${scoreStr}）`;
+            const tops =
+              d?.topCandidates?.slice(0, 3).map((c) => `p.${c.page}(${c.score.toFixed(0)})`) ?? [];
+            const topStr = tops.length > 0 ? `；候选 ${tops.join(", ")}` : "";
+            return `> - \`${id}\`（最佳页 p.${d?.bestPage ?? "?"}，score≈${scoreStr}${topStr}）`;
           }),
           "",
         ]

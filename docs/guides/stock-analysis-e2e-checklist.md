@@ -15,6 +15,7 @@
 - 主样本：`600887`（伊利）
 - 补样本：`300798`（创业板）
 - 可选边界：`002594`
+- **AI 增强回归（计划验收）**：`600887`（高信息密度）+ `000021`（早停/边缘）+ **至少 1 个港股代码**（与 `quality:all` 中 `hk` 套件一致）
 
 ## 0. 前置环境
 
@@ -78,6 +79,28 @@ pnpm run business-analysis:run -- \
 
 - [ ] `byItem` 覆盖 §7、§8、§10 各检索条目（每行含 `evidenceCount`、`topicHit`）
 - [ ] 对照 `phase1b_qualitative.md`：`违规/处罚`、`质押/减持`、`回购` 等条目不应长期出现明显「制度类文档误灌」；空结果优于强误命中时可接受
+
+**§8 两段召回 + 可审计字段（改造后）**：
+
+- [ ] `phase1b_qualitative.json` → `section8[*].retrievalDiagnostics` 可出现 `variantKeywordsTried`（依次尝试的 keyword）、`zeroHitBroadFallbackUsed`（高精度全空后宽召回命中）、`aiRerankApplied`（已配置 `TS_LLM_*` 且 LLM 成功时）
+- [ ] 可选硬门槛（CI 默认关闭）：设置 `PHASE1B_GATE_S8_TOPIC_HIT_MIN`、`PHASE1B_GATE_S8_DUP_MAX` 后，用 `evaluatePhase1bEvidenceHardGates(metrics)` 得到 `{ passed, violations }`（见 `evidence-quality.ts`）
+
+### 2.2 PDF 解析质量（Phase2A/2B）
+
+产物：`data_pack_report.md`（及 `pdf_sections.json`）、`phase3_preflight.md`。
+
+- [ ] `data_pack_report.md` 头部含 `<!-- PDF_EXTRACT_QUALITY:{...} -->` 机器可读块；含 **PDF 抽取缺陷摘要** JSON（`gateVerdict` / `missingCritical` / `lowConfidenceCritical`）
+- [ ] 各存在章节含 `sourcePageRange`、`confidence`、`warningCodes` 元信息行
+- [ ] `pdf_sections.json` → `metadata.sectionDiagnostics.*.topCandidates` 为 top-k 候选（可解释定位）
+- [ ] **可选门禁**（默认 `PHASE3_PREFLIGHT_PDF_GATE=off`）：`missing` = 关键块缺失 → `SUPPLEMENT_NEEDED`；`strict` = 缺失或关键块低置信 → `SUPPLEMENT_NEEDED`；`sections` + `PHASE3_PREFLIGHT_PDF_MIN_SECTIONS_FOUND` = 章节数下限
+- [ ] 配置 `TS_LLM_API_KEY` 时：`pdf_sections.json` 可出现 `extractQuality.aiVerifierNote`（旁路语义提示，不改写正文）
+
+### 2.3 早停报告（Phase3 reject 模板）
+
+适用于因子早停（如 `000021` 类 **R 低于阈值**）：
+
+- [ ] `analysis_report.md` 顶部标注 **REJECT（早停）**，以 `reportMode=reject` 精简模板输出（无满篇无意义 `—` 占位）
+- [ ] 含「关键阈值对比」小节（若因子 2 早停，应出现 R / II / Rf 对照）
 
 ## 3. Workflow 严格全链路（端到端）
 

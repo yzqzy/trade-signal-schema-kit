@@ -41,6 +41,7 @@ function main(): void {
     reportKind: "annual",
   });
   assert.match(report, /reportKind.*annual/);
+  assert.match(report, /PDF_EXTRACT_QUALITY:/);
   assert.match(report, /## MDA /);
   assert.match(report, /管理层讨论与分析/);
   const interimRep = renderPhase2BDataPackReport({

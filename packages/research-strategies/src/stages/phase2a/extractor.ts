@@ -25,6 +25,7 @@ import {
   PHASE2A_SECTION_ZONE_PREFERENCES,
   type PageText,
 } from "./zones.js";
+import { computePdfExtractQuality } from "./extract-quality.js";
 
 type PageCandidate = { page: number; score: number };
 
@@ -359,14 +360,17 @@ function writeSection(
 function diagnosticEntry(
   best: PageCandidate,
   runnerUp: PageCandidate | undefined,
+  ranked: PageCandidate[],
 ): PdfSectionDiagnosticEntry {
   const confidence = confidenceFromScores(best.score, runnerUp?.score);
+  const topCandidates = ranked.slice(0, 5).map((c) => ({ page: c.page, score: c.score }));
   return {
     bestPage: best.page,
     score: best.score,
     confidence,
     runnerUpPage: runnerUp?.page,
     runnerUpScore: runnerUp?.score,
+    topCandidates: topCandidates.length > 0 ? topCandidates : undefined,
   };
 }
 
@@ -391,7 +395,7 @@ export async function runPhase2AExtractPdfSections(input: Phase2AExtractInput): 
     const best = ranked[0];
     if (!best) continue;
     const runnerUp = ranked[1];
-    const diag = diagnosticEntry(best, runnerUp);
+    const diag = diagnosticEntry(best, runnerUp, ranked);
     metadata.sectionDiagnostics![sectionId] = diag;
 
     const block = buildSectionBlock(
@@ -411,6 +415,8 @@ export async function runPhase2AExtractPdfSections(input: Phase2AExtractInput): 
       );
     }
   }
+
+  sections.metadata.extractQuality = computePdfExtractQuality(sections);
 
   if (input.outputPath) {
     const outDir = path.dirname(input.outputPath);

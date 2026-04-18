@@ -6,7 +6,7 @@
 
 | 项目 | 内容 |
 |:-----|:-----|
-| 分析日期 | 2026-04-15 |
+| 分析日期 | 2026-04-18 |
 | 框架版本 | 龟龟投资策略 v1.1 |
 | 数据来源 | phase3-strict |
 | Warnings | 无 |
@@ -88,8 +88,8 @@
 ### 9.1 数据来源汇总
 | 数据项 | 来源 | 工具/URL | 获取日期 |
 |:-------|:-----|:---------|:--------:|
-| 财务报表（合并+母公司） | data_pack_market | phase3 strict parser | 2026-04-15 |
-| 年报附注（P2/P3/P4/P6/P13） | data_pack_report | phase3 strict parser | 2026-04-15 |
+| 财务报表（合并+母公司） | data_pack_market | phase3 strict parser | 2026-04-18 |
+| 年报附注（P2/P3/P4/P6/P13） | data_pack_report | phase3 strict parser | 2026-04-18 |
 
 ### 9.2 免责声明
 本报告由自动化流程生成，仅供研究参考，不构成投资建议。

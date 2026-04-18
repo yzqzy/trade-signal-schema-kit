@@ -50,7 +50,8 @@ function isTableDivider(line: string): boolean {
     .split("|")
     .map((c) => c.trim())
     .filter((c) => c.length > 0);
-  return cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+  /** 兼容 GitHub 风格 `|:-:|`（单短横线对齐）与 `|:---:|` 等 */
+  return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
 
 function parseTableRow(line: string): string[] {

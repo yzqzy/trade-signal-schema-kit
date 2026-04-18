@@ -1,14 +1,35 @@
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { DynamicTool } from "@langchain/core/tools";
-import { AgentExecutor, createOpenAIToolsAgent } from "langchain/agents";
-import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 
 import type { Phase1BQualitativeSupplement } from "../../stages/phase1b/types.js";
 import { buildProxiedFetch, parseTsLlmEnv } from "./agent-llm-config.js";
 
+function collectSampleTitles(
+  supplement: Phase1BQualitativeSupplement,
+  maxLines: number,
+): { section7: string[]; section8: string[] } {
+  const section7: string[] = [];
+  for (const row of supplement.section7) {
+    for (const e of row.evidences.slice(0, 2)) {
+      if (section7.length >= maxLines) break;
+      section7.push(`- [§7|${row.item}] ${e.title ?? ""}`);
+    }
+    if (section7.length >= maxLines) break;
+  }
+  const section8: string[] = [];
+  for (const row of supplement.section8) {
+    for (const e of row.evidences.slice(0, 2)) {
+      if (section8.length >= maxLines) break;
+      section8.push(`- [§8|${row.item}] ${e.title ?? ""}`);
+    }
+    if (section8.length >= maxLines) break;
+  }
+  return { section7, section8 };
+}
+
 /**
- * 可选：用 OpenAI tools agent 生成一条旁路说明（失败或未配置 TS_LLM_* 时返回 undefined，主链不变）。
- * 配置仅通过 `TS_LLM_*` 环境变量（见 README 与 agent-llm-config）。
+ * 可选：对 Phase1B 外部证据做轻量语义审计（相关性 / 潜在误命中 / 跨条目重复感）。
+ * 未配置 `TS_LLM_API_KEY` 或调用失败时返回 undefined，主链不变。
  */
 export async function tryRunStageCAgentSidecar(
   phase1b: Phase1BQualitativeSupplement,
@@ -16,58 +37,44 @@ export async function tryRunStageCAgentSidecar(
   const cfg = parseTsLlmEnv();
   if (!cfg) return undefined;
 
-  const noopTool = new DynamicTool({
-    name: "noop_ack",
-    description: "Acknowledge receipt; input is ignored.",
-    func: async () => "ok",
-  });
+  const { section7, section8 } = collectSampleTitles(phase1b, 14);
 
   try {
     const proxiedFetch = buildProxiedFetch(cfg.proxyUrl);
     const llm = new ChatOpenAI({
       model: cfg.model,
       apiKey: cfg.apiKey,
-      temperature: cfg.temperature,
-      timeout: cfg.timeoutMs,
-      maxRetries: 2,
+      temperature: 0.1,
+      timeout: Math.min(cfg.timeoutMs, 30_000),
+      maxRetries: 1,
       configuration: {
         baseURL: cfg.baseURL,
-        // OpenAI SDK Fetch 类型与 undici 代理 fetch 签名略有不一致，运行时兼容
         ...(proxiedFetch ? { fetch: proxiedFetch as never } : {}),
       },
     });
 
-    const prompt = ChatPromptTemplate.fromMessages([
-      [
-        "system",
-        "You are a lightweight sidecar. Call noop_ack once, then output one short Chinese sentence summarizing how many external evidence slots were filled (section7 count). No investment advice.",
-      ],
-      ["human", "Company: {company}. Section7 items: {n7}."],
-      new MessagesPlaceholder("agent_scratchpad"),
+    const res = await llm.invoke([
+      new SystemMessage(
+        [
+          "你是外部公告检索的旁路审计员（不做投资决策）。",
+          "基于给出的 §7/§8 标题样本：指出可能的弱相关或误命中、跨条目标题高度雷同风险；若样本过少则说明证据稀疏。",
+          "输出 4~8 句中文，语气克制；不要编造未出现的标题。",
+        ].join(""),
+      ),
+      new HumanMessage(
+        [
+          `公司：${phase1b.companyName ?? ""}（${phase1b.stockCode}）`,
+          "",
+          "§7 标题样本：",
+          ...(section7.length ? section7 : ["(无)"]),
+          "",
+          "§8 标题样本：",
+          ...(section8.length ? section8 : ["(无)"]),
+        ].join("\n"),
+      ),
     ]);
 
-    const agent = await createOpenAIToolsAgent({
-      llm,
-      tools: [noopTool],
-      prompt,
-    });
-
-    const executor = new AgentExecutor({
-      agent,
-      tools: [noopTool],
-      maxIterations: 3,
-    });
-
-    const out = await executor.invoke({
-      company: phase1b.companyName,
-      n7: String(phase1b.section7.length),
-    });
-    const text =
-      typeof out.output === "string"
-        ? out.output
-        : typeof out.output === "object" && out.output && "output" in out.output
-          ? String((out.output as { output?: unknown }).output)
-          : undefined;
+    const text = typeof res.content === "string" ? res.content : JSON.stringify(res.content);
     return text?.trim() || undefined;
   } catch {
     return undefined;
