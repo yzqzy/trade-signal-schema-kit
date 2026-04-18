@@ -57,9 +57,6 @@ export const WorkflowGraphStateAnnotation = Annotation.Root({
   reportHtmlPath: Annotation<string | undefined>(),
   manifestPath: Annotation<string | undefined>(),
 
-  /** Stage C 旁路：Agent 侧车输出（不写 phase1b 契约文件，仅元数据） */
-  agentSidecarNote: Annotation<string | undefined>(),
-
   preflightEffective: Annotation<PreflightLevel | undefined>(),
 
   /** 续跑：从 checkpoint 恢复时注入 */

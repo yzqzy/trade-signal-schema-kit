@@ -30,7 +30,6 @@ import {
 import { buildMarketPackMarkdown } from "../../app/workflow/build-market-pack.js";
 import { refreshMarketPackMarkdown } from "../../app/workflow/refresh-market-pack.js";
 import { readWorkflowCheckpoint, writeWorkflowCheckpoint, type WorkflowCheckpointFile } from "./checkpoint-io.js";
-import { tryRunStageCAgentSidecar } from "./stage-c-agent.js";
 import type { WorkflowGraphState } from "./workflow-state.js";
 
 function asYear(value?: string): string {
@@ -93,7 +92,6 @@ async function persistCheckpoint(
       reportMarkdownPath: state.reportMarkdownPath,
       reportHtmlPath: state.reportHtmlPath,
       manifestPath: state.manifestPath,
-      agentSidecarNote: state.agentSidecarNote,
     },
   };
   await writeWorkflowCheckpoint(outputDir, payload);
@@ -201,7 +199,6 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
       reportMarkdownPath: cp.snapshot.reportMarkdownPath,
       reportHtmlPath: cp.snapshot.reportHtmlPath,
       manifestPath: cp.snapshot.manifestPath,
-      agentSidecarNote: cp.snapshot.agentSidecarNote,
       completedStages: resumedStages,
       resumeLoaded: true,
     };
@@ -367,13 +364,6 @@ export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<Wor
     {},
   );
 
-  let agentSidecarNote: string | undefined;
-  try {
-    agentSidecarNote = await tryRunStageCAgentSidecar(phase1b);
-  } catch {
-    agentSidecarNote = undefined;
-  }
-
   const phase1bJsonPath = path.join(outputDir, "phase1b_qualitative.json");
   const phase1bMarkdownPath = path.join(outputDir, "phase1b_qualitative.md");
   const phase1bEvidenceQualityPath = path.join(outputDir, "phase1b_evidence_quality.json");
@@ -388,7 +378,6 @@ export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<Wor
     phase1b,
     phase1bJsonPath,
     phase1bMarkdownPath,
-    agentSidecarNote,
     completedStages: ["stageC"],
   };
   const mergedStages = mergeCompletedStages(state, "stageC");
@@ -564,7 +553,6 @@ export async function nodeFinalizeManifest(state: WorkflowGraphState): Promise<P
       runId: state.runId,
       threadId: state.threadId,
       completedStages: manifestStages,
-      agentSidecarNote: state.agentSidecarNote,
     },
   };
   await writeText(manifestPath, JSON.stringify(manifest, null, 2));

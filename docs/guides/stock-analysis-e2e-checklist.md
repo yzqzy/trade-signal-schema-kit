@@ -82,7 +82,7 @@ pnpm run business-analysis:run -- \
 
 **§8 两段召回 + 可审计字段（改造后）**：
 
-- [ ] `phase1b_qualitative.json` → `section8[*].retrievalDiagnostics` 可出现 `variantKeywordsTried`（依次尝试的 keyword）、`zeroHitBroadFallbackUsed`（高精度全空后宽召回命中）、`aiRerankApplied`（已配置 `TS_LLM_*` 且 LLM 成功时）
+- [ ] `phase1b_qualitative.json` → `section8[*].retrievalDiagnostics` 可出现 `variantKeywordsTried`（依次尝试的 keyword）、`zeroHitBroadFallbackUsed`（高精度全空后宽召回命中）；`aiRerankApplied` 当前实现固定为 `false`
 - [ ] 可选硬门槛（CI 默认关闭）：设置 `PHASE1B_GATE_S8_TOPIC_HIT_MIN`、`PHASE1B_GATE_S8_DUP_MAX` 后，用 `evaluatePhase1bEvidenceHardGates(metrics)` 得到 `{ passed, violations }`（见 `evidence-quality.ts`）
 
 ### 2.2 PDF 解析质量（Phase2A/2B）
@@ -93,7 +93,7 @@ pnpm run business-analysis:run -- \
 - [ ] 各存在章节含 `sourcePageRange`、`confidence`、`warningCodes` 元信息行
 - [ ] `pdf_sections.json` → `metadata.sectionDiagnostics.*.topCandidates` 为 top-k 候选（可解释定位）
 - [ ] **可选门禁**（默认 `PHASE3_PREFLIGHT_PDF_GATE=off`）：`missing` = 关键块缺失 → `SUPPLEMENT_NEEDED`；`strict` = 缺失或关键块低置信 → `SUPPLEMENT_NEEDED`；`sections` + `PHASE3_PREFLIGHT_PDF_MIN_SECTIONS_FOUND` = 章节数下限
-- [ ] 配置 `TS_LLM_API_KEY` 时：`pdf_sections.json` 可出现 `extractQuality.aiVerifierNote`（旁路语义提示，不改写正文）
+- [ ] `pdf_sections.json` → `extractQuality` 为确定性门禁摘要（`gateVerdict` / 缺失与低置信列表等）；`aiVerifierNote` 仅保留 schema 可选位，TS 主链不写入 LLM 旁路
 
 ### 2.3 早停报告（Phase3 reject 模板）
 

@@ -37,7 +37,6 @@ export type WorkflowCheckpointFile = {
     | "reportMarkdownPath"
     | "reportHtmlPath"
     | "manifestPath"
-    | "agentSidecarNote"
   >;
 };
 

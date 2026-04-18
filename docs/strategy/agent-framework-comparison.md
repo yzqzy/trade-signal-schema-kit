@@ -47,14 +47,14 @@ PoC（概念验证）用最小成本验证关键假设：**这条路线在真实
 
 > 选型已定为 LangGraph.js；PoC 只验证**接入细节与风险**，不再做多框架横向比较。
 
-## Deep Agents 与 LangGraph（分层，定稿口径）
+## Claude Code 与 LangGraph（分层，定稿口径）
 
 | 层级 | 职责 | 典型能力 |
 |------|------|----------|
-| **LangGraph** | **外层**流程编排 | 阶段、分支、checkpoint、重试、审计 |
-| **LangChain.js Deep Agents** | **节点内**智能执行 | 任务拆解、工具调用、推理 |
+| **LangGraph** | **TS 主链**流程编排 | 阶段、分支、checkpoint、重试、审计；采集与规则估值 |
+| **Claude Code** | **IDE 侧**深度定性 | Skills / slash commands；六维 narrative、PDF 对照（与参考项目 `Turtle_investment_framework` 一致） |
 
-**组合方式**：用 LangGraph 跑 Stage；在 **C2、E** 等需要复杂推理的节点内接入 Deep Agents。**Deep Agents 不替代图编排层**。
+**组合方式**：用 LangGraph 跑 Stage B~E 的数据与契约产物；深度定性与叙事写作在 Claude Code 侧完成。**Claude Code 不替代图编排层**；本仓库 TS 主链的 Phase3 报告仍以**确定性规则估值与因子**为主输出。
 
 业务阶段与策略边界见 [策略与流程解耦](../architecture/strategy-orchestration-architecture.md)；流程与 CLI 真源见 [workflows](../guides/workflows.md)。
 
@@ -82,7 +82,7 @@ PoC（概念验证）用最小成本验证关键假设：**这条路线在真实
 - 策略插件与 Stage：[strategy-orchestration-architecture.md](../architecture/strategy-orchestration-architecture.md)
 - 版本与能力节奏：[strategy-roadmap.md](./strategy-roadmap.md)
 
-本文档只回答：**选哪个框架、PoC 验证什么、如何与 Deep Agents 分层落地**。
+本文档只回答：**选哪个编排框架、PoC 验证什么、如何与 Claude Code 分层落地**。
 
 ## Monorepo 形态
 

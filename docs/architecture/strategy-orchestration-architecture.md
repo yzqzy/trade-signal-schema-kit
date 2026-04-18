@@ -16,12 +16,12 @@
   1. **通用编排层**（可恢复、可审计、schema 化 I/O）
   2. **策略插件层**（`StrategyPlugin`：Turtle / 其他策略）
 
-## Deep Agents 与图编排（分层，勿混用）
+## Claude Code 与图编排（分层，勿混用）
 
-- **LangChain.js Deep Agents**：策略节点或复杂子步骤内的智能执行（工具调用、任务拆解、推理）。
-- **LangGraph**：全流程状态编排（阶段、分支、checkpoint、重试、审计）。
+- **Claude Code**：IDE 侧深度定性、六维契约与 PDF 对照（Skills / slash commands；参考 `Turtle_investment_framework`）。
+- **LangGraph**：TS 主链全流程状态编排（阶段、分支、checkpoint、重试、审计）。
 
-外层用 LangGraph（或等价状态机）跑 Stage；在 **C2、E** 等节点内按需接入 Deep Agents。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
+外层用 LangGraph 跑 Stage；定性 narrative 在 **Claude Code** 完成。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
 
 ## 阶段映射（Phase ↔ Stage）
 

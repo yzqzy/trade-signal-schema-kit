@@ -112,12 +112,12 @@ Phase1A → Phase1B → Phase3
 
 即 **B→C→E**（无 D）。
 
-## LangGraph 与 LangChain Deep Agents（分层）
+## LangGraph 编排与 Claude Code 协作（分层）
 
-- **LangGraph**：外层流程状态机（阶段、分支、checkpoint、重试、审计）。
-- **LangChain.js Deep Agents**：单阶段内的智能执行（工具调用、任务拆解、推理）。
+- **LangGraph**：TS 主链外层流程（阶段、分支、checkpoint、重试、审计）。
+- **Claude Code**：深度定性、PDF 对照与六维契约写作（Skills / slash commands；参考 `references/projects/Turtle_investment_framework`）。
 
-组合方式：图编排跑 Stage；在 C2 / E 等节点内按需接入 Deep Agents。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
+组合方式：图编排跑采集与规则 Phase3；定性 narrative 在 IDE 侧完成。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
 
 ## 逻辑总览（方法论）
 
@@ -207,7 +207,7 @@ Claude：`/valuation`、`/report-to-html`（见 `.claude/commands/`）。
 - **B / Phase 1A**：通过 `MarketDataProvider` 采集结构化数据
 - **C / Phase 1B**：外部证据补充（C1 通用 + C2 策略投影）
 - **D / Phase 2A+2B**：PDF 章节定位与精提取
-- **E / Phase 3**：策略评估（如 Turtle）+ 定量 + 估值 + 报告渲染
+- **E / Phase 3**：策略评估（如 Turtle）+ 定量 + 估值 + 报告渲染（确定性规则输出）。**PDF-first 单 Agent 深度定性**请在 Claude Code 中执行 `/business-analysis`（参考 `references/projects/Turtle_investment_framework`）。
 
 ## 关键中间产物契约（v0.1）
 
@@ -300,8 +300,8 @@ pnpm run workflow:run -- \
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 中期报告：`--interim-pdf <path>` 经 Phase2A/2B 生成 `data_pack_report_interim.md` 并作为 Phase3 interim 输入；亦可 `--interim-report-md` 直接传入已渲染 md（**同时传时 PDF 优先**）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、`phase1b_evidence_quality.json`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
-- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`、`agentSidecarNote`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用等价字段为 `RunWorkflowInput.resumeFromStage`。
-- 可选 Stage C LLM sidecar：环境变量 `TS_LLM_*` 见 [agent-llm-and-env.md](./agent-llm-and-env.md)（不配不影响主链）。
+- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用等价字段为 `RunWorkflowInput.resumeFromStage`。
+- Feed 与续跑环境说明见 [agent-llm-and-env.md](./agent-llm-and-env.md)。
 - Phase2 分区/渲染契约烟测（需先 `pnpm run build`）：`pnpm --filter @trade-signal/research-strategies run test:phase2`
 
 Business analysis CLI（Stage E 前停）：

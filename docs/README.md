@@ -22,13 +22,13 @@
 | [phase0-download.md](./guides/phase0-download.md) | Phase 0 年报下载、校验、CLI 与退出码 |
 | [data-source.md](./guides/data-source.md) | Feed 接入原则、字段范围、质量门禁 |
 | [stock-analysis-e2e-checklist.md](./guides/stock-analysis-e2e-checklist.md) | 个股分析全链路跑通清单（A 股） |
-| [agent-llm-and-env.md](./guides/agent-llm-and-env.md) | **Feed 最小变量、`TS_LLM_*` Agent sidecar、LangGraph 续跑说明、严格模式前缀与常见故障** |
+| [agent-llm-and-env.md](./guides/agent-llm-and-env.md) | **Feed 最小变量、参考项目式三步法、LangGraph 续跑与常见故障** |
 
 ## strategy（选型与版本节奏）
 
 | 文档 | 说明 |
 |------|------|
-| [agent-framework-comparison.md](./strategy/agent-framework-comparison.md) | LangGraph 选型、PoC 范围、**Deep Agents 与 LangGraph 分层** |
+| [agent-framework-comparison.md](./strategy/agent-framework-comparison.md) | LangGraph 选型、PoC 范围、**Claude Code 与 LangGraph 分层** |
 | [strategy-roadmap.md](./strategy/strategy-roadmap.md) | v0.1~v0.3 节奏与策略插件化跨版本说明 |
 
 ## 阅读建议

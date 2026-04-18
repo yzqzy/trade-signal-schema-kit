@@ -19,7 +19,7 @@ description: "独立商业分析入口：先采集市场数据与 Phase1B 外部
 ## 输出标准
 
 - `qualitative_report.md`：含元信息头 + Phase1B 正文。
-- `qualitative_d1_d6.md`：Turtle PDF-first **D1~D6** 结构化契约稿（工程骨架 + Phase1B 摘录；深度叙事由上层 LLM 补全）。
+- `qualitative_d1_d6.md`：Turtle PDF-first **D1~D6** 结构化契约稿（工程骨架 + Phase1B 摘录；深度叙事由 **Claude Code** `/business-analysis` 补全）。
 - `phase1b_evidence_quality.json`：§7/§8 证据结构离线指标（唯一标题占比、跨条目 URL 重复、主题命中率等），便于对比两次 run。
 - `business_analysis_manifest.json`：记录输入与产物路径；含 `pipeline.valuation` 供 `valuation:run --from-manifest` 串接。
 

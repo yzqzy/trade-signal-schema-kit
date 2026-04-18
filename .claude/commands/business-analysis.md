@@ -33,7 +33,7 @@ pnpm run business-analysis:run -- \
 ## 主要产物（`--output-dir` 或默认 `output/workflow/<code>/`）
 
 - `qualitative_report.md`（定性补充，含 Phase1B 渲染正文）
-- `qualitative_d1_d6.md`（Turtle **D1~D6** 契约骨架，供 PDF-first 单 Agent 对齐）
+- `qualitative_d1_d6.md`（Turtle **D1~D6** 契约骨架；用于承载深度定性结论）
 - `data_pack_market.md`
 - 可选 `data_pack_report.md`（有 PDF 分支时）
 - `business_analysis_manifest.json`（含 `pipeline.valuation`，可接 `/valuation`）

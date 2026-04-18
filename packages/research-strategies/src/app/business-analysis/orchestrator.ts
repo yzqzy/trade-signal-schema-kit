@@ -82,7 +82,7 @@ export async function runBusinessAnalysis(
     `- 渠道：${pipeline.phase1b.channel}`,
     `- 生成时间：${pipeline.phase1b.generatedAt}`,
     "",
-    "> 以下为 HTTP/MCP 检索补充（§7/§8/§10）。**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`，供 PDF-first 单 Agent 提示词对齐。",
+    "> 以下为 HTTP/MCP 检索补充（§7/§8/§10）。**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`。深度定性建议在 **Claude Code** 命令流中完成。",
     "",
     renderPhase1BMarkdown(pipeline.phase1b),
   ].join("\n");

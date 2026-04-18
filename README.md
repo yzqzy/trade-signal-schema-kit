@@ -96,6 +96,16 @@ pnpm run report-to-html:run -- \
 
 规范说明见 `.claude/commands/*.md` 与 `.claude/skills/`。
 
+## 推荐使用教程
+
+执行顺序：
+
+1. 在 Claude Code 运行 `/business-analysis`（先拿到定性与 D1~D6）。
+2. 需要完整报告时运行 `/turtle-analysis`（补全 workflow 全链路）。
+3. 需要独立估值时运行 `/valuation`（从 manifest 自动接参）。
+
+命令行入口映射见上面的 Slash 对照表与下方“产物速查”。
+
 ## 产物速查（典型输出目录）
 
 | 入口 | 关键文件 |
@@ -116,13 +126,13 @@ pnpm run test:linkage   # build + 链路烟测（市场包/2B/D1D6 结构）
 
 默认覆盖 `cn_a` 与 `hk` 回归/黄金快照；`contract` / `regression` / `phase3-golden` 依赖仓库内已跟踪的 **`output/phase3_golden/`**（离线合成基线，**不是**某次业务 run 的产物）。误删后：`pnpm --filter @trade-signal/research-strategies run build` 再 `pnpm --filter @trade-signal/research-strategies run gen:phase3-golden`，详见 [docs/guides/data-source.md](docs/guides/data-source.md)。港股基线用于防回归，不代表深度能力已齐。
 
-**环境与 Agent（含 Feed、`TS_LLM_*`、LangGraph 与排障）** 见 [docs/guides/agent-llm-and-env.md](docs/guides/agent-llm-and-env.md)；模板：`.env.example`、`.env.full.example`。
+**环境与实操教程（Feed、续跑、排障）** 见 [docs/guides/agent-llm-and-env.md](docs/guides/agent-llm-and-env.md)；模板：`.env.example`、`.env.full.example`。
 
 ## 更多文档
 
 - [流程与 CLI 细节](docs/guides/workflows.md)
 - [数据契约与 quality](docs/guides/data-source.md)
-- [环境与 Agent、`TS_LLM_*`、排障](docs/guides/agent-llm-and-env.md)
+- [环境、LangGraph 续跑与排障](docs/guides/agent-llm-and-env.md)
 - [路线图（策略与版本）](docs/strategy/strategy-roadmap.md)
 - [文档总索引](docs/README.md)
 - [Claude Code 指引](CLAUDE.md)

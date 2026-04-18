@@ -1,8 +1,4 @@
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { ChatOpenAI } from "@langchain/openai";
-
 import { initCliEnv } from "../../lib/init-cli-env.js";
-import { buildProxiedFetch, parseTsLlmEnv } from "../../orchestrator/langgraph/agent-llm-config.js";
 
 import { topicPatternForPhase1bItem } from "./evidence-quality.js";
 import type {
@@ -178,80 +174,6 @@ function postProcessSection8Evidences(item: string, evidences: Phase1BEvidence[]
     return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
   });
   return deduped.slice(0, Math.max(0, limit));
-}
-
-/**
- * 可选：对 §8 单条检索命中的公告标题/摘要做轻量相关性重排（需 `TS_LLM_*`）。
- * 失败或未配置时返回 undefined，主链保持原始顺序。
- */
-async function tryAiRerankSection8Evidences(input: {
-  item: string;
-  companyName?: string;
-  evidences: Phase1BEvidence[];
-  limit: number;
-}): Promise<{ evidences: Phase1BEvidence[]; applied: boolean } | undefined> {
-  const cfg = parseTsLlmEnv();
-  if (!cfg || input.evidences.length < 2) return undefined;
-
-  const maxIn = Math.min(12, input.evidences.length);
-  const lines = input.evidences.slice(0, maxIn).map((e, i) => {
-    const sn = (e.snippet ?? "").replace(/\s+/g, " ").slice(0, 200);
-    return `${i}: ${e.title ?? ""} | ${sn}`;
-  });
-
-  try {
-    const proxiedFetch = buildProxiedFetch(cfg.proxyUrl);
-    const llm = new ChatOpenAI({
-      model: cfg.model,
-      apiKey: cfg.apiKey,
-      temperature: 0,
-      timeout: Math.min(cfg.timeoutMs, 25_000),
-      maxRetries: 1,
-      configuration: {
-        baseURL: cfg.baseURL,
-        ...(proxiedFetch ? { fetch: proxiedFetch as never } : {}),
-      },
-    });
-
-    const res = await llm.invoke([
-      new SystemMessage(
-        [
-          "You reorder evidence indices by relevance to a retrieval intent for A-share/HK company research.",
-          "Return ONLY compact JSON: {\"order\":[int,...]} — a permutation of indices 0..n-1 for the listed items.",
-          "No prose, no markdown fences.",
-        ].join(" "),
-      ),
-      new HumanMessage(
-        [
-          `Company: ${input.companyName ?? "(unknown)"}`,
-          `Intent (Chinese): ${input.item}`,
-          "Evidence lines (index prefix):",
-          ...lines,
-        ].join("\n"),
-      ),
-    ]);
-
-    const raw = typeof res.content === "string" ? res.content : JSON.stringify(res.content);
-    const jsonMatch = raw.match(/\{[\s\S]*"order"[\s\S]*\}/);
-    if (!jsonMatch) return undefined;
-    const parsed = JSON.parse(jsonMatch[0]) as { order?: number[] };
-    const order = parsed.order;
-    if (!Array.isArray(order) || order.length < 2) return undefined;
-    const n = maxIn;
-    const seen = new Set<number>();
-    for (const x of order) {
-      if (!Number.isInteger(x) || x < 0 || x >= n || seen.has(x)) return undefined;
-      seen.add(x);
-    }
-    if (seen.size !== order.length) return undefined;
-
-    const reordered = order.map((i) => input.evidences[i]!);
-    const tail = input.evidences.slice(maxIn);
-    const merged = [...reordered, ...tail].slice(0, Math.max(1, input.limit));
-    return { evidences: merged, applied: true };
-  } catch {
-    return undefined;
-  }
 }
 
 function buildQueries(_input: Phase1BInput): FeedSearchQuery[] {
@@ -470,17 +392,8 @@ export async function collectExternalEvidenceC1(
           diagnostics = undefined;
         }
         if (query.catalog === "8") {
-          const rerank = await tryAiRerankSection8Evidences({
-            item: query.item,
-            companyName: input.companyName,
-            evidences,
-            limit,
-          });
-          if (rerank?.applied) {
-            evidences = rerank.evidences;
-          }
           evidences = postProcessSection8Evidences(query.item, evidences, limit);
-          diagnostics = { ...diagnostics!, aiRerankApplied: Boolean(rerank?.applied) };
+          diagnostics = { ...diagnostics!, aiRerankApplied: false };
         }
         return { query, evidences, diagnostics };
       }),
@@ -505,17 +418,8 @@ export async function collectExternalEvidenceC1(
           diagnostics = undefined;
         }
         if (query.catalog === "8") {
-          const rerank = await tryAiRerankSection8Evidences({
-            item: query.item,
-            companyName: input.companyName,
-            evidences,
-            limit,
-          });
-          if (rerank?.applied) {
-            evidences = rerank.evidences;
-          }
           evidences = postProcessSection8Evidences(query.item, evidences, limit);
-          diagnostics = { ...diagnostics!, aiRerankApplied: Boolean(rerank?.applied) };
+          diagnostics = { ...diagnostics!, aiRerankApplied: false };
         }
         return { query, evidences, diagnostics };
       }),

@@ -42,9 +42,7 @@
     "test:screener": "node dist/packages/research-strategies/src/tests/screener-smoke.js"
   },
   "dependencies": {
-    "@langchain/core": "0.3.57",
     "@langchain/langgraph": "0.2.74",
-    "@langchain/openai": "0.4.9",
     "@trade-signal/provider-http": "workspace:*",
     "@trade-signal/provider-mcp": "workspace:*",
     "@trade-signal/reporting": "workspace:*",
@@ -52,7 +50,6 @@
     "dotenv": "^17.2.3",
     "file-type": "^22.0.1",
     "got": "^15.0.1",
-    "langchain": "0.3.27",
     "p-retry": "^8.0.0",
     "pdf-parse": "^2.4.5",
     "undici": "^7.12.0"
