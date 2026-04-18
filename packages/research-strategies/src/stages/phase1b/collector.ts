@@ -42,6 +42,8 @@ type FeedSearchQuery = {
   query: string;
   /** 透传 feed `category`：中文分号多值 */
   reportCategory: string;
+  /** 透传 feed `keyword`：标题子串过滤（可选） */
+  reportKeyword?: string;
 };
 
 export interface FeedSearchClientOptions {
@@ -59,8 +61,12 @@ export interface Phase1BCollectOptions extends Partial<FeedSearchClientOptions> 
 const NOT_FOUND_TEXT = "⚠️ 未搜索到相关信息";
 const DEFAULT_ENDPOINT_PATH = "/stock/report/search";
 
-/** §7 管理层与治理：多分类提升公告命中 */
+/** §7 管理层与治理：默认宽分类 */
 const PHASE1B_CATEGORY_7 = "公司治理;董事会;监事会;股东会;股权变动;风险提示";
+/** §7 高敏条目：收窄召回，减少制度类误命中 */
+const PHASE1B_CATEGORY_7_VIOLATION = "风险提示;日常经营;中介报告";
+const PHASE1B_CATEGORY_7_PLEDGE = "股权变动;风险提示";
+const PHASE1B_CATEGORY_7_BUYBACK = "股权变动;董事会";
 /** §8 行业与竞争 */
 const PHASE1B_CATEGORY_8 = "日常经营;风险提示;中介报告";
 /** §10 MD&A 类 */
@@ -133,21 +139,26 @@ function summarize(evidences: Phase1BEvidence[]): string {
   return first.snippet ?? first.title;
 }
 
-function buildQueries(input: Phase1BInput): FeedSearchQuery[] {
-  const mk = (catalog: ExternalEvidenceCatalog, item: string): FeedSearchQuery => ({
+function buildQueries(_input: Phase1BInput): FeedSearchQuery[] {
+  const mk = (
+    catalog: ExternalEvidenceCatalog,
+    item: string,
+    overrides?: Partial<Pick<FeedSearchQuery, "reportCategory" | "reportKeyword">>,
+  ): FeedSearchQuery => ({
     catalog,
     item,
     query: item,
-    reportCategory: reportCategoryForCatalog(catalog),
+    reportCategory: overrides?.reportCategory ?? reportCategoryForCatalog(catalog),
+    ...(overrides?.reportKeyword ? { reportKeyword: overrides.reportKeyword } : {}),
   });
   return [
     mk("7", "控股股东及持股比例"),
     mk("7", "CEO/董事长/CFO 任期"),
     mk("7", "管理层重大变更（5年）"),
     mk("7", "审计师与审计意见"),
-    mk("7", "违规/处罚记录"),
-    mk("7", "大股东质押/减持"),
-    mk("7", "回购计划"),
+    mk("7", "违规/处罚记录", { reportCategory: PHASE1B_CATEGORY_7_VIOLATION }),
+    mk("7", "大股东质押/减持", { reportCategory: PHASE1B_CATEGORY_7_PLEDGE }),
+    mk("7", "回购计划", { reportCategory: PHASE1B_CATEGORY_7_BUYBACK, reportKeyword: "回购" }),
     mk("8", "主要竞争对手"),
     mk("8", "行业监管动态"),
     mk("8", "行业周期位置"),
@@ -178,6 +189,8 @@ async function searchFeed(
   const name = input.companyName?.trim();
   if (name) url.searchParams.set("stockName", name);
   url.searchParams.set("item", query.item);
+  const kw = query.reportKeyword?.trim();
+  if (kw) url.searchParams.set("keyword", kw);
 
   const response = await fetch(url, {
     headers: {
@@ -196,7 +209,10 @@ async function searchFeed(
       `${payload.message || "Feed search failed with success=false"} (report/search params: ${keys})`,
     );
   }
-  return normalizeHits(payload).map(toEvidence).filter((item): item is Phase1BEvidence => Boolean(item));
+  const evidences = normalizeHits(payload)
+    .map(toEvidence)
+    .filter((item): item is Phase1BEvidence => Boolean(item));
+  return evidences;
 }
 
 async function searchMcp(
@@ -205,6 +221,7 @@ async function searchMcp(
   input: Phase1BInput,
   query: FeedSearchQuery,
 ): Promise<Phase1BEvidence[]> {
+  const kw = query.reportKeyword?.trim();
   const payload = await callTool(toolName, {
     code: input.stockCode,
     year: resolvePhase1BReportYear(input),
@@ -213,10 +230,18 @@ async function searchMcp(
     timeRange: "3y",
     stockName: input.companyName?.trim() || undefined,
     item: query.item,
+    ...(kw ? { keyword: kw } : {}),
   });
-  return normalizeHitsFromUnknown(payload)
+  const obj = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const hitsPayload = Array.isArray(payload)
+    ? ({ data: payload } as FeedSearchResponse)
+    : Array.isArray(obj.candidates)
+      ? { candidates: obj.candidates as FeedSearchHit[] }
+      : payload;
+  const evidences = normalizeHitsFromUnknown(hitsPayload)
     .map(toEvidence)
     .filter((item): item is Phase1BEvidence => Boolean(item));
+  return evidences;
 }
 
 /**
@@ -234,10 +259,10 @@ export async function collectExternalEvidenceC1(
   if (channel === "http") {
     const clientOptions = resolveFeedSearchClientOptionsFromEnv(options);
     results = await Promise.all(
-      queries.map(async (query) => ({
-        query,
-        evidences: await searchFeed(clientOptions, input, query),
-      })),
+      queries.map(async (query) => {
+        const evidences = await searchFeed(clientOptions, input, query);
+        return { query, evidences };
+      }),
     );
   } else {
     const mcpCallTool = options.mcpCallTool;
@@ -246,10 +271,10 @@ export async function collectExternalEvidenceC1(
     }
     const toolName = options.mcpToolName ?? "search_stock_reports";
     results = await Promise.all(
-      queries.map(async (query) => ({
-        query,
-        evidences: await searchMcp(mcpCallTool, toolName, input, query),
-      })),
+      queries.map(async (query) => {
+        const evidences = await searchMcp(mcpCallTool, toolName, input, query);
+        return { query, evidences };
+      }),
     );
   }
 

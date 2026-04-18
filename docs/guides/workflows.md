@@ -157,7 +157,15 @@ Phase1A → Phase1B → Phase3
 
 CLI：`pnpm run business-analysis:run`（根目录）或 filter 等价命令。Claude：`/business-analysis`（见 `.claude/commands/business-analysis.md`）。规范：`.claude/skills/business-analysis/SKILL.md`。
 
-产出：`qualitative_report.md`、**`qualitative_d1_d6.md`**、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
+产出：`qualitative_report.md`、**`qualitative_d1_d6.md`**、`data_pack_market.md`、`phase1b_evidence_quality.json`（§7/§8 证据结构离线指标）、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
+
+**PDF 与交付语义（MVP）**（与 `phase3_preflight.md` 中「PDF 与交付语义」一节一致）：
+
+- **规则 A（交付级）**：要写 D5（MD&A）**可交付结论**，必须有 `data_pack_report.md`（Phase0 下载年报 PDF + Phase2A/2B 解析）。
+- **规则 B（预研级）**：无 `data_pack_report.md` 时仅预研草稿；`qualitative_d1_d6.md` 的 D5 会标注「证据不足，待补充 PDF 解析」。
+- **规则 C（strict）**：`business-analysis --strict` 或 `workflow --mode turtle-strict` 下，缺 `data_pack_report.md` 为不合格（编排 fail-fast）。
+
+**回归对比（无 PDF vs 有 PDF）**：同一 `code`/`year` 跑两次——仅 Phase1B+market 的 run 与带 `--pdf` 或 `phase0:download` 后再跑 workflow 的 run——比较两目录下的 `phase1b_evidence_quality.json`、`phase1b_qualitative.json` 与 `phase3_preflight.md`，沉淀条目命中率与是否需 PDF 的结论。
 
 `business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths` 与建议的 `valuation:run --from-manifest ...`。
 
@@ -291,7 +299,7 @@ pnpm run workflow:run -- \
 - `--strategy`：`turtle`（默认）或 `value_v1`（第二策略样板；Stage E 插件切换，编排顺序不变）
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 中期报告：`--interim-pdf <path>` 经 Phase2A/2B 生成 `data_pack_report_interim.md` 并作为 Phase3 interim 输入；亦可 `--interim-report-md` 直接传入已渲染 md（**同时传时 PDF 优先**）
-- 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
+- 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、`phase1b_evidence_quality.json`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
 - 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`、`agentSidecarNote`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用等价字段为 `RunWorkflowInput.resumeFromStage`。
 - 可选 Stage C LLM sidecar：环境变量 `TS_LLM_*` 见 [agent-llm-and-env.md](./agent-llm-and-env.md)（不配不影响主链）。
 - Phase2 分区/渲染契约烟测（需先 `pnpm run build`）：`pnpm --filter @trade-signal/research-strategies run test:phase2`

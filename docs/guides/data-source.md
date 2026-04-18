@@ -84,6 +84,7 @@ const dataPack = await collectPhase1ADataPack(provider, {
 
 - 聚合入口：`collectPhase1BQualitative(input, options)`（默认 `channel=http`）
 - 渲染入口：`renderPhase1BMarkdown(supplement)`
+- 编排产物（`business-analysis` / LangGraph 管线）：同目录写入 `phase1b_evidence_quality.json`（§7/§8 唯一标题占比、跨条目 URL 重复、主题命中率、§7§8 URL Jaccard），用于离线对比两次 run 质量。
 - 章节覆盖：§7 管理层与治理、§8 行业与竞争、§10 MD&A 摘要
 - 来源约束：每个条目保留来源 URL；未命中时标记 `⚠️ 未搜索到相关信息`
 

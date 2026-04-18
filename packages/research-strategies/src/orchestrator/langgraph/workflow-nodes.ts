@@ -9,6 +9,7 @@ import { runPhase0DownloadAndCache } from "../../stages/phase0/downloader.js";
 import { discoverPhase0ReportUrlFromFeed } from "../../stages/phase0/discover-report-url.js";
 import { collectPhase1ADataPack } from "../../stages/phase1a/collector.js";
 import { runStageCExternalEvidence } from "../../stages/phase1b/collector.js";
+import { computePhase1bEvidenceQualityMetrics } from "../../stages/phase1b/evidence-quality.js";
 import { renderPhase1BMarkdown } from "../../stages/phase1b/renderer.js";
 import { runPhase2AExtractPdfSections } from "../../stages/phase2a/extractor.js";
 import { renderPhase2BDataPackReport } from "../../stages/phase2b/renderer.js";
@@ -369,8 +370,13 @@ export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<Wor
 
   const phase1bJsonPath = path.join(outputDir, "phase1b_qualitative.json");
   const phase1bMarkdownPath = path.join(outputDir, "phase1b_qualitative.md");
+  const phase1bEvidenceQualityPath = path.join(outputDir, "phase1b_evidence_quality.json");
   await writeText(phase1bJsonPath, JSON.stringify(phase1b, null, 2));
   await writeText(phase1bMarkdownPath, renderPhase1BMarkdown(phase1b));
+  await writeText(
+    phase1bEvidenceQualityPath,
+    JSON.stringify(computePhase1bEvidenceQualityMetrics(phase1b), null, 2),
+  );
 
   const next: Partial<WorkflowGraphState> = {
     phase1b,

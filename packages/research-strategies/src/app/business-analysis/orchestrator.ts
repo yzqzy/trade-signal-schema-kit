@@ -69,6 +69,7 @@ export async function runBusinessAnalysis(
     phase1b: pipeline.phase1b,
     pdfPath: pipeline.pdfPath,
     reportUrl: input.reportUrl,
+    hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
   });
   await writeFile(qualitativeD1D6Path, d1d6Body, "utf-8");
 

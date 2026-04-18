@@ -32,8 +32,11 @@ export function renderQualitativeD1D6Scaffold(input: {
   phase1b: Phase1BQualitativeSupplement;
   pdfPath?: string;
   reportUrl?: string;
+  /** 已生成 `data_pack_report.md`（Phase2B）时为 true */
+  hasDataPackReport?: boolean;
 }): string {
-  const { phase1b, pdfPath, reportUrl } = input;
+  const { phase1b, pdfPath, reportUrl, hasDataPackReport } = input;
+  const reportPackReady = Boolean(hasDataPackReport);
   const evidenceLines = flattenPhase1BEvidenceLines(phase1b);
   const evidenceCount = evidenceLines.length;
   const rough = phase1bRoughSummary(phase1b);
@@ -110,6 +113,12 @@ export function renderQualitativeD1D6Scaffold(input: {
     "",
     "## D5 MD&A 与经营讨论",
     "",
+    ...(!reportPackReady
+      ? [
+          "> **「证据不足，待补充 PDF 解析」**（规则 B）：本 run 未生成 `data_pack_report.md`；D5 仅允许**预研级**草稿，禁止**交付级**经营细节展开。交付级须走 Phase0 + Phase2A/2B（或 `business-analysis --strict` / `workflow --mode turtle-strict` 强制 PDF 链）。",
+          "",
+        ]
+      : []),
     "### 证据约束",
     "- 必须以 `data_pack_report` 的 **MDA** 块为主证据；缺失时停止展开经营细节。",
     "",

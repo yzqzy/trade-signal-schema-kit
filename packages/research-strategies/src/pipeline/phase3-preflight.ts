@@ -111,6 +111,21 @@ export function evaluatePhase3Preflight(input: {
         ].join("\n")
       : "";
 
+  const mvpPdfBlock = [
+    "",
+    "## PDF 与交付语义（MVP）",
+    "",
+    "- **规则 A（交付级）**：输出 D5（MD&A）**可交付结论**时，必须有 `data_pack_report.md`（需下载并解析年报 PDF：Phase0 + Phase2A/2B）。",
+    "- **规则 B（预研级）**：无 `data_pack_report.md` 时仅输出预研草稿；`qualitative_d1_d6.md` 的 D5 会标注「证据不足，待补充 PDF 解析」。",
+    "- **规则 C（strict）**：`turtle-strict` 或 `business-analysis --strict` 下，缺少 `data_pack_report.md` 为不合格结果（编排层 fail-fast）。",
+    "",
+    "### 补救命令示例",
+    "",
+    "- 自动发现年报并下载：`pnpm run phase0:download -- --stock-code \"<代码>\" --category \"年报\" --year \"<YYYY>\"`（需 `FEED_BASE_URL`）。",
+    "- 全链路带 PDF：见仓库 `docs/guides/workflows.md` 中 `workflow:run` / `--pdf` / `--report-url` 说明。",
+    "",
+  ];
+
   const md = [
     "# Phase 3 Pre-flight（编排层自动裁决）",
     "",
@@ -127,7 +142,7 @@ export function evaluatePhase3Preflight(input: {
     `- 可解析净利润的财报年度数：**${financialYears}**`,
     `- data_pack_report：${input.reportMarkdown ? "已提供" : "缺失"}`,
     `- data_pack_report_interim：${input.interimReportMarkdown ? "已提供" : "未提供"}`,
-    "",
+    ...mvpPdfBlock,
     "## 说明",
     "",
     "- 本文件由 `evaluatePhase3Preflight` 生成，**不调用外网**；`SUPPLEMENT_NEEDED` 仅输出结构化补救提示。",

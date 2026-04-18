@@ -18,6 +18,13 @@ export * from "./stages/phase1a/collector.js";
 export * from "./stages/phase1b/types.js";
 export * from "./stages/phase1b/collector.js";
 export * from "./stages/phase1b/renderer.js";
+export {
+  computePhase1bEvidenceQualityMetrics,
+  topicPatternForPhase1bItem,
+  type Phase1bEvidenceQualityMetrics,
+  type Phase1bItemQualityRow,
+  type Phase1bSectionEvidenceMetrics,
+} from "./stages/phase1b/evidence-quality.js";
 export * from "./stages/phase2a/extractor.js";
 export * from "./stages/phase2b/renderer.js";
 export * from "./stages/phase3/types.js";

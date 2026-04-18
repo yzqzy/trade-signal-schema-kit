@@ -63,6 +63,22 @@ pnpm run business-analysis:run -- \
 - [ ] `financialHistory` 至少 2 个独立财年
 - [ ] 母公司扩展字段缺失时有 `degradeReasons`
 
+### 2.1 Phase1B 检索质量回归门槛
+
+产物（同目录 `<runId>/`）：`phase1b_qualitative.{json,md}`、`phase1b_evidence_quality.json`（编排与 `business-analysis` 一致时落盘）。
+
+**对照**：同一 `code` / `year`、尽量同一 feed 版本，保留「改造前 vs 改造后」两次 run 目录，对比上述文件及（若已进入 Phase3）`phase3_preflight.md`。
+
+**数值门槛（§7 高敏条目精准命中改造后固化）**：
+
+- [ ] `phase1b_evidence_quality.json` → `section7.topicHitRatio >= 0.80`
+- [ ] `phase1b_evidence_quality.json` → `section7.crossItemDuplicateUrlRatio <= 0.35`
+
+**结构 / 人工 spot-check**：
+
+- [ ] `byItem` 覆盖 §7、§8、§10 各检索条目（每行含 `evidenceCount`、`topicHit`）
+- [ ] 对照 `phase1b_qualitative.md`：`违规/处罚`、`质押/减持`、`回购` 等条目不应长期出现明显「制度类文档误灌」；空结果优于强误命中时可接受
+
 ## 3. Workflow 严格全链路（端到端）
 
 ### 3.1 有 PDF 输入

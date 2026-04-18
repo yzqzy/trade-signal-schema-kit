@@ -78,3 +78,8 @@ CLI 会自动尝试加载项目根目录 `.env`，支持以下变量：
 ## 相关文档
 
 - [主流程与 Stage 映射](./workflows.md)
+
+## 与 Phase3 / 商业分析（MVP 规则 A/B/C）
+
+- 年报 PDF 经 Phase2A/2B 生成 `data_pack_report.md` 后，才满足 **D5（MD&A）交付级** 证据；仅 Phase1B 公告检索时为预研级（见 `phase3_preflight.md` 与 `qualitative_d1_d6.md` 中「PDF 与交付语义」/ D5 提示）。
+- 自动发现依赖 `FEED_BASE_URL`，与 Phase1B 同源 `report/search`；下载结果可作为 `workflow:run --pdf ...` 的输入。
