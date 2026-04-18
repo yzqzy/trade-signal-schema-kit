@@ -18,7 +18,7 @@
 
 ## Claude Code 与图编排（分层，勿混用）
 
-- **Claude Code**：IDE 侧深度定性、六维契约与 PDF 对照（Skills / slash commands；参考 `Turtle_investment_framework`）。
+- **Claude Code**：IDE 侧深度定性、六维契约与 PDF 对照（Skills / slash commands）。
 - **LangGraph**：TS 主链全流程状态编排（阶段、分支、checkpoint、重试、审计）。
 
 外层用 LangGraph 跑 Stage；定性 narrative 在 **Claude Code** 完成。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
@@ -112,9 +112,9 @@ export interface OrchestratorAdapter {
 ## 质量与验收（DoD）
 
 - 通用编排与单一策略实现解耦：**新增策略不改 LangGraph 主流程核心代码**，在 `strategies/registry.ts` 注册并扩展策略目录即可。
-- CLI 兼容：既有命令可用；新策略通过 **`--strategy` 或等价开关**扩展。
+- CLI 兼容：既有命令可用；新策略通过 **`--strategy` 或同类策略开关**扩展。
 - 支持从中间阶段恢复（至少从 Stage B 或 D 重跑）。
-- 文档口径一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、[contract-baseline](./contract-baseline.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md) 不冲突。
+- 文档之间应一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、[contract-baseline](./contract-baseline.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md)。
 
 ## 与现状兼容说明
 

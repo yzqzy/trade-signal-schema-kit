@@ -5,7 +5,7 @@ argument-hint: [--market-md] [--report-md] [--from-manifest]
 
 在 **monorepo 根目录**执行（需已 `pnpm run build`）。
 
-## 映射 CLI
+## Slash → CLI（脚本 / CI）
 
 ```bash
 pnpm run valuation:run -- \

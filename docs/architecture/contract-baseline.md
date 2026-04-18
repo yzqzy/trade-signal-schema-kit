@@ -49,8 +49,8 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 
 - **必填**：`--code <stock-code>`
 - **常用可选**：`--year`、`--company-name`、`--from`、`--to`、`--output-dir`、`--pdf`、`--report-url`、`--category`、`--phase1b-channel http|mcp`、`--mode standard|turtle-strict`、`--preflight off|strict`、`--interim-report-md`、`--interim-pdf`、`--preflight-remedy-pass 0|1`、`--refresh-market`（flag）、`--resume-from-stage B|D`（续跑；**必须**同时提供 `--output-dir` 指向 run 根目录）
-- **`--mode turtle-strict`**：无 `--pdf`/`--report-url` 时尝试 Feed 自动发现年报 URL；仍无报告包则按严格文案失败；**必须有** `data_pack_report.md` 等价内容（即 `reportPackMarkdown`）才能进入 Phase3
-- **`--preflight`**：未指定时，`turtle-strict` 等价 `strict`，否则默认 `off`；`business-analysis --strict` 会把管线 preflight 置为 `strict`
+- **`--mode turtle-strict`**：无 `--pdf`/`--report-url` 时尝试 Feed 自动发现年报 URL；仍无报告包则按严格文案失败；**必须有** `data_pack_report.md`（即已生成 `reportPackMarkdown`）才能进入 Phase3
+- **`--preflight`**：未指定时，`turtle-strict` 下默认为 `strict`，否则默认 `off`；`business-analysis --strict` 会把管线 preflight 置为 `strict`
 - **退出**：未捕获错误以非零退出；消息体须保留 `strict-messages` 中定义的前缀（见第 7 节）
 
 ## 5. `RunWorkflowInput` 与产物路径（相对 `outputDir`）

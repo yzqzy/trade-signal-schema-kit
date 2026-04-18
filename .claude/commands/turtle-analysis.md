@@ -5,7 +5,7 @@ argument-hint: [--code] [--mode standard|turtle-strict] [--pdf|--report-url]
 
 在 **monorepo 根目录**执行。
 
-## 映射 CLI（严格模式）
+## Slash → CLI（脚本 / CI，严格模式）
 
 ```bash
 pnpm run workflow:run -- \

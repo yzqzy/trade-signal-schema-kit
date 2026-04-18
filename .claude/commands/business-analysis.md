@@ -5,7 +5,7 @@ argument-hint: [--code <股票代码>] [--year YYYY] [--pdf <path> | --report-ur
 
 在 **monorepo 根目录**执行（需已 `pnpm install` 且 `pnpm run build`）。
 
-## 映射 CLI
+## Slash → CLI（脚本 / CI）
 
 ```bash
 pnpm run business-analysis:run -- \
@@ -30,7 +30,7 @@ pnpm run business-analysis:run -- \
 - 无本地 PDF：可提供 `--report-url` 触发 Phase0 下载后再走 2A/2B。
 - Phase1B 默认 HTTP feed 检索；可切换 `--phase1b-channel mcp`（需注入 MCP 能力的环境）。
 
-## 主要产物（`--output-dir` 或默认 `output/workflow/<code>/`）
+## 主要产物（`--output-dir` 或默认 `output/business-analysis/<code>/`）
 
 - `qualitative_report.md`（定性补充，含 Phase1B 渲染正文）
 - `qualitative_d1_d6.md`（Turtle **D1~D6** 契约骨架；用于承载深度定性结论）

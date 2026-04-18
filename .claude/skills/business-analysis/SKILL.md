@@ -23,7 +23,7 @@ description: "独立商业分析入口：先采集市场数据与 Phase1B 外部
 - `phase1b_evidence_quality.json`：§7/§8 证据结构离线指标（唯一标题占比、跨条目 URL 重复、主题命中率等），便于对比两次 run。
 - `business_analysis_manifest.json`：记录输入与产物路径；含 `pipeline.valuation` 供 `valuation:run --from-manifest` 串接。
 
-## CLI / 命令映射
+## 入口映射
 
-- Claude：`/business-analysis`
-- 工程：`pnpm run business-analysis:run -- ...`
+- **Claude Code**：`/business-analysis`（推荐）
+- **CLI**：`pnpm run business-analysis:run -- ...`（CI、无 IDE）

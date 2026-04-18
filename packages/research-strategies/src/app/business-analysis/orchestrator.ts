@@ -1,15 +1,18 @@
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
-import { OUTPUT_LAYOUT_VERSION } from "../../contracts/output-layout-v2.js";
-import { renderPhase1BMarkdown } from "../../stages/phase1b/renderer.js";
-import { normalizeCodeForFeed } from "../../pipeline/normalize-stock-code.js";
+import { OUTPUT_LAYOUT_VERSION } from '../../contracts/output-layout-v2.js';
+import { renderPhase1BMarkdown } from '../../stages/phase1b/renderer.js';
+import { normalizeCodeForFeed } from '../../pipeline/normalize-stock-code.js';
 import {
   strictBusinessAnalysisMissingPdf,
   strictBusinessAnalysisMissingReportPack,
-} from "../../pipeline/strict-messages.js";
-import { executeWorkflowDataPipeline, type RunWorkflowInput } from "../workflow/orchestrator.js";
-import { renderQualitativeD1D6Scaffold } from "./d1-d6-scaffold.js";
+} from '../../pipeline/strict-messages.js';
+import {
+  executeWorkflowDataPipeline,
+  type RunWorkflowInput,
+} from '../workflow/orchestrator.js';
+import { renderQualitativeD1D6Scaffold } from './d1-d6-scaffold.js';
 
 export type RunBusinessAnalysisInput = RunWorkflowInput & {
   /** 与 workflow turtle-strict 一致：要求 PDF 或年报 URL */
@@ -49,62 +52,77 @@ export async function runBusinessAnalysis(
   const { strict: _strict, ...workflowInput } = input;
   void _strict;
   const defaultBaParent = path.join(
-    "output",
-    "business-analysis",
+    'output',
+    'business-analysis',
     normalizeCodeForFeed(input.code),
   );
   const pipeline = await executeWorkflowDataPipeline({
     ...workflowInput,
-    outputDir: workflowInput.outputDir?.trim() ? workflowInput.outputDir : defaultBaParent,
-    preflight: input.strict ? "strict" : workflowInput.preflight,
+    outputDir: workflowInput.outputDir?.trim()
+      ? workflowInput.outputDir
+      : defaultBaParent,
+    preflight: input.strict ? 'strict' : workflowInput.preflight,
   });
 
   if (input.strict && !pipeline.reportPackMarkdown) {
     throw new Error(strictBusinessAnalysisMissingReportPack());
   }
 
-  const qualitativeReportPath = path.join(pipeline.outputDir, "qualitative_report.md");
-  const qualitativeD1D6Path = path.join(pipeline.outputDir, "qualitative_d1_d6.md");
+  const qualitativeReportPath = path.join(
+    pipeline.outputDir,
+    'qualitative_report.md',
+  );
+  const qualitativeD1D6Path = path.join(
+    pipeline.outputDir,
+    'qualitative_d1_d6.md',
+  );
   const d1d6Body = renderQualitativeD1D6Scaffold({
     phase1b: pipeline.phase1b,
     pdfPath: pipeline.pdfPath,
     reportUrl: input.reportUrl,
     hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
   });
-  await writeFile(qualitativeD1D6Path, d1d6Body, "utf-8");
+  await writeFile(qualitativeD1D6Path, d1d6Body, 'utf-8');
 
   const qualitativeBody = [
-    "# 定性研究补充报告（Phase 1B）",
-    "",
+    '# 定性研究补充报告（Phase 1B）',
+    '',
     `- 股票代码：${pipeline.phase1b.stockCode}`,
     `- 公司：${pipeline.phase1b.companyName}`,
-    `- 年份：${pipeline.phase1b.year ?? "（未指定）"}`,
+    `- 年份：${pipeline.phase1b.year ?? '（未指定）'}`,
     `- 渠道：${pipeline.phase1b.channel}`,
     `- 生成时间：${pipeline.phase1b.generatedAt}`,
-    "",
-    "> 以下为 HTTP/MCP 检索补充（§7/§8/§10）。**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`。深度定性建议在 **Claude Code** 命令流中完成。",
-    "",
+    '',
+    '> 以下为 HTTP/MCP 检索补充（§7/§8/§10）。**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`。深度定性建议在 **Claude Code** 命令流中完成。',
+    '',
     renderPhase1BMarkdown(pipeline.phase1b),
-  ].join("\n");
-  await writeFile(qualitativeReportPath, qualitativeBody, "utf-8");
+  ].join('\n');
+  await writeFile(qualitativeReportPath, qualitativeBody, 'utf-8');
 
-  const manifestPath = path.resolve(pipeline.outputDir, "business_analysis_manifest.json");
-  const marketRel = path.relative(pipeline.outputDir, pipeline.marketPackPath) || "data_pack_market.md";
+  const manifestPath = path.resolve(
+    pipeline.outputDir,
+    'business_analysis_manifest.json',
+  );
+  const marketRel =
+    path.relative(pipeline.outputDir, pipeline.marketPackPath) ||
+    'data_pack_market.md';
   const reportRel = pipeline.phase2bMarkdownPath
     ? path.relative(pipeline.outputDir, pipeline.phase2bMarkdownPath)
     : undefined;
-  const d1d6Rel = path.relative(pipeline.outputDir, qualitativeD1D6Path) || "qualitative_d1_d6.md";
+  const d1d6Rel =
+    path.relative(pipeline.outputDir, qualitativeD1D6Path) ||
+    'qualitative_d1_d6.md';
   const runId = path.basename(pipeline.outputDir);
   const manifest = {
-    manifestVersion: "2.0",
+    manifestVersion: '2.0',
     outputLayout: {
       version: OUTPUT_LAYOUT_VERSION,
-      area: "business-analysis",
+      area: 'business-analysis',
       code: pipeline.normalizedCode,
       runId,
     } as const,
     generatedAt: new Date().toISOString(),
-    kind: "business-analysis",
+    kind: 'business-analysis',
     input: {
       code: pipeline.normalizedCode,
       year: input.year,
@@ -147,7 +165,7 @@ export async function runBusinessAnalysis(
       },
     },
   };
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
   return {
     outputDir: pipeline.outputDir,

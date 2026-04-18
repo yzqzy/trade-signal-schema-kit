@@ -28,7 +28,7 @@ description: "workflow turtle-strict 模式：全流程编排，关键输入与 
 
 - 与 `workflow:run` 相同：`valuation_computed.json`、`analysis_report.md/html`、`workflow_manifest.json`。
 
-## CLI / 命令映射
+## 入口映射
 
-- Claude：`/turtle-analysis`（推荐带 `--mode turtle-strict`）
-- 工程：`pnpm run workflow:run -- --mode turtle-strict ...`
+- **Claude Code**：`/turtle-analysis`（语义为 `workflow:run --mode turtle-strict`）
+- **CLI**：`pnpm run workflow:run -- --mode turtle-strict ...`

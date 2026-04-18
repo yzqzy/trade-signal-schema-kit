@@ -21,7 +21,7 @@
 ## 项目约束（选型边界）
 
 - 技术栈：TypeScript + pnpm monorepo
-- 主链路：CLI 优先，演进避免大爆炸式重构
+- 主链路：日常 **Claude Code Slash** 优先；CLI 用于脚本化与 CI；演进避免大爆炸式重构
 - 运行：多模型路由、结构化输出、回退策略
 - 交付：中间产物落盘，便于复跑与审计
 
@@ -47,12 +47,12 @@ PoC（概念验证）用最小成本验证关键假设：**这条路线在真实
 
 > 选型已定为 LangGraph.js；PoC 只验证**接入细节与风险**，不再做多框架横向比较。
 
-## Claude Code 与 LangGraph（分层，定稿口径）
+## Claude Code 与 LangGraph（分层）
 
 | 层级 | 职责 | 典型能力 |
 |------|------|----------|
 | **LangGraph** | **TS 主链**流程编排 | 阶段、分支、checkpoint、重试、审计；采集与规则估值 |
-| **Claude Code** | **IDE 侧**深度定性 | Skills / slash commands；六维 narrative、PDF 对照（与参考项目 `Turtle_investment_framework` 一致） |
+| **Claude Code** | **IDE 侧**深度定性 | Skills / slash commands；六维 narrative、PDF 对照 |
 
 **组合方式**：用 LangGraph 跑 Stage B~E 的数据与契约产物；深度定性与叙事写作在 Claude Code 侧完成。**Claude Code 不替代图编排层**；本仓库 TS 主链的 Phase3 报告仍以**确定性规则估值与因子**为主输出。
 

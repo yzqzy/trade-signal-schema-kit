@@ -9,11 +9,11 @@
 ## v0.1（流程复刻）
 
 - 打通主流程：Phase 0（独立 CLI 支持 Feed 自动发现 PDF + workflow 内 `--report-url`）、Phase 1A/1B/2A/2B/3（独立 CLI）及 **`workflow:run` 串行编排**（当前实现顺序见 [workflows](../guides/workflows.md)）
-- **独立 `business-analysis`**：`pnpm run business-analysis:run` 与 Claude `/business-analysis`（定性 + 数据包，默认不跑完整 Phase3）
-- **`turtle-strict`**：`--mode turtle-strict`（PDF/报告包前置校验 + fail-fast），Claude `/turtle-analysis`
+- **独立 `business-analysis`**：Claude `/business-analysis`；CLI `pnpm run business-analysis:run`（定性 + 数据包，默认不跑完整 Phase3）
+- **`turtle-strict`**：Claude `/turtle-analysis`；CLI `--mode turtle-strict`（PDF/报告包前置校验 + fail-fast）
 - **质量回归**：`cn_a` + `hk` 双套件 golden（`quality:regression` / `quality:phase3-golden` 默认 `--suite all`）
-- **独立估值**：`pnpm run valuation:run`（`/valuation`），可与 `business-analysis` manifest 串接
-- **Markdown 转 HTML**：`pnpm run report-to-html:run`（`/report-to-html`）
+- **独立估值**：`/valuation`；CLI `pnpm run valuation:run`，可与 `business-analysis` manifest 串接
+- **Markdown 转 HTML**：`/report-to-html`；CLI `pnpm run report-to-html:run`
 - 输出：`run:phase3`（包内）与 `workflow:run`（根目录编排）均在指定目录产出 `analysis_report.md` / `analysis_report.html`（文件名固定）
 - **A 股优先**；**港股**：基础数据与 `hk` 黄金样例已具备，与 A 股同等深度 **暂未实现**
 

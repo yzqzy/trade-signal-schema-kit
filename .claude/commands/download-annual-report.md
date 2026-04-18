@@ -5,7 +5,7 @@ argument-hint: [--stock-code] [--year] [--category] [--url 可选]
 
 在 **monorepo 根目录**执行。
 
-## 映射 CLI
+## Slash → CLI（脚本 / CI）
 
 **模式 A：自动发现（Feed `/stock/report/search`，需 `FEED_BASE_URL`）**
 

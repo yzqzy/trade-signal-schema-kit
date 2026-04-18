@@ -2,9 +2,9 @@
 
 [返回文档索引](../README.md) · [流程与 CLI](./workflows.md) · [数据契约与 quality](./data-source.md)
 
-本文按「先跑通，再细化」给出使用步骤：先配置 Feed，再在 Claude Code 或 CLI 中执行分析命令，最后补充续跑与排障要点。
+本文按「先跑通，再细化」给出步骤：先配置 Feed，再优先用 **Claude Code** Slash（与根目录 [README.md](../../README.md) 一致），需要脚本化或续跑时再对照下方 CLI。续跑与排障见后文。
 
-> 建议直接按下面的「三步法」使用。Claude 命令与 CLI 共享同一条工作流入口，但交互能力不同（AI 可进行额外解释与辅助判断）。
+> Slash 与根目录 `pnpm` 命令触发同一套编排；IDE 内可多轮追问与改稿，CLI 适合 CI 与无界面环境。
 
 ## 三步法（推荐）
 
@@ -22,10 +22,10 @@ FEED_BASE_URL=http://localhost:4000
 FEED_API_KEY=
 ```
 
-### 第 2 步：先做商业分析（推荐起手）
+### 第 2 步：商业分析（起手）
 
-- Claude Code：`/business-analysis`
-- CLI 入口映射：
+- **Claude Code**：`/business-analysis`
+- **CLI**：
 
 ```bash
 pnpm run business-analysis:run -- \
@@ -39,13 +39,10 @@ pnpm run business-analysis:run -- \
 - `qualitative_d1_d6.md`
 - `business_analysis_manifest.json`
 
-### 第 3 步：按需要进入全流程或估值
+### 第 3 步：全流程或估值
 
-- 全流程（含最终报告）：`/turtle-analysis`
-- 只做估值：`/valuation`
-- 年报下载：`/download-annual-report`
-
-CLI 入口映射：
+- **Claude Code**：`/turtle-analysis`（终稿）· `/valuation` · `/download-annual-report`（按需）
+- **CLI**：
 
 ```bash
 pnpm run workflow:run -- \
