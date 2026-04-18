@@ -55,7 +55,7 @@ B → C →（无 D）→（Phase3 在 runResearchWorkflow 内）
 
 ## 5. `RunWorkflowInput` 与产物路径（相对 `outputDir`）
 
-**默认 `outputDir`（output v2）**：`workflow:run` 未传 `--output-dir` 时父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`business-analysis:run` 未传时父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。`<runId>` 为 UUID，与 LangGraph `thread_id` 对齐。显式 `--output-dir` 表示**父目录**，其下仍会创建 `<runId>` 子目录。**续跑**（`resumeFromStage`）必须将 `--output-dir` 指向已有 run 根目录（含 `workflow_graph_checkpoint.json`）。
+**默认 `outputDir`（output v2）**：`workflow:run` 未传 `--output-dir` 时父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`business-analysis:run` 未传时父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。`<runId>` 默认 UUID，与 LangGraph `thread_id` 对齐；可用 **`--run-id <id>`** 显式指定子目录名（便于与 manifest 建议命令对齐）。显式 `--output-dir` 表示**父目录**，其下仍会创建 `<runId>` 子目录。**续跑**（`resumeFromStage`）必须将 `--output-dir` 指向已有 run 根目录（含 `workflow_graph_checkpoint.json`）；续跑时 **`threadId`/`runId` 以 checkpoint 为准**，传入的 `--run-id` 会被忽略。
 
 | 产物 | 相对路径 / 说明 |
 |------|-----------------|

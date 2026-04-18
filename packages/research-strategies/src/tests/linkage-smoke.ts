@@ -4,6 +4,7 @@
  * 运行：`pnpm run build && pnpm --filter @trade-signal/research-strategies run test:linkage`
  */
 import { initCliEnv } from "../lib/init-cli-env.js";
+import { shellQuoteArg } from "../lib/shell-quote-arg.js";
 import assert from "node:assert/strict";
 
 import { renderQualitativeD1D6Scaffold } from "../app/business-analysis/d1-d6-scaffold.js";
@@ -69,6 +70,32 @@ function main(): void {
   assert.match(d1d6, /## D1 商业模式/);
   assert.match(d1d6, /## D6 控股结构/);
   assert.match(d1d6, /证据约束/);
+
+  const d1d6WithPack = renderQualitativeD1D6Scaffold({
+    phase1b: {
+      stockCode: "600887",
+      companyName: "测试公司",
+      year: "2024",
+      generatedAt: new Date().toISOString(),
+      channel: "http",
+      section7: [],
+      section8: [],
+      section10: [],
+    },
+    pdfPath: "/tmp/x.pdf",
+    hasDataPackReport: true,
+    dataPackReportExcerpt: "## MDA 管理层讨论与分析\n摘录",
+  });
+  assert.match(d1d6WithPack, /data_pack_report 摘录/);
+  assert.match(d1d6WithPack, /摘录/);
+
+  assert.equal(shellQuoteArg("600887"), "600887");
+  assert.match(shellQuoteArg("path with space"), /^"/);
+
+  const mf = JSON.parse(
+    '{"outputLayout":{"code":"600887","runId":"r1"},"pipeline":{"valuation":{"relativePaths":{"marketMd":"m.md"}}}}',
+  ) as { outputLayout?: { code?: string } };
+  assert.equal(mf.outputLayout?.code?.trim(), "600887");
 
   const c1 = {
     stockCode: "600887",

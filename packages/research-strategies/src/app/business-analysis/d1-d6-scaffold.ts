@@ -26,7 +26,7 @@ function phase1bRoughSummary(p: Phase1BQualitativeSupplement): string {
 
 /**
  * PDF-first / 单 Agent 六维（D1~D6）契约：输出固定骨架，便于与 Turtle qualitative_assessment_v2 语义对齐。
- * 工程层写入可版本化 Markdown；深度叙事由上层 LLM 在骨架上补全。
+ * 工程层写入可版本化 Markdown；正文在 Claude Code 工作区会话中按门槛补全。
  */
 export function renderQualitativeD1D6Scaffold(input: {
   phase1b: Phase1BQualitativeSupplement;
@@ -34,8 +34,10 @@ export function renderQualitativeD1D6Scaffold(input: {
   reportUrl?: string;
   /** 已生成 `data_pack_report.md`（Phase2B）时为 true */
   hasDataPackReport?: boolean;
+  /** 已生成报告包时，可嵌入摘录供 D4/D5 交叉引用（过长由调用方截断） */
+  dataPackReportExcerpt?: string;
 }): string {
-  const { phase1b, pdfPath, reportUrl, hasDataPackReport } = input;
+  const { phase1b, pdfPath, reportUrl, hasDataPackReport, dataPackReportExcerpt } = input;
   const reportPackReady = Boolean(hasDataPackReport);
   const evidenceLines = flattenPhase1BEvidenceLines(phase1b);
   const evidenceCount = evidenceLines.length;
@@ -49,7 +51,7 @@ export function renderQualitativeD1D6Scaffold(input: {
     "# 商业分析六维（D1~D6）契约稿",
     "",
     "> 本文件为 **Turtle PDF-first 单 Agent** 对齐用的结构化占位 + Phase1B 事实摘录。",
-    "> 各 `D*` 下「待 LLM 补全」段落应在协调器提示词中强制覆盖。",
+    "> 各 `D*` 下「待补全正文」须在 Claude Code 同目录会话中按证据门槛撰写。",
     "",
     "## 输出质量门槛（可执行契约）",
     "",
@@ -77,7 +79,7 @@ export function renderQualitativeD1D6Scaffold(input: {
     "### 事实摘录（Phase1B）",
     rough ? `> ${rough.replace(/\n/g, " ").slice(0, 800)}` : "> （Phase1B 无可用摘要字段）",
     "",
-    "### 待 LLM 补全（PDF-first）",
+    "### 待补全正文（PDF-first）",
     "- 客户需求 / 价值主张 / 收入模型的可验证描述",
     "- 与财报「收入确认」口径的一致性检查要点",
     "",
@@ -86,7 +88,7 @@ export function renderQualitativeD1D6Scaffold(input: {
     "### 证据约束",
     "- 竞争格局须引用 Phase1B §7/§8 或 PDF 中可核对段落，不得纯常识堆砌。",
     "",
-    "### 待 LLM 补全",
+    "### 待补全正文",
     "- 供给侧规模经济、需求侧规模经济、高转换成本、网络效应等证据链",
     "- 与行业格局、价格带的对应关系",
     "",
@@ -100,7 +102,7 @@ export function renderQualitativeD1D6Scaffold(input: {
       ? evidenceLines.slice(0, 12).map((e) => `- ${e}`)
       : ["- （无结构化证据条目）"]),
     "",
-    "### 待 LLM 补全",
+    "### 待补全正文",
     "- 行业周期、监管与政策风险的可验证要点",
     "",
     "## D4 管理层与治理",
@@ -108,7 +110,17 @@ export function renderQualitativeD1D6Scaffold(input: {
     "### 证据约束",
     "- 须与 `data_pack_report` 治理/关联交易相关摘录交叉引用（若报告包缺失则声明缺口）。",
     "",
-    "### 待 LLM 补全",
+    ...(dataPackReportExcerpt?.trim()
+      ? [
+          "### data_pack_report 摘录（工程注入）",
+          "",
+          "```markdown",
+          dataPackReportExcerpt.trim(),
+          "```",
+          "",
+        ]
+      : []),
+    "### 待补全正文",
     "- 资本配置记录、激励相容、关联交易与治理结构（与 data_pack_report 交叉验证）",
     "",
     "## D5 MD&A 与经营讨论",
@@ -122,7 +134,7 @@ export function renderQualitativeD1D6Scaffold(input: {
     "### 证据约束",
     "- 必须以 `data_pack_report` 的 **MDA** 块为主证据；缺失时停止展开经营细节。",
     "",
-    "### 待 LLM 补全",
+    "### 待补全正文",
     "- 与 `data_pack_report` 中 **MDA** 章节对齐：经营变化、风险因素、前瞻性陈述可信度",
     "",
     "## D6 控股结构与资本架构",
@@ -130,7 +142,7 @@ export function renderQualitativeD1D6Scaffold(input: {
     "### 证据约束",
     "- 控股与资本工具描述须引用 SUB/权益变动或资产负债表附注；与 `data_pack_market` 有息负债、少数股东损益对照。",
     "",
-    "### 待 LLM 补全",
+    "### 待补全正文",
     "- 控股链条、表内外杠杆、少数股东权益与利润分配（与 SUB / 资产负债表交叉验证）",
     "",
     "## 编排层自检（写入时生成）",

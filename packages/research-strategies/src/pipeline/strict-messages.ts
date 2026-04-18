@@ -5,7 +5,11 @@ export const STRICT_WORKFLOW_TURTLE_PREFIX = "[strict:workflow:turtle-strict]";
 export const STRICT_PREFLIGHT_PREFIX = "[strict:preflight]";
 
 export function strictBusinessAnalysisMissingPdf(): string {
-  return `${STRICT_BUSINESS_ANALYSIS_PREFIX} 缺少 PDF 输入：请提供 --pdf <path> 或 --report-url <url>（用于生成 data_pack_report.md）。`;
+  return `${STRICT_BUSINESS_ANALYSIS_PREFIX} 缺少可解析的年报 PDF：请提供 --pdf <path> 或 --report-url <url>；或在可用数据源下由自动发现补齐（失败时会单独报错）。`;
+}
+
+export function strictBusinessAnalysisDiscoveryFailed(detail: string): string {
+  return `${STRICT_BUSINESS_ANALYSIS_PREFIX} 自动发现年报失败：${detail}。请改传 --report-url <url> 或 --pdf <path>。`;
 }
 
 export function strictBusinessAnalysisMissingReportPack(): string {

@@ -30,7 +30,7 @@ pnpm run valuation:run -- \
 
 ## 与 business-analysis 衔接
 
-`business-analysis` 生成的 `business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths` 与建议命令。
+`business-analysis` 生成的 `business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths` 与建议命令。未显式传 `--code` 时，默认分区代码回退到 **`outputLayout.code`**（与 manifest 一致，避免 `_adhoc`）。
 
 ## Slash 对应
 

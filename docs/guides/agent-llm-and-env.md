@@ -34,6 +34,8 @@ pnpm run business-analysis:run -- \
   --output-dir "./output/business-analysis/600887"
 ```
 
+无 `--pdf`/`--report-url` 时会对年报 URL **best-effort 自动发现**（需 `FEED_BASE_URL`）；交付级报告包可加 `--strict`（强制 PDF 链 + Pre-flight，前缀 `[strict:business-analysis]`）。
+
 完成后重点看：
 - `qualitative_report.md`
 - `qualitative_d1_d6.md`
@@ -51,6 +53,8 @@ pnpm run workflow:run -- \
   --mode turtle-strict \
   --pdf "./path/to/annual.pdf"
 ```
+
+可选 `--run-id <固定子目录名>` 与 manifest 对齐；**`--resume-from-stage` 时以 checkpoint 为准**，勿指望 `--run-id` 覆盖续跑身份。
 
 ```bash
 pnpm run valuation:run -- \

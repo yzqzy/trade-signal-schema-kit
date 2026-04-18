@@ -58,15 +58,16 @@
 
 ## 接口边界
 
-### `StrategyPlugin`
+### `StrategyPlugin`（实现见 `packages/research-strategies/src/strategies/contracts.ts`）
 
 ```ts
 export interface StrategyPlugin {
-  id: string; // "turtle" | "value_v1" | ...
-  version: string;
-  supports(input: StrategyContext): boolean;
-  evaluate(input: StrategyContext): Promise<StrategyResult>;
-  render?(result: StrategyResult): Promise<RenderedArtifacts>;
+  readonly id: string;
+  readonly version: string;
+  supports(context: StrategyEvaluationContext): boolean;
+  evaluate(context: StrategyEvaluationContext): Phase3ExecutionResult;
+  /** 可选：Stage E 前由编排调用；例如 turtle-strict 下要求已存在报告包 Markdown */
+  validateStageEPrerequisites?(context: StrategyStageEPrerequisitesContext): void;
 }
 ```
 

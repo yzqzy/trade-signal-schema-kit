@@ -1,21 +1,27 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { OUTPUT_LAYOUT_VERSION } from '../../contracts/output-layout-v2.js';
-import { renderPhase1BMarkdown } from '../../stages/phase1b/renderer.js';
+import {
+  OUTPUT_LAYOUT_VERSION,
+  resolveWorkflowDefaultRunDirectory,
+} from '../../contracts/output-layout-v2.js';
+import { ensureAnnualPdfOnDisk } from '../../pipeline/ensure-annual-pdf.js';
 import { normalizeCodeForFeed } from '../../pipeline/normalize-stock-code.js';
 import {
   strictBusinessAnalysisMissingPdf,
   strictBusinessAnalysisMissingReportPack,
 } from '../../pipeline/strict-messages.js';
+import { renderPhase1BMarkdown } from '../../stages/phase1b/renderer.js';
+import { resolveWorkflowThreadId } from '../../orchestrator/langgraph/invoke-workflow-graph.js';
 import {
   executeWorkflowDataPipeline,
   type RunWorkflowInput,
 } from '../workflow/orchestrator.js';
+import { shellQuoteArg } from '../../lib/shell-quote-arg.js';
 import { renderQualitativeD1D6Scaffold } from './d1-d6-scaffold.js';
 
 export type RunBusinessAnalysisInput = RunWorkflowInput & {
-  /** 与 workflow turtle-strict 一致：要求 PDF 或年报 URL */
+  /** 与 workflow turtle-strict 一致：要求可解析的年报 PDF（可经自动发现 + Phase0 下载） */
   strict?: boolean;
 };
 
@@ -34,39 +40,115 @@ export interface BusinessAnalysisArtifacts {
   pdfPath?: string;
 }
 
-function validateStrictPdfInput(input: RunBusinessAnalysisInput): void {
-  const hasPdf = Boolean(input.pdfPath?.trim());
-  const hasUrl = Boolean(input.reportUrl?.trim());
-  if (!hasPdf && !hasUrl) {
-    throw new Error(strictBusinessAnalysisMissingPdf());
+function asYear(value?: string): string {
+  if (value && /^\d{4}$/.test(value)) return value;
+  return String(new Date().getFullYear() - 1);
+}
+
+function excerptDataPackReport(md: string, maxChars: number): string {
+  const t = md.trim();
+  if (!t) return '';
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, maxChars)}\n\n…（截断，全文见 data_pack_report.md）`;
+}
+
+function buildSuggestedTurtleWorkflowCommand(input: {
+  code: string;
+  year?: string;
+  strategy: string;
+  pdfPath?: string;
+  reportUrl?: string;
+  outputDirParent: string;
+  runId: string;
+}): string {
+  const parts = [
+    'pnpm',
+    'run',
+    'workflow:run',
+    '--',
+    '--code',
+    shellQuoteArg(input.code),
+    '--mode',
+    'turtle-strict',
+    '--strategy',
+    shellQuoteArg(input.strategy),
+  ];
+  if (input.year?.trim()) {
+    parts.push('--year', shellQuoteArg(input.year.trim()));
   }
+  if (input.pdfPath?.trim()) {
+    parts.push('--pdf', shellQuoteArg(path.resolve(input.pdfPath.trim())));
+  }
+  if (input.reportUrl?.trim()) {
+    parts.push('--report-url', shellQuoteArg(input.reportUrl.trim()));
+  }
+  parts.push('--output-dir', shellQuoteArg(path.resolve(input.outputDirParent.trim())));
+  parts.push('--run-id', shellQuoteArg(input.runId.trim()));
+  return parts.join(' ');
 }
 
 export async function runBusinessAnalysis(
   input: RunBusinessAnalysisInput,
 ): Promise<BusinessAnalysisArtifacts> {
-  if (input.strict) {
-    validateStrictPdfInput(input);
-  }
+  const { strict, ...workflowFields } = input;
 
-  const { strict: _strict, ...workflowInput } = input;
-  void _strict;
   const defaultBaParent = path.join(
     'output',
     'business-analysis',
     normalizeCodeForFeed(input.code),
   );
-  const pipeline = await executeWorkflowDataPipeline({
-    ...workflowInput,
-    outputDir: workflowInput.outputDir?.trim()
-      ? workflowInput.outputDir
-      : defaultBaParent,
-    preflight: input.strict ? 'strict' : workflowInput.preflight,
+  const parentDir = workflowFields.outputDir?.trim()
+    ? workflowFields.outputDir
+    : defaultBaParent;
+
+  const threadId = await resolveWorkflowThreadId({
+    ...workflowFields,
+    outputDir: parentDir,
+  });
+  const { outputDir: runRoot } = resolveWorkflowDefaultRunDirectory({
+    code: input.code,
+    outputDir: parentDir,
+    runId: threadId,
+  });
+  await mkdir(runRoot, { recursive: true });
+
+  const normalizedCode = normalizeCodeForFeed(input.code);
+  const ensuredPdf = await ensureAnnualPdfOnDisk({
+    normalizedCode,
+    fiscalYear: asYear(input.year),
+    category: input.category ?? '年报',
+    outputRunDir: runRoot,
+    pdfPath: input.pdfPath,
+    reportUrl: input.reportUrl,
+    discoverPolicy: strict ? 'strict' : 'best_effort',
+    discoveryErrorStyle: 'business-analysis',
   });
 
-  if (input.strict && !pipeline.reportPackMarkdown) {
+  if (strict) {
+    const hasPdf = Boolean(ensuredPdf.pdfPath?.trim());
+    const hasUrl = Boolean(ensuredPdf.reportUrlResolved?.trim());
+    if (!hasPdf && !hasUrl) {
+      throw new Error(strictBusinessAnalysisMissingPdf());
+    }
+  }
+
+  const pipeline = await executeWorkflowDataPipeline({
+    ...workflowFields,
+    runId: threadId,
+    outputDir: parentDir,
+    pdfPath: ensuredPdf.pdfPath ?? input.pdfPath,
+    reportUrl: ensuredPdf.reportUrlResolved ?? input.reportUrl,
+    preflight: strict ? 'strict' : workflowFields.preflight,
+  });
+
+  if (strict && !pipeline.reportPackMarkdown) {
     throw new Error(strictBusinessAnalysisMissingReportPack());
   }
+
+  const reportUrlForOutputs =
+    pipeline.reportUrlResolved?.trim() ||
+    ensuredPdf.reportUrlResolved?.trim() ||
+    input.reportUrl?.trim();
 
   const qualitativeReportPath = path.join(
     pipeline.outputDir,
@@ -76,16 +158,21 @@ export async function runBusinessAnalysis(
     pipeline.outputDir,
     'qualitative_d1_d6.md',
   );
+  const dataPackExcerpt = pipeline.reportPackMarkdown?.trim()
+    ? excerptDataPackReport(pipeline.reportPackMarkdown, 14_000)
+    : undefined;
+
   const d1d6Body = renderQualitativeD1D6Scaffold({
     phase1b: pipeline.phase1b,
-    pdfPath: pipeline.pdfPath,
-    reportUrl: input.reportUrl,
+    pdfPath: pipeline.pdfPath ?? ensuredPdf.pdfPath,
+    reportUrl: reportUrlForOutputs,
     hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
+    dataPackReportExcerpt: dataPackExcerpt,
   });
   await writeFile(qualitativeD1D6Path, d1d6Body, 'utf-8');
 
   const qualitativeBody = [
-    '# 定性研究补充报告（Phase 1B）',
+    '# 商业分析定性报告（PDF-first）',
     '',
     `- 股票代码：${pipeline.phase1b.stockCode}`,
     `- 公司：${pipeline.phase1b.companyName}`,
@@ -93,7 +180,8 @@ export async function runBusinessAnalysis(
     `- 渠道：${pipeline.phase1b.channel}`,
     `- 生成时间：${pipeline.phase1b.generatedAt}`,
     '',
-    '> 以下为 HTTP/MCP 检索补充（§7/§8/§10）。**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`。深度定性建议在 **Claude Code** 命令流中完成。',
+    '本入口以 **年报 PDF / URL（可自动发现）→ Phase2A/2B 报告包 → Phase1B 外部证据** 为主链；以下为 Phase1B 检索补充（§7/§8/§10）。',
+    '**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`（含 `data_pack_report` 摘录与可执行门槛）。',
     '',
     renderPhase1BMarkdown(pipeline.phase1b),
   ].join('\n');
@@ -113,6 +201,44 @@ export async function runBusinessAnalysis(
     path.relative(pipeline.outputDir, qualitativeD1D6Path) ||
     'qualitative_d1_d6.md';
   const runId = path.basename(pipeline.outputDir);
+  const pdfForSuggest = pipeline.pdfPath ?? ensuredPdf.pdfPath;
+  const manifestInput: Record<string, unknown> = {
+    code: pipeline.normalizedCode,
+    year: input.year,
+    strict: Boolean(strict),
+    mode: input.mode,
+    strategy: input.strategy ?? 'turtle',
+    pdfPath: pdfForSuggest,
+    reportUrl: reportUrlForOutputs,
+    runId: threadId,
+    outputDirParent: path.resolve(parentDir),
+  };
+  if (workflowFields.companyName?.trim()) {
+    manifestInput.companyName = workflowFields.companyName.trim();
+  }
+  if (workflowFields.from?.trim()) manifestInput.from = workflowFields.from.trim();
+  if (workflowFields.to?.trim()) manifestInput.to = workflowFields.to.trim();
+  if (workflowFields.category?.trim()) {
+    manifestInput.category = workflowFields.category.trim();
+  }
+  if (workflowFields.phase1bChannel) {
+    manifestInput.phase1bChannel = workflowFields.phase1bChannel;
+  }
+  if (workflowFields.preflight) manifestInput.preflight = workflowFields.preflight;
+  if (workflowFields.preflightRemedyPass !== undefined) {
+    manifestInput.preflightRemedyPass = workflowFields.preflightRemedyPass;
+  }
+  if (workflowFields.refreshMarket) manifestInput.refreshMarket = true;
+  if (workflowFields.interimReportMdPath?.trim()) {
+    manifestInput.interimReportMdPath = path.resolve(workflowFields.interimReportMdPath.trim());
+  }
+  if (workflowFields.interimPdfPath?.trim()) {
+    manifestInput.interimPdfPath = path.resolve(workflowFields.interimPdfPath.trim());
+  }
+  if (workflowFields.resumeFromStage) {
+    manifestInput.resumeFromStage = workflowFields.resumeFromStage;
+  }
+
   const manifest = {
     manifestVersion: '2.0',
     outputLayout: {
@@ -123,13 +249,7 @@ export async function runBusinessAnalysis(
     } as const,
     generatedAt: new Date().toISOString(),
     kind: 'business-analysis',
-    input: {
-      code: pipeline.normalizedCode,
-      year: input.year,
-      strict: Boolean(input.strict),
-      pdfPath: pipeline.pdfPath,
-      reportUrl: input.reportUrl,
-    },
+    input: manifestInput,
     outputs: {
       qualitativeReportPath,
       qualitativeD1D6Path: qualitativeD1D6Path,
@@ -141,6 +261,10 @@ export async function runBusinessAnalysis(
       dataPackReportInterimPath: pipeline.phase2bInterimMarkdownPath,
     },
     pipeline: {
+      pdfBranch: {
+        hasAnnualPdf: Boolean((pipeline.pdfPath ?? ensuredPdf.pdfPath)?.trim()),
+        hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
+      },
       valuation: {
         relativePaths: {
           marketMd: marketRel,
@@ -162,6 +286,15 @@ export async function runBusinessAnalysis(
               : {}),
         },
         suggestedNextCommand: `pnpm run valuation:run -- --from-manifest "${manifestPath}"`,
+        suggestedTurtleWorkflowCommand: buildSuggestedTurtleWorkflowCommand({
+          code: pipeline.normalizedCode,
+          year: input.year,
+          strategy: input.strategy ?? 'turtle',
+          pdfPath: pdfForSuggest,
+          reportUrl: reportUrlForOutputs,
+          outputDirParent: parentDir,
+          runId,
+        }),
       },
     },
   };
@@ -177,6 +310,6 @@ export async function runBusinessAnalysis(
     dataPackReportPath: pipeline.phase2bMarkdownPath,
     dataPackReportInterimPath: pipeline.phase2bInterimMarkdownPath,
     manifestPath,
-    pdfPath: pipeline.pdfPath,
+    pdfPath: pipeline.pdfPath ?? ensuredPdf.pdfPath,
   };
 }

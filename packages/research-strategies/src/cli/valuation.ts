@@ -63,6 +63,10 @@ async function writeText(filePath: string, content: string): Promise<void> {
 
 type BusinessAnalysisManifest = {
   manifestVersion?: string;
+  outputLayout?: {
+    code?: string;
+    runId?: string;
+  };
   outputs?: {
     marketPackPath?: string;
     dataPackReportPath?: string;
@@ -108,11 +112,20 @@ function renderValuationSummaryMarkdown(result: Phase3ExecutionResult, fullRepor
 
 async function resolvePathsFromManifest(
   manifestPath: string,
-): Promise<{ marketMdPath: string; reportMdPath?: string; interimReportMdPath?: string; outputDir: string }> {
+): Promise<{
+  marketMdPath: string;
+  reportMdPath?: string;
+  interimReportMdPath?: string;
+  outputDir: string;
+  /** 供默认分区：`--code` 未传时回退到 manifest.outputLayout.code */
+  outputLayoutCode?: string;
+}> {
   const absManifest = resolveInputPath(manifestPath);
   const baseDir = path.dirname(absManifest);
   const raw = await readFile(absManifest, "utf-8");
   const manifest = JSON.parse(raw) as BusinessAnalysisManifest;
+
+  const outputLayoutCode = manifest.outputLayout?.code?.trim() || undefined;
 
   const rel = manifest.pipeline?.valuation?.relativePaths;
   if (rel?.marketMd) {
@@ -121,6 +134,7 @@ async function resolvePathsFromManifest(
       reportMdPath: rel.reportMd ? path.join(baseDir, rel.reportMd) : undefined,
       interimReportMdPath: rel.interimReportMd ? path.join(baseDir, rel.interimReportMd) : undefined,
       outputDir: baseDir,
+      outputLayoutCode,
     };
   }
 
@@ -139,6 +153,7 @@ async function resolvePathsFromManifest(
       : undefined,
     interimReportMdPath: undefined,
     outputDir: baseDir,
+    outputLayoutCode,
   };
 }
 
@@ -149,18 +164,25 @@ async function main(): Promise<void> {
   let marketMdPath = args.marketMdPath;
   let reportMdPath = args.reportMdPath;
   let interimReportMdPath = args.interimReportMdPath;
+
+  const resolvedFromManifest = args.fromManifest
+    ? await resolvePathsFromManifest(args.fromManifest)
+    : undefined;
+
+  const stockCodeForPartition =
+    args.code?.trim() || resolvedFromManifest?.outputLayoutCode?.trim() || undefined;
+
   let outDir = resolveValuationDefaultRunDirectory({
     outputDirArg: args.outputDir,
-    stockCode: args.code,
+    stockCode: stockCodeForPartition,
   }).outputDir;
 
-  if (args.fromManifest) {
-    const resolved = await resolvePathsFromManifest(args.fromManifest);
-    marketMdPath = marketMdPath ?? resolved.marketMdPath;
-    reportMdPath = reportMdPath ?? resolved.reportMdPath;
-    interimReportMdPath = interimReportMdPath ?? resolved.interimReportMdPath;
+  if (resolvedFromManifest) {
+    marketMdPath = marketMdPath ?? resolvedFromManifest.marketMdPath;
+    reportMdPath = reportMdPath ?? resolvedFromManifest.reportMdPath;
+    interimReportMdPath = interimReportMdPath ?? resolvedFromManifest.interimReportMdPath;
     if (args.outputDir === "output") {
-      outDir = resolved.outputDir;
+      outDir = resolvedFromManifest.outputDir;
     } else {
       outDir = resolveOutputPath(args.outputDir);
     }

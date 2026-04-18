@@ -52,6 +52,17 @@ async function main(): Promise<void> {
   assert.equal(valueV1.decision, turtle.decision);
   assert.equal(valueV1.confidence, turtle.confidence);
 
+  turtlePlugin.validateStageEPrerequisites?.({ workflowMode: "turtle-strict", reportMarkdown });
+  valueV1Plugin.validateStageEPrerequisites?.({ workflowMode: "turtle-strict", reportMarkdown });
+  assert.throws(
+    () =>
+      turtlePlugin.validateStageEPrerequisites?.({
+        workflowMode: "turtle-strict",
+        reportMarkdown: undefined,
+      }),
+    /\[strict:workflow:turtle-strict\]/,
+  );
+
   console.log("[quality] strategy plugin smoke passed (turtle + value_v1)");
 }
 

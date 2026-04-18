@@ -23,7 +23,7 @@
 - **workflow**：未传 `--output-dir` 时默认父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`<runId>` 为 UUID。显式 `--output-dir <父目录>` 时写入 `<父目录>/<runId>/`。
 - **business-analysis**：与 workflow 共用 LangGraph 管线；未传 `--output-dir` 时默认父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。
 - **续跑**：`--resume-from-stage` 时必须传入 `--output-dir`，且指向**已有 run 根目录**（该目录下含 `workflow_graph_checkpoint.json`）。
-- **`valuation:run`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/valuation/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。`--from-manifest` 且默认 `--output-dir` 时，仍写入 manifest 所在 run 目录。
+- **`valuation:run`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/valuation/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。**`--from-manifest` 且未传 `--code` 时**，分区代码回退到 **`manifest.outputLayout.code`**（避免 `_adhoc`）。`--from-manifest` 且默认 `--output-dir` 时，估值产物仍写入 manifest 所在 run 目录。
 - **`run:phase3`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/phase3/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。显式 `--output-dir` 为**写入根目录**，不再追加子 UUID。
 - **report-to-html**：未传 `--output-html` 时，写入 `output/report/<code>/<runId>/<stem>.html`；可用 `--code` 指定分区（缺省 `_adhoc`）。
 - **screener**：在 `--output-dir` 根下写入 `output/screener/<market>/<mode>/<runId>/`（若根为默认 `output`，则完整路径为 `output/screener/...`）。
@@ -150,10 +150,12 @@ Phase1A → Phase1B → Phase3
 
 ## `workflow:run` 与参数
 
-- **Stage A / Phase 0**：`workflow` 内仅 `--report-url` 触发下载；**仅 `--pdf` 不经过 Phase0**。独立 `phase0:download` 可无 `--url`，由 Feed `/stock/report/search` 自动发现 PDF（需 `FEED_BASE_URL`）。详见 [Phase 0 下载器](./phase0-download.md)。
+- **Stage A / Phase 0**：`workflow` 内 `--report-url` 触发下载；**`--mode turtle-strict` 且未传 `--pdf`/`--report-url` 时**在 initPrep 内按 Feed 自动发现 PDF 并下载（与 `ensureAnnualPdfOnDisk` 语义一致，失败 fail-fast）。**仅 `--pdf` 不经过 Phase0**。独立 `phase0:download` 可无 `--url`，由 Feed `/stock/report/search` 自动发现 PDF（需 `FEED_BASE_URL`）。详见 [Phase 0 下载器](./phase0-download.md)。
+- **`business-analysis`**：与 workflow 共用同一套 **PDF 解析/下载/缓存**（`packages/research-strategies/src/pipeline/ensure-annual-pdf.ts`）。无 `--pdf`/`--report-url` 时：**非 `--strict`** 为 **best-effort** 自动发现；**`--strict`** 为强制发现（失败即 `[strict:business-analysis]`）。
 - **依赖**：`FEED_BASE_URL`（Phase1A 固定 HTTP Provider）；编排内合成的 `data_pack_market.md` 与手写 golden 用途不同。
 - **Pre-flight**：`--mode turtle-strict` 时，Phase1A 后会校验行情/财报关键字段及市场包是否含 `## §13 Warnings`；亦可用 `--preflight strict` 在 `standard` 下强制开启。`business-analysis --strict` 会同时启用 Pre-flight（`strict`）。
 - **与独立 Phase3（`run:phase3`）差异**：编排不传 `--interim-report-md`。
+- **`--run-id`**：可选；指定本次 run 子目录名（与 `outputLayout.runId`、`thread_id` 一致）。与 **`--resume-from-stage`** 同用时以 checkpoint 为准，**不要指望 `--run-id` 覆盖续跑身份**。
 
 ## 独立商业分析流程
 
@@ -169,7 +171,7 @@ Phase1A → Phase1B → Phase3
 
 **回归对比（无 PDF vs 有 PDF）**：同一 `code`/`year` 跑两次——仅 Phase1B+market 的 run 与带 `--pdf` 或 `phase0:download` 后再跑 workflow 的 run——比较两目录下的 `phase1b_evidence_quality.json`、`phase1b_qualitative.json` 与 `phase3_preflight.md`，沉淀条目命中率与是否需 PDF 的结论。
 
-`business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths` 与建议的 `valuation:run --from-manifest ...`。
+`business_analysis_manifest.json` 内含 `pipeline.valuation.relativePaths`、`pipeline.pdfBranch`（是否具备年报 PDF / 报告包）与建议的 `valuation:run --from-manifest ...`；`input` 含 **`runId`、`outputDirParent`** 及有值才写入的复跑字段（如 `companyName`/`from`/`to`/`category`/`phase1bChannel`/`preflight*`/`interim*` 等）。`pipeline.valuation.suggestedTurtleWorkflowCommand` 为可复跑模板（含 `--year`/`--strategy`/`--pdf`/`--report-url`/`--output-dir`/`--run-id`，路径已解析）。
 
 ## 独立估值与 HTML 转换
 

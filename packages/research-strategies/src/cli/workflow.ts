@@ -27,6 +27,8 @@ type CliArgs = {
   preflightRemedyPass?: number;
   /** 从 checkpoint 续跑；必须与 `--output-dir` 指向 run 根目录同用 */
   resumeFromStage?: ResumeFromStage;
+  /** 显式 run 目录名（与 LangGraph `thread_id` 对齐）；续跑时以 checkpoint 为准，本参数会被忽略 */
+  runId?: string;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -85,6 +87,11 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error("[workflow] --resume-from-stage 必须同时提供 --output-dir，指向含 checkpoint 的 run 根目录");
   }
 
+  const runId = values["run-id"]?.trim();
+  if (runId !== undefined && runId.length === 0) {
+    throw new Error("[workflow] --run-id 不能为空");
+  }
+
   return {
     code: values.code,
     year: values.year,
@@ -104,6 +111,7 @@ function parseArgs(argv: string[]): CliArgs {
     refreshMarket: flags.has("refresh-market"),
     preflightRemedyPass,
     resumeFromStage,
+    runId: runId || undefined,
   };
 }
 
@@ -132,6 +140,7 @@ async function main(): Promise<void> {
     refreshMarket: args.refreshMarket,
     preflightRemedyPass: args.preflightRemedyPass,
     resumeFromStage: args.resumeFromStage,
+    runId: args.runId,
   });
 
   console.log(`[workflow] outputDir -> ${result.outputDir}`);

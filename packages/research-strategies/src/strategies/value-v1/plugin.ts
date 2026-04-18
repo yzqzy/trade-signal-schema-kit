@@ -1,5 +1,10 @@
 import { runPhase3Strict } from "../../stages/phase3/analyzer.js";
-import type { StrategyEvaluationContext, StrategyPlugin } from "../contracts.js";
+import { strictWorkflowTurtleMissingReportPack } from "../../pipeline/strict-messages.js";
+import type {
+  StrategyEvaluationContext,
+  StrategyPlugin,
+  StrategyStageEPrerequisitesContext,
+} from "../contracts.js";
 
 const VALUE_V1_STRATEGY_ID = "value_v1";
 const VALUE_V1_STRATEGY_VERSION = "0.1.0";
@@ -28,6 +33,11 @@ export function createValueV1StrategyPlugin(): StrategyPlugin {
           title: `${base.report.title}（${VALUE_V1_STRATEGY_ID}）`,
         },
       };
+    },
+    validateStageEPrerequisites(context: StrategyStageEPrerequisitesContext) {
+      if (context.workflowMode === "turtle-strict" && !context.reportMarkdown?.trim()) {
+        throw new Error(strictWorkflowTurtleMissingReportPack());
+      }
     },
   };
 }

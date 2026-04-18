@@ -8,7 +8,7 @@
 
 在仓库根打开 Claude Code，按需执行（规范见 `.claude/commands/*.md`、`.claude/skills/`）。
 
-1. **`/business-analysis`** — 市场包 + Phase1B 定性 + D1~D6 契约稿；默认不跑完整 Phase3。  
+1. **`/business-analysis`** — **PDF-first** 主编排：自动发现/下载年报（非 strict 为 best-effort）→ Phase1A →（有 PDF 时）2A/2B 报告包 → Phase1B → 定性稿与 D1~D6 契约；**不跑完整 Phase3**（估值/终稿见 `/turtle-analysis` 或 manifest 建议命令）。  
    重点看：`qualitative_report.md`、`qualitative_d1_d6.md`、`data_pack_market.md`、可选 `data_pack_report.md`、`business_analysis_manifest.json`。
 2. **`/turtle-analysis`** — 全流程到终稿（`workflow:run --mode turtle-strict` 语义）。  
    重点看：`analysis_report.md` / `analysis_report.html`、`valuation_computed.json`、`workflow_manifest.json`。
@@ -32,7 +32,7 @@
 | 你的目标 | Claude Code（推荐） | CLI |
 |----------|---------------------|-----|
 | 一次跑完采集 →（可选）年报 → 外部补充 → 策略/估值/报告 | `/turtle-analysis` | `pnpm run workflow:run -- ...` |
-| 先做市场 + Phase1B + 定性，Phase3 后接 | `/business-analysis` | `pnpm run business-analysis:run -- ...` |
+| PDF-first 商业定性（可接全链路 / 估值） | `/business-analysis` | `pnpm run business-analysis:run -- ...`（支持 `--strict`、`--mode`、`--strategy`） |
 | 只要估值 JSON（与摘要） | `/valuation` | `pnpm run valuation:run -- ...` |
 | universe 批量筛选 | — | `pnpm run screener:run -- ...`（路径见 [workflows](docs/guides/workflows.md)） |
 | 只下载/缓存年报 PDF | `/download-annual-report` | `pnpm run phase0:download -- ...` |
@@ -95,9 +95,10 @@ pnpm run business-analysis:run -- \
   --code 600887 \
   --year 2024 \
   --output-dir "./output/business-analysis/600887"
+  # 可加 --strict（强制 PDF+报告包）、--mode turtle-strict、--strategy turtle|value_v1
 ```
 
-产物在 `./output/business-analysis/600887/<runId>/`。
+产物在 `./output/business-analysis/600887/<runId>/`（无 `--pdf`/`--report-url` 时会 best-effort 自动发现年报，需 `FEED_BASE_URL`）。
 
 严格全流程：
 
@@ -108,6 +109,7 @@ pnpm run workflow:run -- \
   --mode turtle-strict \
   --pdf "./path/to/annual.pdf" \
   --output-dir "./output/workflow/600887"
+  # 可选：--run-id <固定子目录名>，与 manifest / business_analysis 建议命令对齐；续跑时勿依赖其覆盖 checkpoint
 ```
 
 从 manifest 跑估值：

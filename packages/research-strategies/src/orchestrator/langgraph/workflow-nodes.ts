@@ -5,8 +5,7 @@ import { randomUUID } from "node:crypto";
 
 import { createFeedHttpProviderFromEnv } from "@trade-signal/provider-http";
 
-import { runPhase0DownloadAndCache } from "../../stages/phase0/downloader.js";
-import { discoverPhase0ReportUrlFromFeed } from "../../stages/phase0/discover-report-url.js";
+import { ensureAnnualPdfOnDisk } from "../../pipeline/ensure-annual-pdf.js";
 import { collectPhase1ADataPack } from "../../stages/phase1a/collector.js";
 import { runStageCExternalEvidence } from "../../stages/phase1b/collector.js";
 import { computePhase1bEvidenceQualityMetrics } from "../../stages/phase1b/evidence-quality.js";
@@ -24,8 +23,6 @@ import { resolveOutputPath } from "../../pipeline/resolve-monorepo-path.js";
 import {
   strictPreflightPhase3Abort,
   strictPreflightPhase3SupplementNeeded,
-  strictWorkflowTurtleDiscoveryFailed,
-  strictWorkflowTurtleMissingReportPack,
 } from "../../pipeline/strict-messages.js";
 import { buildMarketPackMarkdown } from "../../app/workflow/build-market-pack.js";
 import { refreshMarketPackMarkdown } from "../../app/workflow/refresh-market-pack.js";
@@ -207,29 +204,21 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
     return merged;
   }
 
-  if (!pdfPath && !reportUrlResolved && input.mode === "turtle-strict") {
-    try {
-      reportUrlResolved = await discoverPhase0ReportUrlFromFeed({
-        stockCode: normalizedCode,
-        fiscalYear: asYear(input.year),
-        category: input.category ?? "年报",
-      });
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : "Feed discovery failed";
-      throw new Error(strictWorkflowTurtleDiscoveryFailed(detail));
-    }
-  }
-
-  if (!pdfPath && reportUrlResolved) {
-    const downloaded = await runPhase0DownloadAndCache({
-      code: normalizedCode,
-      reportUrl: reportUrlResolved,
-      fiscalYear: asYear(input.year),
-      category: input.category ?? "年报",
-      saveDir: path.join(outputDir, "reports", normalizedCode),
-    });
-    pdfPath = downloaded.filePath;
-  }
+  const ensuredPdf = await ensureAnnualPdfOnDisk({
+    normalizedCode,
+    fiscalYear: asYear(input.year),
+    category: input.category ?? "年报",
+    outputRunDir: outputDir,
+    pdfPath,
+    reportUrl: reportUrlResolved,
+    discoverPolicy:
+      !pdfPath?.trim() && !reportUrlResolved?.trim() && input.mode === "turtle-strict"
+        ? "strict"
+        : "never",
+    discoveryErrorStyle: "workflow-turtle",
+  });
+  pdfPath = ensuredPdf.pdfPath ?? pdfPath;
+  reportUrlResolved = ensuredPdf.reportUrlResolved ?? reportUrlResolved;
 
   const next: Partial<WorkflowGraphState> = {
     runId,
@@ -440,11 +429,11 @@ export async function nodeStageE(state: WorkflowGraphState): Promise<Partial<Wor
   const reportPackMarkdown = state.reportPackMarkdown;
   const interimReportMarkdown = state.interimReportMarkdown;
 
-  if (input.mode === "turtle-strict" && !reportPackMarkdown) {
-    throw new Error(strictWorkflowTurtleMissingReportPack());
-  }
-
   const strategyPlugin = resolveWorkflowStrategyPlugin(state.input.strategy);
+  strategyPlugin.validateStageEPrerequisites?.({
+    workflowMode: input.mode,
+    reportMarkdown: reportPackMarkdown,
+  });
   const phase3Execution = strategyPlugin.evaluate({
     marketMarkdown: marketPackMarkdown,
     reportMarkdown: reportPackMarkdown,

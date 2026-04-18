@@ -1,6 +1,6 @@
 ---
 description: 全流程研究编排（turtle-strict 严格前置校验 + Phase3 估值与报告）
-argument-hint: [--code] [--mode standard|turtle-strict] [--pdf|--report-url]
+argument-hint: [--code] [--mode standard|turtle-strict] [--pdf|--report-url] [--run-id]
 ---
 
 在 **monorepo 根目录**执行。
@@ -15,9 +15,13 @@ pnpm run workflow:run -- \
   [--pdf "./path/to/annual.pdf"] \
   [--report-url "https://..."] \
   [--output-dir "./output/workflow/<code>"] \
+  [--run-id "<与 manifest 对齐的 runId>"] \
   [--phase1b-channel http|mcp] \
+  [--strategy turtle|value_v1] \
   [--preflight strict|off]
 ```
+
+续跑（`--resume-from-stage`）时 **`--run-id` 无效**，以 checkpoint 的 `runId`/`threadId` 为准。
 
 ## 标准模式（兼容旧行为）
 
