@@ -6,7 +6,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.24.0",
   "scripts": {
-    "build": "pnpm -r --filter '!@trade-signal/screener-web' run build",
+    "build": "pnpm run build",
     "typecheck": "pnpm -r run typecheck",
     "phase0:download": "pnpm --filter @trade-signal/research-strategies run run:phase0-download",
     "workflow:run": "pnpm --filter @trade-signal/research-strategies run run:workflow",
@@ -20,8 +20,7 @@
     "quality:all": "pnpm --filter @trade-signal/research-strategies run quality:all",
     "test:linkage": "pnpm run build && pnpm --filter @trade-signal/research-strategies run test:linkage",
     "test:screener": "pnpm run build && pnpm --filter @trade-signal/research-strategies run test:screener",
-    "screener:run": "pnpm --filter @trade-signal/research-strategies run run:screener",
-    "web:dev": "pnpm --filter @trade-signal/screener-web run dev"
+    "screener:run": "pnpm --filter @trade-signal/research-strategies run run:screener"
   },
   "engines": {
     "node": ">=20"
