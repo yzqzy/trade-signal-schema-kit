@@ -7,12 +7,12 @@ import { initCliEnv } from "../lib/init-cli-env.js";
 import { shellQuoteArg } from "../lib/shell-quote-arg.js";
 import assert from "node:assert/strict";
 
-import { renderQualitativeD1D6Scaffold } from "../app/business-analysis/d1-d6-scaffold.js";
-import { evaluatePhase3Preflight } from "../pipeline/phase3-preflight.js";
-import { projectEvidenceToC2 } from "../stages/phase1b/collector.js";
-import { renderPhase2BDataPackReport } from "../stages/phase2b/renderer.js";
-import { buildMarketPackMarkdown } from "../app/workflow/build-market-pack.js";
-import { refreshMarketPackMarkdown } from "../app/workflow/refresh-market-pack.js";
+import { renderQualitativeD1D6Scaffold } from "../runtime/business-analysis/d1-d6-scaffold.js";
+import { evaluatePhase3Preflight } from "../crosscut/preflight/phase3-preflight.js";
+import { projectEvidenceToC2 } from "../steps/phase1b/collector.js";
+import { renderPhase2BDataPackReport } from "../steps/phase2b/renderer.js";
+import { buildMarketPackMarkdown } from "../runtime/workflow/build-market-pack.js";
+import { refreshMarketPackMarkdown } from "../runtime/workflow/refresh-market-pack.js";
 import { sampleCnADataPack, samplePdfSections } from "./fixtures/phase3-golden-sample.js";
 
 function main(): void {

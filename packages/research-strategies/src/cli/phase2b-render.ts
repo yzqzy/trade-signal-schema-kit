@@ -6,8 +6,8 @@ import path from "node:path";
 
 import type { PdfSections } from "@trade-signal/schema-core";
 
-import { runPhase2AExtractPdfSections } from "../stages/phase2a/extractor.js";
-import { renderPhase2BDataPackReport } from "../stages/phase2b/renderer.js";
+import { runPhase2AExtractPdfSections } from "../steps/phase2a/extractor.js";
+import { renderPhase2BDataPackReport } from "../steps/phase2b/renderer.js";
 
 type CliArgs = {
   pdfPath?: string;

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
-import { normalizeCodeForFeed } from "../pipeline/normalize-stock-code.js";
-import { resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
+import { normalizeCodeForFeed } from "../crosscut/normalization/normalize-stock-code.js";
+import { resolveOutputPath } from "../crosscut/normalization/resolve-monorepo-path.js";
 
 /** 产物目录布局版本（写入 workflow / business-analysis manifest） */
 export const OUTPUT_LAYOUT_VERSION = "2.0" as const;

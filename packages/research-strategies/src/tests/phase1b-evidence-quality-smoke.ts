@@ -6,8 +6,8 @@
 import { initCliEnv } from "../lib/init-cli-env.js";
 import assert from "node:assert/strict";
 
-import { computePhase1bEvidenceQualityMetrics } from "../stages/phase1b/evidence-quality.js";
-import type { Phase1BQualitativeSupplement } from "../stages/phase1b/types.js";
+import { computePhase1bEvidenceQualityMetrics } from "../steps/phase1b/evidence-quality.js";
+import type { Phase1BQualitativeSupplement } from "../steps/phase1b/types.js";
 
 function main(): void {
   initCliEnv();

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { runBusinessAnalysis } from "../app/business-analysis/orchestrator.js";
+import { runBusinessAnalysis } from "../runtime/business-analysis/orchestrator.js";
 import type { WorkflowMode, WorkflowStrategyId } from "../contracts/workflow-run-types.js";
 
 type CliArgs = {

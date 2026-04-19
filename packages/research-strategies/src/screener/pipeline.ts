@@ -1,4 +1,4 @@
-import { runPhase3Strict } from "../stages/phase3/analyzer.js";
+import { runPhase3Strict } from "../steps/phase3/analyzer.js";
 
 import { buildUniverseCapability } from "./capability.js";
 import { resolveScreenerConfig } from "./config.js";

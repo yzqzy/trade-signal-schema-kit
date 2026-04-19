@@ -5,10 +5,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { resolveReportHtmlDefaultPath } from "../contracts/output-layout-v2.js";
-import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
+import { resolveInputPath, resolveOutputPath } from "../crosscut/normalization/resolve-monorepo-path.js";
 import { qualitativeMarkdownToDashboardHtml } from "@trade-signal/reporting";
 
-import { renderPhase3Html } from "../stages/phase3/report-renderer.js";
+import { renderPhase3Html } from "../steps/phase3/report-renderer.js";
 
 type CliArgs = {
   inputMdPath?: string;

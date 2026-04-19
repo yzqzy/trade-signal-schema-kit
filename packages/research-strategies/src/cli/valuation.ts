@@ -5,12 +5,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { resolveValuationDefaultRunDirectory } from "../contracts/output-layout-v2.js";
-import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
-import { appendFeedGapSection, evaluateFeedDataGaps } from "../pipeline/feed-gap-contract.js";
-import { runPhase3Strict } from "../stages/phase3/analyzer.js";
-import { parseDataPackMarket } from "../stages/phase3/market-pack-parser.js";
-import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
-import type { Phase3ExecutionResult } from "../stages/phase3/types.js";
+import { resolveInputPath, resolveOutputPath } from "../crosscut/normalization/resolve-monorepo-path.js";
+import { appendFeedGapSection, evaluateFeedDataGaps } from "../crosscut/feed-gap/feed-gap-contract.js";
+import { runPhase3Strict } from "../steps/phase3/analyzer.js";
+import { parseDataPackMarket } from "../steps/phase3/market-pack-parser.js";
+import { renderPhase3Html, renderPhase3Markdown } from "../steps/phase3/report-renderer.js";
+import type { Phase3ExecutionResult } from "../steps/phase3/types.js";
 
 type CliArgs = {
   marketMdPath?: string;

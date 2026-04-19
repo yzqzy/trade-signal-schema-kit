@@ -10,7 +10,7 @@ import { strict as assert } from "node:assert";
 
 import type { ValuationComputed } from "@trade-signal/schema-core";
 
-import { resolveWorkflowStrategyPlugin } from "../strategies/registry.js";
+import { resolveWorkflowStrategyPlugin } from "../strategy/registry.js";
 
 function valuationWithoutTimestamp(v: ValuationComputed): Omit<ValuationComputed, "generatedAt"> {
   const { generatedAt: _g, ...rest } = v;

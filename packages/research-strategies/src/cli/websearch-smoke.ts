@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { requireWebSearchConfigForSmoke } from "../integrations/websearch/config.js";
-import { VolcWebSearchProvider } from "../integrations/websearch/volc-client.js";
-import { applyBasicWebSearchGates } from "../integrations/websearch/result-gates.js";
+import { requireWebSearchConfigForSmoke } from "../adapters/websearch/config.js";
+import { VolcWebSearchProvider } from "../adapters/websearch/volc-client.js";
+import { applyBasicWebSearchGates } from "../adapters/websearch/result-gates.js";
 
 function printUsage(): void {
   console.error(`Usage: websearch-smoke --query "<text>" [--limit N] [--time-range OneYear|1y|...]

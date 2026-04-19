@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
-import { runPhase0DownloadAndCache } from "../stages/phase0/downloader.js";
+import { runPhase0DownloadAndCache } from "../steps/phase0/downloader.js";
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { type CliArgs, parsePhase0CliArgs, resolvePhase0CliInput } from "../stages/phase0/cli-args.js";
+import { type CliArgs, parsePhase0CliArgs, resolvePhase0CliInput } from "../steps/phase0/cli-args.js";
 import {
   EXIT_BAD_ARGUMENTS,
   EXIT_SUCCESS,
   mapPhase0ErrorToExitCodeFromError,
   printPhase0CliResult,
-} from "../stages/phase0/cli-output.js";
-import { isPhase0NoDataError } from "../stages/phase0/phase0-errors.js";
+} from "../steps/phase0/cli-output.js";
+import { isPhase0NoDataError } from "../steps/phase0/phase0-errors.js";
 
 async function main(): Promise<void> {
   initCliEnv();
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   let reportUrl = resolved.url?.trim();
   if (!reportUrl) {
     try {
-      const { discoverPhase0ReportUrlFromFeed } = await import("../stages/phase0/discover-report-url.js");
+      const { discoverPhase0ReportUrlFromFeed } = await import("../steps/phase0/discover-report-url.js");
       reportUrl = await discoverPhase0ReportUrlFromFeed({
         stockCode: resolved.stockCode as string,
         fiscalYear: resolved.year as string,

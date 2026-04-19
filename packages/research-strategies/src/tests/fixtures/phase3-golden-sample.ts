@@ -1,6 +1,6 @@
 import type { DataPackMarket, PdfSections } from "@trade-signal/schema-core";
 
-import { computePdfExtractQuality } from "../../stages/phase2a/extract-quality.js";
+import { computePdfExtractQuality } from "../../steps/phase2a/extract-quality.js";
 
 /** A 股黄金样例（与 linkage-smoke 一致，供契约/回归/插件烟测复用） */
 export function sampleCnADataPack(): DataPackMarket {

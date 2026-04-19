@@ -3,8 +3,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
-import { normalizeEvidenceIndexTable } from "../pipeline/evidence-index-normalizer.js";
+import { resolveInputPath, resolveOutputPath } from "../crosscut/normalization/resolve-monorepo-path.js";
+import { normalizeEvidenceIndexTable } from "../crosscut/normalization/evidence-index-table-normalizer.js";
 
 type CliArgs = {
   inputMdPath?: string;

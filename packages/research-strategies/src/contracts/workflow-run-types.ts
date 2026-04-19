@@ -1,4 +1,4 @@
-import type { Phase1BQualitativeSupplement } from "../stages/phase1b/types.js";
+import type { Phase1BQualitativeSupplement } from "../steps/phase1b/types.js";
 
 export type WorkflowMode = "standard" | "turtle-strict";
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { runPhase2AExtractPdfSections } from "../stages/phase2a/extractor.js";
+import { runPhase2AExtractPdfSections } from "../steps/phase2a/extractor.js";
 
 type CliArgs = {
   pdfPath?: string;

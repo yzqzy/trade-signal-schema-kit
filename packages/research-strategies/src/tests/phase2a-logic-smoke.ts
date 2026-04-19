@@ -6,14 +6,14 @@
 import { initCliEnv } from "../lib/init-cli-env.js";
 import assert from "node:assert/strict";
 
-import { PHASE2A_SECTION_ORDER } from "../stages/phase2a/keywords.js";
+import { PHASE2A_SECTION_ORDER } from "../steps/phase2a/keywords.js";
 import {
   detectPageZones,
   PHASE2A_SECTION_ZONE_PREFERENCES,
   PHASE2A_ZONE_MARKERS,
-} from "../stages/phase2a/zones.js";
-import { sanitizePhase2ExtractedText } from "../stages/phase2b/renderer.js";
-import { computePdfExtractQuality } from "../stages/phase2a/extract-quality.js";
+} from "../steps/phase2a/zones.js";
+import { sanitizePhase2ExtractedText } from "../steps/phase2b/renderer.js";
+import { computePdfExtractQuality } from "../steps/phase2a/extract-quality.js";
 import type { PdfSections } from "@trade-signal/schema-core";
 
 function main(): void {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { createDefaultWorkflowOrchestratorAdapter } from "../orchestrator/workflow-orchestrator-adapter.js";
+import { createDefaultWorkflowOrchestratorAdapter } from "../runtime/graph/workflow-orchestrator-adapter.js";
 import type { WorkflowMode } from "../contracts/workflow-run-types.js";
 
 type ResumeFromStage = "B" | "D";

@@ -9,10 +9,10 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { buildMarketPackMarkdown } from "../app/workflow/build-market-pack.js";
-import { renderPhase2BDataPackReport } from "../stages/phase2b/renderer.js";
-import { runPhase3Strict } from "../stages/phase3/analyzer.js";
-import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
+import { buildMarketPackMarkdown } from "../runtime/workflow/build-market-pack.js";
+import { renderPhase2BDataPackReport } from "../steps/phase2b/renderer.js";
+import { runPhase3Strict } from "../steps/phase3/analyzer.js";
+import { renderPhase3Html, renderPhase3Markdown } from "../steps/phase3/report-renderer.js";
 import {
   sampleCnADataPack,
   sampleHkDataPack,

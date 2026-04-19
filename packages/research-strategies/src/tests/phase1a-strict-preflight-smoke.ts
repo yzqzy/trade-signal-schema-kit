@@ -6,8 +6,8 @@
 import assert from "node:assert/strict";
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { runPreflightAfterPhase1A } from "../pipeline/preflight.js";
-import { resolveFinancialSnapshotPeriod } from "../stages/phase1a/collector.js";
+import { runPreflightAfterPhase1A } from "../crosscut/preflight/preflight.js";
+import { resolveFinancialSnapshotPeriod } from "../steps/phase1a/collector.js";
 import type { DataPackMarket } from "@trade-signal/schema-core";
 
 function main(): void {
