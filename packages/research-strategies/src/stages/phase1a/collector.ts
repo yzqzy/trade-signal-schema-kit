@@ -98,6 +98,23 @@ export async function collectPhase1ADataPack(
       provider.getTradingCalendar(input.calendarMarket ?? instrument.market, from, to),
     ),
   ]);
+  const [industryCycleSnapshot, peerComparablePool, governanceEventCollection] = await Promise.all([
+    loadOptional(
+      typeof provider.getIndustryCycleSnapshot === "function",
+      optionalFailure,
+      () => provider.getIndustryCycleSnapshot!(input.code, input.year),
+    ),
+    loadOptional(
+      typeof provider.getPeerComparablePool === "function",
+      optionalFailure,
+      () => provider.getPeerComparablePool!(input.code, { year: input.year, topN: 5 }),
+    ),
+    loadOptional(
+      typeof provider.getGovernanceEvents === "function",
+      optionalFailure,
+      () => provider.getGovernanceEvents!(input.code, { year: input.year, limit: 10, timeRange: "3y" }),
+    ),
+  ]);
 
   let financialHistory: DataPackMarket["financialHistory"];
   if (includeFinancialSnapshot && includeFinancialHistory && financialSnapshot) {
@@ -128,5 +145,8 @@ export async function collectPhase1ADataPack(
     financialHistory,
     corporateActions,
     tradingCalendar,
+    industryCycleSnapshot,
+    peerComparablePool,
+    governanceEventCollection,
   };
 }

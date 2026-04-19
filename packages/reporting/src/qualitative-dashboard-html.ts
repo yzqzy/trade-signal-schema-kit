@@ -11,6 +11,11 @@ export interface QualitativeDashboardModel {
   kpiRows: Array<{ label: string; value: string }>;
   dimensionCards: Array<{ id: string; title: string; excerpt: string }>;
   paramRows: Array<{ key: string; value: string; notes?: string }>;
+  contractRows: {
+    cycle: Array<{ key: string; value: string }>;
+    peers: Array<{ key: string; value: string }>;
+    governance: Array<{ key: string; value: string }>;
+  };
 }
 
 function escapeHtml(text: string): string {
@@ -24,8 +29,17 @@ function escapeHtml(text: string): string {
 
 function firstLine(text: string): string {
   const t = text.trim();
-  const line = t.split(/\r?\n/).find((l) => l.trim().length > 0) ?? "";
-  return line.replace(/^>\s*/, "").replace(/\*\*/g, "").trim().slice(0, 280);
+  const line =
+    t
+      .split(/\r?\n/)
+      .find((l) => {
+        const trimmed = l.trim();
+        if (!trimmed) return false;
+        if (/^#{1,6}\s/.test(trimmed)) return false;
+        if (/^\|/.test(trimmed)) return false;
+        return true;
+      }) ?? "";
+  return line.replace(/^>\s*/, "").replace(/^\-\s*/, "").replace(/\*\*/g, "").trim().slice(0, 280);
 }
 
 /** 拆分为二级标题区块（保留 heading 原文） */
@@ -49,10 +63,13 @@ function parseMarkdownTable(sectionBody: string): Array<Record<string, string>> 
   const rows: Array<Record<string, string>> = [];
   const tableLines = sectionBody.split(/\r?\n/).filter((l) => l.includes("|"));
   if (tableLines.length < 2) return rows;
-  const headerCells = tableLines[0]!
-    .split("|")
-    .map((c) => c.trim())
-    .filter(Boolean);
+  const parseCells = (line: string): string[] =>
+    line
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((c) => c.trim());
+  const headerCells = parseCells(tableLines[0]!).filter(Boolean);
   if (headerCells.length === 0) return rows;
   const sep = tableLines[1] ?? "";
   if (!/^\|?[\s:-|]+\|?$/.test(sep)) {
@@ -60,10 +77,8 @@ function parseMarkdownTable(sectionBody: string): Array<Record<string, string>> 
   }
   const dataStart = /^\|?[\s:-|]+\|?$/.test(sep) ? 2 : 1;
   for (let i = dataStart; i < tableLines.length; i += 1) {
-    const cells = tableLines[i]!
-      .split("|")
-      .map((c) => c.trim())
-      .filter((c) => c.length > 0);
+    const cells = parseCells(tableLines[i]!);
+    if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;
     if (cells.length === 0) continue;
     const row: Record<string, string> = {};
     for (let j = 0; j < headerCells.length; j += 1) {
@@ -72,6 +87,31 @@ function parseMarkdownTable(sectionBody: string): Array<Record<string, string>> 
     rows.push(row);
   }
   return rows;
+}
+
+const KPI_LABELS: Record<string, string> = {
+  moat_rating: "护城河评分",
+  industry_cyclicality: "行业周期属性",
+  industry_cycle_position: "周期位置",
+  peer_pool_size: "同业池样本",
+  governance_event_count: "治理事件数",
+  governance_high_severity_count: "高严重事件",
+};
+
+const PREFERRED_KPI_KEYS = [
+  "moat_rating",
+  "industry_cyclicality",
+  "industry_cycle_position",
+  "peer_pool_size",
+  "governance_event_count",
+  "governance_high_severity_count",
+] as const;
+
+function pickContractRows(
+  rows: Array<{ key: string; value: string }>,
+  prefixes: string[],
+): Array<{ key: string; value: string }> {
+  return rows.filter((r) => prefixes.some((p) => r.key.startsWith(p)));
 }
 
 /**
@@ -102,10 +142,20 @@ export function parseQualitativeMarkdownForDashboard(markdown: string): Qualitat
   }));
 
   const kpiRows: Array<{ label: string; value: string }> = [];
-  for (const r of paramRows) {
+  const paramMap = new Map(paramRows.map((r) => [r.key, r.value || "—"]));
+  for (const key of PREFERRED_KPI_KEYS) {
+    const value = paramMap.get(key);
+    if (!value || value === "—") continue;
+    kpiRows.push({ label: KPI_LABELS[key] ?? key, value });
     if (kpiRows.length >= 6) break;
-    if (!r.key || r.key === "schema_key") continue;
-    kpiRows.push({ label: r.key, value: r.value || "—" });
+  }
+  if (kpiRows.length < 6) {
+    for (const r of paramRows) {
+      if (kpiRows.length >= 6) break;
+      if (!r.key || r.key === "schema_key") continue;
+      if (PREFERRED_KPI_KEYS.includes(r.key as (typeof PREFERRED_KPI_KEYS)[number])) continue;
+      kpiRows.push({ label: KPI_LABELS[r.key] ?? r.key, value: r.value || "—" });
+    }
   }
   if (kpiRows.length === 0) {
     kpiRows.push(
@@ -119,6 +169,7 @@ export function parseQualitativeMarkdownForDashboard(markdown: string): Qualitat
     markdown.match(/\*\*一句话结论\*\*[：:]\s*(.+)/)?.[1]?.trim() ??
     "定性终稿请在 Claude Code 会话中定稿；本页为工程预览。";
 
+  const simpleParamRows = paramRows.map((r) => ({ key: r.key, value: r.value || "—" }));
   return {
     title,
     code,
@@ -127,6 +178,11 @@ export function parseQualitativeMarkdownForDashboard(markdown: string): Qualitat
     kpiRows,
     dimensionCards,
     paramRows,
+    contractRows: {
+      cycle: pickContractRows(simpleParamRows, ["industry_"]),
+      peers: pickContractRows(simpleParamRows, ["peer_"]),
+      governance: pickContractRows(simpleParamRows, ["governance_"]),
+    },
   };
 }
 
@@ -149,6 +205,11 @@ h1 { font-size: 1.55rem; margin: 0 0 8px; letter-spacing: 0.02em; }
 .dim p { margin: 8px 0 0; font-size: 0.85rem; opacity: 0.85; line-height: 1.45; }
 details.panel { margin-top: 12px; background: #121922; border: 1px solid #1f2a3a; border-radius: 10px; padding: 4px 12px 12px; }
 details.panel summary { cursor: pointer; font-weight: 600; padding: 10px 0; }
+.contract-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 10px; }
+.contract-card { background: #111a24; border: 1px solid #223244; border-radius: 10px; padding: 10px 12px; }
+.contract-card h4 { margin: 0 0 8px; font-size: 0.9rem; }
+.contract-card ul { margin: 0; padding-left: 18px; }
+.contract-card li { margin: 4px 0; font-size: 0.82rem; }
 table.params { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 table.params th, table.params td { border-bottom: 1px solid #243041; padding: 8px 6px; text-align: left; }
 table.params th { color: #9db2ce; font-weight: 500; }
@@ -178,6 +239,12 @@ export function renderQualitativeDashboardHtml(
         `<tr><td><code>${escapeHtml(r.key)}</code></td><td>${escapeHtml(r.value)}</td><td>${escapeHtml(r.notes ?? "")}</td></tr>`,
     )
     .join("");
+  const renderContractItems = (rows: Array<{ key: string; value: string }>, emptyText: string): string => {
+    if (rows.length === 0) return `<li>${escapeHtml(emptyText)}</li>`;
+    return rows
+      .map((r) => `<li><code>${escapeHtml(r.key)}</code>: ${escapeHtml(r.value)}</li>`)
+      .join("");
+  };
 
   return [
     "<!doctype html>",
@@ -201,6 +268,14 @@ export function renderQualitativeDashboardHtml(
     '<section aria-label="dimensions"><div class="dim-grid">',
     dimHtml,
     "</div></section>",
+    '<details class="panel" open>',
+    "<summary>P2/P3/P4 结构化契约快照</summary>",
+    '<div class="contract-grid">',
+    `<div class="contract-card"><h4>P2 行业周期</h4><ul>${renderContractItems(model.contractRows.cycle, "未解析到行业周期键")}</ul></div>`,
+    `<div class="contract-card"><h4>P3 同业可比池</h4><ul>${renderContractItems(model.contractRows.peers, "未解析到同业池键")}</ul></div>`,
+    `<div class="contract-card"><h4>P4 治理负面事件</h4><ul>${renderContractItems(model.contractRows.governance, "未解析到治理事件键")}</ul></div>`,
+    "</div>",
+    "</details>",
     '<details class="panel" open>',
     "<summary>结构化参数（output_schema 兼容）</summary>",
     "<table class=\"params\"><thead><tr><th>schema_key</th><th>value</th><th>notes</th></tr></thead><tbody>",

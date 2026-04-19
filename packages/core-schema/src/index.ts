@@ -117,6 +117,18 @@ export interface MarketDataProvider {
   getFinancialHistory?(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]>;
   getCorporateActions(code: string, from?: string, to?: string): Promise<CorporateAction[]>;
   getTradingCalendar(market: Market, from: string, to: string): Promise<TradingCalendar[]>;
+  /** P2：行业周期快照（feed 优先，可选能力） */
+  getIndustryCycleSnapshot?(code: string, year?: string): Promise<IndustryCycleSnapshot>;
+  /** P3：同业可比池（feed 优先，可选能力） */
+  getPeerComparablePool?(
+    code: string,
+    input?: { year?: string; topN?: number; sortColumn?: string },
+  ): Promise<PeerComparableCollection>;
+  /** P4：治理负面事件（feed 优先，可选能力） */
+  getGovernanceEvents?(
+    code: string,
+    input?: { year?: string; limit?: number; timeRange?: "3m" | "6m" | "1y" | "3y" | "5y" },
+  ): Promise<GovernanceEventCollection>;
 }
 
 export type CapabilityStatus = "supported" | "partial" | "unsupported";
@@ -152,6 +164,12 @@ export interface DataPackMarket {
   tradingCalendar?: TradingCalendar[];
   corporateActions?: CorporateAction[];
   news?: NewsItem[];
+  /** P2：行业周期快照（若 provider 支持） */
+  industryCycleSnapshot?: IndustryCycleSnapshot;
+  /** P3：同业可比池（若 provider 支持） */
+  peerComparablePool?: PeerComparableCollection;
+  /** P4：治理负面事件（若 provider 支持） */
+  governanceEventCollection?: GovernanceEventCollection;
 }
 
 export type Phase2SectionConfidence = "high" | "medium" | "low";
@@ -306,4 +324,48 @@ export interface FeedDataGap {
   remediation: string;
   /** 可选：建议的 pnpm 命令模板 */
   suggestedCommand?: string;
+}
+
+export type IndustryCyclicality = "strong" | "weak" | "non_cyclical" | "unknown";
+export type IndustryCyclePosition = "bottom" | "middle" | "top" | "unknown";
+export type SnapshotConfidence = "high" | "medium" | "low";
+
+export interface IndustryCycleSignal {
+  indicator: string;
+  summary: string;
+  publishedAt?: string;
+  evidenceUrl?: string;
+}
+
+export interface IndustryCycleSnapshot {
+  industryName: string;
+  classification: string;
+  cyclicality: IndustryCyclicality;
+  position: IndustryCyclePosition;
+  confidence: SnapshotConfidence;
+  signals: IndustryCycleSignal[];
+}
+
+export interface PeerComparableCollection {
+  source: string;
+  industryName: string;
+  peerCodes: string[];
+  note?: string;
+}
+
+export type GovernanceEventSeverity = "high" | "medium" | "low";
+
+export interface GovernanceNegativeEvent {
+  category: "governance_negative" | "regulatory" | "audit" | "ownership" | "other";
+  summary: string;
+  severity: GovernanceEventSeverity;
+  happenedAt?: string;
+  evidenceUrl?: string;
+  sourceLabel?: string;
+}
+
+export interface GovernanceEventCollection {
+  source: string;
+  events: GovernanceNegativeEvent[];
+  highSeverityCount: number;
 }

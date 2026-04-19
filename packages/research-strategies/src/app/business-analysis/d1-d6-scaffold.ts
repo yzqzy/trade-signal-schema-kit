@@ -1,4 +1,6 @@
+import type { DataPackMarket } from "@trade-signal/schema-core";
 import type { Phase1BQualitativeSupplement } from "../../stages/phase1b/types.js";
+import { buildP2P4StructuredSnapshot } from "../../pipeline/p2p4-structured-contract.js";
 
 function flattenPhase1BEvidenceLines(p: Phase1BQualitativeSupplement): string[] {
   const out: string[] = [];
@@ -30,6 +32,8 @@ function phase1bRoughSummary(p: Phase1BQualitativeSupplement): string {
  */
 export function renderQualitativeD1D6Scaffold(input: {
   phase1b: Phase1BQualitativeSupplement;
+  marketMarkdown?: string;
+  phase1aDataPack?: DataPackMarket;
   pdfPath?: string;
   reportUrl?: string;
   /** 已生成 `data_pack_report.md`（Phase2B）时为 true */
@@ -37,7 +41,15 @@ export function renderQualitativeD1D6Scaffold(input: {
   /** 已生成报告包时，可嵌入摘录供 D4/D5 交叉引用（过长由调用方截断） */
   dataPackReportExcerpt?: string;
 }): string {
-  const { phase1b, pdfPath, reportUrl, hasDataPackReport, dataPackReportExcerpt } = input;
+  const {
+    phase1b,
+    marketMarkdown,
+    phase1aDataPack,
+    pdfPath,
+    reportUrl,
+    hasDataPackReport,
+    dataPackReportExcerpt,
+  } = input;
   const reportPackReady = Boolean(hasDataPackReport);
   const evidenceLines = flattenPhase1BEvidenceLines(phase1b);
   const evidenceCount = evidenceLines.length;
@@ -46,6 +58,23 @@ export function renderQualitativeD1D6Scaffold(input: {
     pdfPath || reportUrl
       ? `- 原始披露：${pdfPath ? `PDF \`${pdfPath}\`` : ""}${pdfPath && reportUrl ? "；" : ""}${reportUrl ? `URL \`${reportUrl}\`` : ""}`
       : "- 原始披露：未提供 PDF/URL（严格模式应补齐）";
+  const p2p4 = marketMarkdown
+    ? buildP2P4StructuredSnapshot({ phase1b, marketMarkdown, phase1aDataPack })
+    : undefined;
+  const structuredDefaults: Record<string, string> = {};
+  if (p2p4) {
+    structuredDefaults.industry_name = p2p4.cycle.industryName;
+    structuredDefaults.industry_cyclicality = p2p4.cycle.cyclicality;
+    structuredDefaults.industry_cycle_position = p2p4.cycle.position;
+    structuredDefaults.industry_cycle_confidence = p2p4.cycle.confidence;
+    structuredDefaults.peer_pool_source = p2p4.peers.source;
+    structuredDefaults.peer_core_codes = p2p4.peers.peerCodes.join(", ") || "—";
+    structuredDefaults.peer_pool_size = String(p2p4.peers.peerCodes.length);
+    structuredDefaults.governance_event_count = String(p2p4.governance.events.length);
+    structuredDefaults.governance_high_severity_count = String(
+      p2p4.governance.highSeverityCount,
+    );
+  }
 
   return [
     "# 商业分析六维（D1~D6）契约稿",
@@ -71,6 +100,50 @@ export function renderQualitativeD1D6Scaffold(input: {
     "",
     "---",
     "",
+    "## P2/P3/P4 数据契约快照（Feed-first）",
+    "",
+    ...(p2p4
+      ? [
+          `- 数据来源模式：${p2p4.provenance}（feed/hybrid/fallback_text）`,
+          "",
+          "### P2 行业周期序列（最小契约）",
+          "",
+          `- 行业：${p2p4.cycle.industryName}`,
+          `- 周期属性：${p2p4.cycle.cyclicality}`,
+          `- 周期位置：${p2p4.cycle.position}`,
+          `- 置信度：${p2p4.cycle.confidence}`,
+          "",
+          "| 指标 | 摘要 | 发布时间 | 证据 |",
+          "|:---|:---|:---|:---|",
+          ...(p2p4.cycle.signals.length > 0
+            ? p2p4.cycle.signals.map(
+                (s) =>
+                  `| ${s.indicator} | ${s.summary.replaceAll("|", "\\|")} | ${s.publishedAt ?? "—"} | ${s.evidenceUrl ?? "—"} |`,
+              )
+            : ["| （缺口） | 未解析到行业周期信号 | — | — |"]),
+          "",
+          "### P3 同业可比池（自动 TopN）",
+          "",
+          `- 来源：${p2p4.peers.source}`,
+          `- 同业池：${p2p4.peers.peerCodes.length > 0 ? p2p4.peers.peerCodes.join("、") : "（缺口）未解析到同业代码"}`,
+          `- 备注：${p2p4.peers.note ?? "—"}`,
+          "",
+          "### P4 治理负面事件归一",
+          "",
+          `- 事件总数：${p2p4.governance.events.length}`,
+          `- 高严重级：${p2p4.governance.highSeverityCount}`,
+          "",
+          "| 严重级 | 摘要 | 时间 | 证据 |",
+          "|:---|:---|:---|:---|",
+          ...(p2p4.governance.events.length > 0
+            ? p2p4.governance.events.map(
+                (e) =>
+                  `| ${e.severity} | ${e.summary.replaceAll("|", "\\|")} | ${e.happenedAt ?? "—"} | ${e.evidenceUrl ?? "—"} |`,
+              )
+            : ["| （缺口） | 未命中治理负面事件 | — | — |"]),
+          "",
+        ]
+      : ["- （未提供 market markdown，跳过结构化快照）", ""]),
     "## D1 商业模式（价值创造逻辑）",
     "",
     "### 证据约束",
@@ -151,7 +224,7 @@ export function renderQualitativeD1D6Scaffold(input: {
       ? "> ⚠️ **提示**：Phase1B 证据 < 2 条，严格 PDF-first 下应在运行前补充检索或放宽为非 strict。"
       : "> ✅ Phase1B 证据条数达到最低参考阈值（仍以人工/LLM 复核为准）。",
     "",
-    ...renderPublishLevelStructuredParamsSkeleton(),
+    ...renderPublishLevelStructuredParamsSkeleton(structuredDefaults),
   ].join("\n");
 }
 
@@ -159,13 +232,22 @@ export function renderQualitativeD1D6Scaffold(input: {
  * 与参考工程 `output_schema` **键名**对齐的发布级骨架表（值须由会话/证据填充，禁止空造数）。
  * 若参考 schema 增删字段，请同步本列表与 `docs/guides/turtle-framework-alignment-gap-matrix.md`。
  */
-function renderPublishLevelStructuredParamsSkeleton(): string[] {
+function renderPublishLevelStructuredParamsSkeleton(defaultValues?: Record<string, string>): string[] {
   const keys: Array<{ key: string; hint: string }> = [
     { key: "moat_rating", hint: "1~5 或 qualitative" },
+    { key: "industry_name", hint: "P2 行业名称（统一口径）" },
+    { key: "industry_cyclicality", hint: "strong / weak / non_cyclical / unknown" },
+    { key: "industry_cycle_position", hint: "bottom / middle / top / unknown" },
+    { key: "industry_cycle_confidence", hint: "high / medium / low" },
+    { key: "peer_pool_source", hint: "feed_auto_industry / manual / hybrid" },
+    { key: "peer_core_codes", hint: "3~5 家核心竞品代码" },
+    { key: "peer_pool_size", hint: "可比池样本数" },
+    { key: "governance_event_count", hint: "治理负面事件总数" },
+    { key: "governance_high_severity_count", hint: "高严重级事件数" },
     { key: "management_rating", hint: "治理与资本配置" },
     { key: "roe_5y_avg", hint: "%；须与 §17/年报一致" },
     { key: "revenue_cagr_5y", hint: "%；多年表须非单期复制" },
-    { key: "gross_margin_trend", hint: "stable|up|down + 证据" },
+    { key: "gross_margin_trend", hint: "stable / up / down + 证据" },
     { key: "net_margin_level", hint: "与 §3 同源" },
     { key: "debt_to_equity", hint: "与 §4 同源" },
     { key: "interest_coverage", hint: "若缺有息负债则标缺口" },
@@ -189,7 +271,7 @@ function renderPublishLevelStructuredParamsSkeleton(): string[] {
     "",
     "| schema_key | value | notes |",
     "|:---|:---|:---|",
-    ...keys.map((r) => `| ${r.key} | — | ${r.hint} |`),
+    ...keys.map((r) => `| ${r.key} | ${defaultValues?.[r.key] ?? "—"} | ${r.hint} |`),
     "",
   ];
 }

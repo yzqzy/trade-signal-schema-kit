@@ -25,6 +25,7 @@
     "run:phase3": "node dist/packages/research-strategies/src/cli/phase3-run.js",
     "run:valuation": "node dist/packages/research-strategies/src/cli/valuation.js",
     "run:report-to-html": "node dist/packages/research-strategies/src/cli/report-to-html.js",
+    "run:evidence-index-normalize": "node dist/packages/research-strategies/src/cli/evidence-index-normalize.js",
     "run:workflow": "node dist/packages/research-strategies/src/cli/workflow.js",
     "run:business-analysis": "node dist/packages/research-strategies/src/cli/business-analysis.js",
     "run:websearch-smoke": "node dist/packages/research-strategies/src/cli/websearch-smoke.js",

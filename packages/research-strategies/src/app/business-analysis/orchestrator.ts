@@ -20,6 +20,7 @@ import {
 import { shellQuoteArg } from '../../lib/shell-quote-arg.js';
 import { renderQualitativeD1D6Scaffold } from './d1-d6-scaffold.js';
 import { appendFeedGapSection, evaluateFeedDataGaps } from '../../pipeline/feed-gap-contract.js';
+import type { DataPackMarket } from '@trade-signal/schema-core';
 
 export type RunBusinessAnalysisInput = RunWorkflowInput & {
   /** 与 workflow turtle-strict 一致：要求可解析的年报 PDF（可经自动发现 + Phase0 下载） */
@@ -51,6 +52,15 @@ function excerptDataPackReport(md: string, maxChars: number): string {
   if (!t) return '';
   if (t.length <= maxChars) return t;
   return `${t.slice(0, maxChars)}\n\n…（截断，全文见 data_pack_report.md）`;
+}
+
+async function readPhase1ADataPack(pathLike: string): Promise<DataPackMarket | undefined> {
+  try {
+    const text = await readFile(pathLike, 'utf-8');
+    return JSON.parse(text) as DataPackMarket;
+  } catch {
+    return undefined;
+  }
 }
 
 function buildSuggestedWorkflowFullCommand(input: {
@@ -163,15 +173,17 @@ export async function runBusinessAnalysis(
     ? excerptDataPackReport(pipeline.reportPackMarkdown, 14_000)
     : undefined;
 
+  const marketMarkdown = await readFile(pipeline.marketPackPath, 'utf-8');
+  const phase1aDataPack = await readPhase1ADataPack(pipeline.phase1aJsonPath);
   const d1d6Body = renderQualitativeD1D6Scaffold({
     phase1b: pipeline.phase1b,
+    marketMarkdown,
+    phase1aDataPack,
     pdfPath: pipeline.pdfPath ?? ensuredPdf.pdfPath,
     reportUrl: reportUrlForOutputs,
     hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
     dataPackReportExcerpt: dataPackExcerpt,
   });
-
-  const marketMarkdown = await readFile(pipeline.marketPackPath, 'utf-8');
   const feedGaps = evaluateFeedDataGaps({
     marketMarkdown,
     hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),

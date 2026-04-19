@@ -23,7 +23,7 @@
 | 文档 | 说明 |
 |------|------|
 | [workflows.md](./guides/workflows.md) | **流程真源（Stage 主叙事）**、Slash 与 CLI 参数、产物、PDF 分支与实现顺序 |
-| [entrypoint-narrative-contract.md](./guides/entrypoint-narrative-contract.md) | **证据包 vs 终稿叙事**、入口矩阵、CLI/Claude 失败语义、000021 验收示例 |
+| [entrypoint-narrative-contract.md](./guides/entrypoint-narrative-contract.md) | **证据包 vs 终稿叙事**、入口矩阵、CLI/Claude 失败语义、000021 验收示例（终稿证据索引：本地路径优先） |
 | [research-strategies-src-layout.md](./guides/research-strategies-src-layout.md) | `research-strategies` 源码顶层目录职责（主干 vs 支撑） |
 | [strategy-registration.md](./guides/strategy-registration.md) | 新增 Stage E 策略插件：注册步骤与回归命令 |
 | [phase0-download.md](./guides/phase0-download.md) | Phase 0 年报下载、校验、CLI 与退出码 |

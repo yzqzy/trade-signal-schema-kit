@@ -51,7 +51,7 @@ pnpm run build
 pnpm --filter @trade-signal/research-strategies run run:websearch-smoke -- --query "牧原股份 回购" --limit 3
 ```
 
-- **业务回归**：配置 Key 后跑一次 `pnpm run business-analysis:run -- --code 002714`，检查 `phase1b_qualitative.md` 上述三条是否出现可追溯 `http(s)` 链接；`qualitative_report.md` 仍须遵守 `business-analysis-finalize`（正文无裸 URL、附录证据索引）。
+- **业务回归**：配置 Key 后跑一次 `pnpm run business-analysis:run -- --code 002714`，检查 `phase1b_qualitative.md` 上述三条是否出现可追溯 `http(s)` 链接；`qualitative_report.md` 仍须遵守 `business-analysis-finalize`（正文无裸 URL；附录证据索引本地路径优先、必要时外链）。
 
 ## 质量门禁（可选）
 

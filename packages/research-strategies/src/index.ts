@@ -43,6 +43,8 @@ export {
 export { buildMarketPackMarkdown } from "./app/workflow/build-market-pack.js";
 export { runPreflightAfterPhase1A } from "./pipeline/preflight.js";
 export { normalizeCodeForFeed } from "./pipeline/normalize-stock-code.js";
+export * from "./pipeline/p2p4-structured-contract.js";
+export * from "./pipeline/evidence-index-normalizer.js";
 export * from "./app/business-analysis/orchestrator.js";
 export * from "./screener/index.js";
 

@@ -1,10 +1,14 @@
 import type {
   CorporateAction,
   FinancialSnapshot,
+  GovernanceEventCollection,
+  GovernanceNegativeEvent,
   Instrument,
+  IndustryCycleSnapshot,
   KlineBar,
   Market,
   MarketDataProvider,
+  PeerComparableCollection,
   Quote,
   TradingCalendar,
 } from "@trade-signal/schema-core";
@@ -130,6 +134,43 @@ type FinancialPayload = {
   parentTotalLiabilities?: number;
 };
 
+type FeedIndustryCyclePayload = {
+  industryName?: string;
+  source?: string;
+  cyclicality?: string;
+  position?: string;
+  confidence?: string;
+  metrics?: {
+    sampleSizeCurrent?: number;
+    sampleSizePrevious?: number;
+    revenueAllYearYoY?: number;
+    parentNiAllYearYoY?: number;
+  };
+};
+
+type FeedPeerPoolPayload = {
+  industryName?: string;
+  source?: string;
+  peers?: Array<{
+    code?: string;
+    name?: string;
+  }>;
+};
+
+type FeedGovernanceEventsPayload = {
+  source?: string;
+  events?: Array<{
+    category?: string;
+    title?: string;
+    summary?: string;
+    severity?: string;
+    publishedAt?: string;
+    happenedAt?: string;
+    url?: string;
+  }>;
+  highSeverityCount?: number;
+};
+
 const PERIOD_TO_FQT: Record<"none" | "forward" | "backward", "none" | "pre" | "after"> = {
   none: "none",
   forward: "pre",
@@ -157,6 +198,36 @@ const inferMarket = (input: string): Market => {
   const code = input.trim().toUpperCase();
   if (code.endsWith(".HK") || /^\d{5}$/.test(code)) return "HK";
   return "CN_A";
+};
+
+const toCyclicality = (value: unknown): IndustryCycleSnapshot["cyclicality"] => {
+  const v = typeof value === "string" ? value.toLowerCase() : "";
+  if (v === "strong") return "strong";
+  if (v === "weak") return "weak";
+  if (v === "non_cyclical") return "non_cyclical";
+  return "unknown";
+};
+
+const toCyclePosition = (value: unknown): IndustryCycleSnapshot["position"] => {
+  const v = typeof value === "string" ? value.toLowerCase() : "";
+  if (v === "bottom") return "bottom";
+  if (v === "middle") return "middle";
+  if (v === "top") return "top";
+  return "unknown";
+};
+
+const toConfidence = (value: unknown): IndustryCycleSnapshot["confidence"] => {
+  const v = typeof value === "string" ? value.toLowerCase() : "";
+  if (v === "high") return "high";
+  if (v === "medium") return "medium";
+  return "low";
+};
+
+const toGovSeverity = (value: unknown): GovernanceNegativeEvent["severity"] => {
+  const v = typeof value === "string" ? value.toLowerCase() : "";
+  if (v === "high") return "high";
+  if (v === "medium") return "medium";
+  return "low";
 };
 
 function fiscalYearToken(input: string): string {
@@ -430,6 +501,84 @@ export class FeedHttpProvider implements MarketDataProvider {
       isTradingDay: Boolean(item.isTradingDay),
       sessionType: item.sessionType ?? (item.isTradingDay ? "full" : "closed"),
     }));
+  }
+
+  async getIndustryCycleSnapshot(code: string, year?: string): Promise<IndustryCycleSnapshot> {
+    const payload = await this.request<FeedIndustryCyclePayload>(
+      `/stock/industry/cycle/${encodeURIComponent(code)}`,
+      { year },
+    );
+    return {
+      industryName: payload.industryName ?? "未知行业",
+      classification: payload.source ?? "feed_industry_cycle",
+      cyclicality: toCyclicality(payload.cyclicality),
+      position: toCyclePosition(payload.position),
+      confidence: toConfidence(payload.confidence),
+      signals: [
+        {
+          indicator: "sample_size_current",
+          summary: String(payload.metrics?.sampleSizeCurrent ?? "—"),
+        },
+        {
+          indicator: "revenue_all_year_yoy",
+          summary: String(payload.metrics?.revenueAllYearYoY ?? "—"),
+        },
+        {
+          indicator: "parent_ni_all_year_yoy",
+          summary: String(payload.metrics?.parentNiAllYearYoY ?? "—"),
+        },
+      ],
+    };
+  }
+
+  async getPeerComparablePool(
+    code: string,
+    input?: { year?: string; topN?: number; sortColumn?: string },
+  ): Promise<PeerComparableCollection> {
+    const payload = await this.request<FeedPeerPoolPayload>(`/stock/peers/${encodeURIComponent(code)}`, {
+      year: input?.year,
+      topN: input?.topN !== undefined ? String(input.topN) : undefined,
+      sortColumn: input?.sortColumn,
+    });
+    const peers = Array.isArray(payload.peers) ? payload.peers : [];
+    return {
+      source: payload.source ?? "feed_peer_pool",
+      industryName: payload.industryName ?? "未知行业",
+      peerCodes: peers.map((p) => p.code).filter((c): c is string => Boolean(c)),
+      note:
+        peers.length > 0
+          ? `feed 同业池返回 ${peers.length} 条样本`
+          : "feed 同业池暂未返回样本，需降级到文本兜底。",
+    };
+  }
+
+  async getGovernanceEvents(
+    code: string,
+    input?: { year?: string; limit?: number; timeRange?: "3m" | "6m" | "1y" | "3y" | "5y" },
+  ): Promise<GovernanceEventCollection> {
+    const payload = await this.request<FeedGovernanceEventsPayload>(
+      `/stock/governance/events/${encodeURIComponent(code)}`,
+      {
+        year: input?.year,
+        limit: input?.limit !== undefined ? String(input.limit) : undefined,
+        timeRange: input?.timeRange,
+      },
+    );
+    const events = (payload.events ?? []).map<GovernanceNegativeEvent>((e) => ({
+      category: e.category === "regulatory" ? "regulatory" : "governance_negative",
+      summary: e.summary ?? e.title ?? "（无摘要）",
+      severity: toGovSeverity(e.severity),
+      happenedAt: e.happenedAt ?? e.publishedAt,
+      evidenceUrl: e.url,
+      sourceLabel: payload.source ?? "feed_governance",
+    }));
+    return {
+      source: payload.source ?? "feed_governance",
+      events,
+      highSeverityCount:
+        payload.highSeverityCount ??
+        events.filter((event) => event.severity === "high").length,
+    };
   }
 
   getConfig(): HttpProviderOptions {
