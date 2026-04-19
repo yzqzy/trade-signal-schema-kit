@@ -6,7 +6,9 @@ import path from "node:path";
 
 import { resolveValuationDefaultRunDirectory } from "../contracts/output-layout-v2.js";
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
+import { appendFeedGapSection, evaluateFeedDataGaps } from "../pipeline/feed-gap-contract.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
+import { parseDataPackMarket } from "../stages/phase3/market-pack-parser.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
 import type { Phase3ExecutionResult } from "../stages/phase3/types.js";
 
@@ -220,7 +222,13 @@ async function main(): Promise<void> {
   console.log(`[valuation] summary(md) -> ${summaryPath}`);
 
   if (args.fullReport) {
-    const fullMd = renderPhase3Markdown(result);
+    const parsedMarket = parseDataPackMarket(marketMarkdown);
+    const feedGaps = evaluateFeedDataGaps({
+      marketMarkdown,
+      hasDataPackReport: Boolean(reportMarkdown?.trim()),
+      companyName: parsedMarket.name,
+    });
+    const fullMd = appendFeedGapSection(renderPhase3Markdown(result), feedGaps);
     const reportMdPath = path.join(outDir, "analysis_report.md");
     const reportHtmlPath = path.join(outDir, "analysis_report.html");
     await writeText(reportMdPath, fullMd);

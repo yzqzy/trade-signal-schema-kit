@@ -6,11 +6,12 @@
   "license": "MIT",
   "packageManager": "pnpm@10.24.0",
   "scripts": {
-    "build": "pnpm run build",
+    "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "phase0:download": "pnpm --filter @trade-signal/research-strategies run run:phase0-download",
     "workflow:run": "pnpm --filter @trade-signal/research-strategies run run:workflow",
     "business-analysis:run": "pnpm --filter @trade-signal/research-strategies run run:business-analysis",
+    "websearch:smoke": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:websearch-smoke --",
     "valuation:run": "pnpm --filter @trade-signal/research-strategies run run:valuation",
     "report-to-html:run": "pnpm --filter @trade-signal/research-strategies run run:report-to-html",
     "quality:conformance": "pnpm --filter @trade-signal/research-strategies run quality:conformance",

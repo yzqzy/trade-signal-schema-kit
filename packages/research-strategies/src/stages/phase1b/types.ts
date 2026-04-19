@@ -27,6 +27,15 @@ export type Phase1BRetrievalDiagnostics = {
   variantKeywordsTried?: string[];
   /** 已调用 LLM 对 §8 证据做轻量重排 */
   aiRerankApplied?: boolean;
+  /** 是否尝试调用通用 WebSearch（Volc 等） */
+  webSearchUsed?: boolean;
+  webSearchProviderId?: string;
+  /** 依次尝试过的 WebSearch 查询串 */
+  webSearchQueriesTried?: string[];
+  /** WebSearch 全空或异常时的可读原因 */
+  webSearchFailureReason?: string;
+  /** 门禁层备注（URL 非法、时间不可解析等） */
+  webSearchGateNotes?: string[];
 };
 
 export interface Phase1BItem {

@@ -209,10 +209,19 @@ pnpm run valuation:run -- --from-manifest "./output/workflow/600887/<runId>/busi
 **report-to-html**：
 
 ```bash
+# Phase3 / workflow 定量报告（语义 HTML，默认）
 pnpm run report-to-html:run -- \
   --input-md "./output/workflow/600887/<runId>/analysis_report.md" \
   [--toc] [--legacy-pre]
+
+# 商业分析定性发布模板（KPI 卡片 + 六维摘要 + 结构化参数表，内嵌 CSS）
+pnpm run report-to-html:run -- \
+  --input-md "./output/business-analysis/600887/<runId>/qualitative_d1_d6.md" \
+  --mode dashboard
 ```
+
+- **`--mode`**：`semantic`（默认）= `renderPhase3Html`；`dashboard` = `@trade-signal/reporting` 定性 dashboard（输入多为 `qualitative_d1_d6.md`）。
+- 另见：[Feed 缺口契约](./feed-gap-contract.md)（`## 数据缺口与补齐建议`）。Screener 行为对照：`packages/research-strategies/src/screener/screener-parity.md`。
 
 Claude：`/valuation`、`/report-to-html`（见 `.claude/commands/`）。
 

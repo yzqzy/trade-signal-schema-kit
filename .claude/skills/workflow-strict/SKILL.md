@@ -40,6 +40,19 @@ description: "`workflow:run --mode turtle-strict`：TS 跑严格证据链与 Pha
 - `valuation_computed.json`
 - `workflow_manifest.json`
 
+## Phase1B · WebSearch（火山，可选）
+
+- **用途**：在配置了 `WEB_SEARCH_API_KEY` 时，Phase1B 对 **`违规/处罚记录` / `行业监管动态` / `回购计划`** 优先走联网搜索；无有效命中再回退到 Feed 公告检索（不静默补数）。
+- **环境变量**：见仓库根目录 `.env.example` 与 [docs/guides/websearch-env.md](../../docs/guides/websearch-env.md)；开通步骤见 [references/byted-web-search/references/setup-guide.md](../../references/byted-web-search/references/setup-guide.md)。
+- **Smoke（验证 Key 与网络）**：
+
+```bash
+pnpm run build
+pnpm --filter @trade-signal/research-strategies run run:websearch-smoke -- --query "牧原股份 回购" --limit 3
+```
+
+- **业务回归**：配置 Key 后跑一次 `pnpm run business-analysis:run -- --code 002714`，检查 `phase1b_qualitative.md` 上述三条是否出现可追溯 `http(s)` 链接；`qualitative_report.md` 仍须遵守 `business-analysis-finalize`（正文无裸 URL、附录证据索引）。
+
 ## 质量门禁（可选）
 
 - `pnpm run test:linkage`

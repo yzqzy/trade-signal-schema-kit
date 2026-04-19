@@ -151,5 +151,45 @@ export function renderQualitativeD1D6Scaffold(input: {
       ? "> ⚠️ **提示**：Phase1B 证据 < 2 条，严格 PDF-first 下应在运行前补充检索或放宽为非 strict。"
       : "> ✅ Phase1B 证据条数达到最低参考阈值（仍以人工/LLM 复核为准）。",
     "",
+    ...renderPublishLevelStructuredParamsSkeleton(),
   ].join("\n");
+}
+
+/**
+ * 与参考工程 `output_schema` **键名**对齐的发布级骨架表（值须由会话/证据填充，禁止空造数）。
+ * 若参考 schema 增删字段，请同步本列表与 `docs/guides/turtle-framework-alignment-gap-matrix.md`。
+ */
+function renderPublishLevelStructuredParamsSkeleton(): string[] {
+  const keys: Array<{ key: string; hint: string }> = [
+    { key: "moat_rating", hint: "1~5 或 qualitative" },
+    { key: "management_rating", hint: "治理与资本配置" },
+    { key: "roe_5y_avg", hint: "%；须与 §17/年报一致" },
+    { key: "revenue_cagr_5y", hint: "%；多年表须非单期复制" },
+    { key: "gross_margin_trend", hint: "stable|up|down + 证据" },
+    { key: "net_margin_level", hint: "与 §3 同源" },
+    { key: "debt_to_equity", hint: "与 §4 同源" },
+    { key: "interest_coverage", hint: "若缺有息负债则标缺口" },
+    { key: "fcf_yield", hint: "与 §17 FCF / 市值" },
+    { key: "dividend_streak_years", hint: "来自 DPS 序列" },
+    { key: "payout_ratio_avg", hint: "DPS/EPS 多年均值" },
+    { key: "insider_ownership_pct", hint: "feed 或年报披露" },
+    { key: "catalysts_12m", hint: "可验证事件列表" },
+    { key: "bear_case", hint: "结构化一句" },
+    { key: "base_case", hint: "结构化一句" },
+    { key: "bull_case", hint: "结构化一句" },
+    { key: "fair_value_mid", hint: "与 valuation 交叉引用" },
+    { key: "margin_of_safety_pct", hint: "相对现价" },
+    { key: "position_size_suggestion", hint: "须声明置信度" },
+    { key: "esg_or_regulatory_overhang", hint: "可选" },
+  ];
+  return [
+    "## 发布级结构化参数（output_schema 兼容骨架）",
+    "",
+    "> 键名与 Turtle 参考 `output_schema` **对齐**；`value` 列默认 `—`，须在 **Claude Code 同目录会话** 中按 `[E*]/[M:§x]` 证据规则填写。",
+    "",
+    "| schema_key | value | notes |",
+    "|:---|:---|:---|",
+    ...keys.map((r) => `| ${r.key} | — | ${r.hint} |`),
+    "",
+  ];
 }

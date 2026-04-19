@@ -5,7 +5,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { resolvePhase3DefaultRunDirectory } from "../contracts/output-layout-v2.js";
+import { appendFeedGapSection, evaluateFeedDataGaps } from "../pipeline/feed-gap-contract.js";
 import { runPhase3Strict } from "../stages/phase3/analyzer.js";
+import { parseDataPackMarket } from "../stages/phase3/market-pack-parser.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../stages/phase3/report-renderer.js";
 
 type CliArgs = {
@@ -64,7 +66,13 @@ async function main(): Promise<void> {
     interimReportMarkdown,
   });
 
-  const markdown = renderPhase3Markdown(result);
+  const parsedMarket = parseDataPackMarket(marketMarkdown);
+  const feedGaps = evaluateFeedDataGaps({
+    marketMarkdown,
+    hasDataPackReport: Boolean(reportMarkdown?.trim()),
+    companyName: parsedMarket.name,
+  });
+  const markdown = appendFeedGapSection(renderPhase3Markdown(result), feedGaps);
   const html = renderPhase3Html(markdown);
 
   const outDir = resolvePhase3DefaultRunDirectory({

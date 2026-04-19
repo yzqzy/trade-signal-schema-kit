@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -19,6 +19,7 @@ import {
 } from '../workflow/orchestrator.js';
 import { shellQuoteArg } from '../../lib/shell-quote-arg.js';
 import { renderQualitativeD1D6Scaffold } from './d1-d6-scaffold.js';
+import { appendFeedGapSection, evaluateFeedDataGaps } from '../../pipeline/feed-gap-contract.js';
 
 export type RunBusinessAnalysisInput = RunWorkflowInput & {
   /** 与 workflow turtle-strict 一致：要求可解析的年报 PDF（可经自动发现 + Phase0 下载） */
@@ -169,7 +170,15 @@ export async function runBusinessAnalysis(
     hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
     dataPackReportExcerpt: dataPackExcerpt,
   });
-  await writeFile(qualitativeD1D6Path, d1d6Body, 'utf-8');
+
+  const marketMarkdown = await readFile(pipeline.marketPackPath, 'utf-8');
+  const feedGaps = evaluateFeedDataGaps({
+    marketMarkdown,
+    hasDataPackReport: Boolean(pipeline.reportPackMarkdown?.trim()),
+    companyName: pipeline.phase1b.companyName,
+  });
+  const d1d6WithGaps = appendFeedGapSection(d1d6Body, feedGaps);
+  await writeFile(qualitativeD1D6Path, d1d6WithGaps, 'utf-8');
 
   const qualitativeBody = [
     '# 商业分析定性报告（PDF-first）',
@@ -182,10 +191,12 @@ export async function runBusinessAnalysis(
     '',
     '本入口以 **年报 PDF / URL（可自动发现）→ Phase2A/2B 报告包 → Phase1B 外部证据** 为主链；以下为 Phase1B 检索补充（§7/§8/§10）。',
     '**Turtle 六维（D1~D6）契约稿**见同目录 `qualitative_d1_d6.md`（含 `data_pack_report` 摘录与可执行门槛）。',
+    '**发布级结构化参数（output_schema 键名）**见 `qualitative_d1_d6.md` 文末「发布级结构化参数」节。',
     '',
     renderPhase1BMarkdown(pipeline.phase1b),
   ].join('\n');
-  await writeFile(qualitativeReportPath, qualitativeBody, 'utf-8');
+  const qualitativeWithGaps = appendFeedGapSection(qualitativeBody, feedGaps);
+  await writeFile(qualitativeReportPath, qualitativeWithGaps, 'utf-8');
 
   const manifestPath = path.resolve(
     pipeline.outputDir,

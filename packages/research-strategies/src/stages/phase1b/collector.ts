@@ -1,4 +1,10 @@
 import { initCliEnv } from "../../lib/init-cli-env.js";
+import { PHASE1B_WEB_SEARCH_ITEMS } from "../../integrations/websearch/query-templates.js";
+import { tryWebSearchForPhase1bItem } from "../../integrations/websearch/phase1b-bridge.js";
+import {
+  getResolvedWebSearchConfigForProvider,
+  tryGetWebSearchProviderFromEnv,
+} from "../../integrations/websearch/provider-registry.js";
 
 import { topicPatternForPhase1bItem } from "./evidence-quality.js";
 import type {
@@ -16,6 +22,14 @@ import type {
 } from "./types.js";
 
 type Section8RetrievalDiag = Phase1BRetrievalDiagnostics;
+
+function mergeRetrievalDiagnostics(
+  base: Section8RetrievalDiag | undefined,
+  extra: Section8RetrievalDiag | undefined,
+): Section8RetrievalDiag | undefined {
+  if (!base && !extra) return undefined;
+  return { ...base, ...extra };
+}
 
 type FeedSearchHit = {
   title?: string;
@@ -370,6 +384,8 @@ export async function collectExternalEvidenceC1(
   const channel: Phase1BChannel = input.channel ?? "http";
   initCliEnv();
   const queries = buildQueries(input);
+  const webProvider = tryGetWebSearchProviderFromEnv();
+  const webCfg = getResolvedWebSearchConfigForProvider();
 
   let results: Array<{
     query: FeedSearchQuery;
@@ -382,18 +398,30 @@ export async function collectExternalEvidenceC1(
     results = await Promise.all(
       queries.map(async (query) => {
         let diagnostics: Section8RetrievalDiag | undefined;
-        let evidences: Phase1BEvidence[];
-        if (query.catalog === "8") {
-          const tiered = await searchFeedSection8Tiered(clientOptions, input, query);
-          evidences = tiered.evidences;
-          diagnostics = tiered.diagnostics;
-        } else {
-          evidences = await searchFeed(clientOptions, input, query);
-          diagnostics = undefined;
+        let evidences: Phase1BEvidence[] = [];
+        const useWeb = Boolean(webProvider && webCfg && PHASE1B_WEB_SEARCH_ITEMS.has(query.item));
+
+        if (useWeb && webProvider && webCfg) {
+          const web = await tryWebSearchForPhase1bItem(webProvider, webCfg, input, query.item);
+          diagnostics = mergeRetrievalDiagnostics(diagnostics, web.diagnostics);
+          if (web.evidences.length > 0) {
+            evidences = web.evidences;
+          }
         }
+
+        if (evidences.length === 0) {
+          if (query.catalog === "8") {
+            const tiered = await searchFeedSection8Tiered(clientOptions, input, query);
+            evidences = tiered.evidences;
+            diagnostics = mergeRetrievalDiagnostics(diagnostics, tiered.diagnostics);
+          } else {
+            evidences = await searchFeed(clientOptions, input, query);
+          }
+        }
+
         if (query.catalog === "8") {
           evidences = postProcessSection8Evidences(query.item, evidences, limit);
-          diagnostics = { ...diagnostics!, aiRerankApplied: false };
+          diagnostics = { ...(diagnostics ?? {}), aiRerankApplied: false };
         }
         return { query, evidences, diagnostics };
       }),
@@ -408,18 +436,30 @@ export async function collectExternalEvidenceC1(
     results = await Promise.all(
       queries.map(async (query) => {
         let diagnostics: Section8RetrievalDiag | undefined;
-        let evidences: Phase1BEvidence[];
-        if (query.catalog === "8") {
-          const tiered = await searchMcpSection8Tiered(mcpCallTool, toolName, input, query);
-          evidences = tiered.evidences;
-          diagnostics = tiered.diagnostics;
-        } else {
-          evidences = await searchMcp(mcpCallTool, toolName, input, query);
-          diagnostics = undefined;
+        let evidences: Phase1BEvidence[] = [];
+        const useWeb = Boolean(webProvider && webCfg && PHASE1B_WEB_SEARCH_ITEMS.has(query.item));
+
+        if (useWeb && webProvider && webCfg) {
+          const web = await tryWebSearchForPhase1bItem(webProvider, webCfg, input, query.item);
+          diagnostics = mergeRetrievalDiagnostics(diagnostics, web.diagnostics);
+          if (web.evidences.length > 0) {
+            evidences = web.evidences;
+          }
         }
+
+        if (evidences.length === 0) {
+          if (query.catalog === "8") {
+            const tiered = await searchMcpSection8Tiered(mcpCallTool, toolName, input, query);
+            evidences = tiered.evidences;
+            diagnostics = mergeRetrievalDiagnostics(diagnostics, tiered.diagnostics);
+          } else {
+            evidences = await searchMcp(mcpCallTool, toolName, input, query);
+          }
+        }
+
         if (query.catalog === "8") {
           evidences = postProcessSection8Evidences(query.item, evidences, limit);
-          diagnostics = { ...diagnostics!, aiRerankApplied: false };
+          diagnostics = { ...(diagnostics ?? {}), aiRerankApplied: false };
         }
         return { query, evidences, diagnostics };
       }),
@@ -457,6 +497,7 @@ export function projectEvidenceToC2(c1: ExternalEvidenceC1Result): Phase1BQualit
       item: h.promptItem,
       content: summarize(h.evidences),
       evidences: h.evidences,
+      ...(h.retrievalDiagnostics ? { retrievalDiagnostics: h.retrievalDiagnostics } : {}),
     }));
 
   const section8: Phase1BItem[] = hits

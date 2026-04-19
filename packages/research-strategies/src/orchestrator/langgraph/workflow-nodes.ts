@@ -14,6 +14,7 @@ import { runPhase2AExtractPdfSections } from "../../stages/phase2a/extractor.js"
 import { tryApplyPdfSectionVerifier } from "./pdf-section-verifier.js";
 import { renderPhase2BDataPackReport } from "../../stages/phase2b/renderer.js";
 import { renderPhase3Html, renderPhase3Markdown } from "../../stages/phase3/report-renderer.js";
+import { appendFeedGapSection, evaluateFeedDataGaps } from "../../pipeline/feed-gap-contract.js";
 import { resolveWorkflowStrategyPlugin } from "../../strategies/registry.js";
 import { evaluatePhase3Preflight } from "../../pipeline/phase3-preflight.js";
 import { runPreflightAfterPhase1A, type PreflightLevel } from "../../pipeline/preflight.js";
@@ -444,7 +445,15 @@ export async function nodeStageE(state: WorkflowGraphState): Promise<Partial<Wor
   const reportMarkdownPath = path.join(outputDir, "analysis_report.md");
   const reportHtmlPath = path.join(outputDir, "analysis_report.html");
   await writeText(valuationPath, JSON.stringify(phase3Execution.valuation, null, 2));
-  const reportMarkdown = renderPhase3Markdown(phase3Execution);
+  const feedGaps = evaluateFeedDataGaps({
+    marketMarkdown: marketPackMarkdown,
+    hasDataPackReport: Boolean(reportPackMarkdown?.trim()),
+    companyName: state.resolvedCompanyName ?? input.code,
+  });
+  const reportMarkdown = appendFeedGapSection(
+    renderPhase3Markdown(phase3Execution),
+    feedGaps,
+  );
   await writeText(reportMarkdownPath, reportMarkdown);
   await writeText(reportHtmlPath, renderPhase3Html(reportMarkdown));
 

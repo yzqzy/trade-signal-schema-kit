@@ -291,3 +291,19 @@ export interface AnalysisReport {
   confidence?: "high" | "medium" | "low";
   sections: Array<{ heading: string; content: string }>;
 }
+
+/** Feed-first：缺口分级（写入 `## 数据缺口与补齐建议` 等产物） */
+export type FeedDataGapSeverity = "blocking" | "degraded" | "hint";
+
+export interface FeedDataGap {
+  id: string;
+  severity: FeedDataGapSeverity;
+  /** 缺口所指向的章节、字段或文件 */
+  target: string;
+  /** 对分析结论的影响（中文短句） */
+  impact: string;
+  /** 人类可执行的补齐方式（中文） */
+  remediation: string;
+  /** 可选：建议的 pnpm 命令模板 */
+  suggestedCommand?: string;
+}

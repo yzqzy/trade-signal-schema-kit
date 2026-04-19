@@ -27,6 +27,7 @@
     "run:report-to-html": "node dist/packages/research-strategies/src/cli/report-to-html.js",
     "run:workflow": "node dist/packages/research-strategies/src/cli/workflow.js",
     "run:business-analysis": "node dist/packages/research-strategies/src/cli/business-analysis.js",
+    "run:websearch-smoke": "node dist/packages/research-strategies/src/cli/websearch-smoke.js",
     "run:screener": "node dist/packages/research-strategies/src/screener/cli.js",
     "quality:phase3-golden": "node dist/packages/research-strategies/src/quality/phase3-golden-check.js --suite all",
     "quality:strategy-registry": "node dist/packages/research-strategies/src/quality/strategy-plugin-smoke.js",

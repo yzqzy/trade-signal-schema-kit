@@ -58,6 +58,9 @@ pnpm run business-analysis:run -- \
 - [ ] `qualitative_d1_d6.md`
 - [ ] `data_pack_market.md`
 - [ ] `business_analysis_manifest.json`
+- [ ] **Feed 缺口**：`qualitative_report.md` 与 `qualitative_d1_d6.md` 文末含 **`## 数据缺口与补齐建议`**（见 [feed-gap-contract.md](./feed-gap-contract.md)）
+- [ ] **发布级结构化参数骨架**：`qualitative_d1_d6.md` 含 **「发布级结构化参数（output_schema 兼容骨架）」** 表（键名对齐，值默认 `—`）
+- [ ] （可选）`pnpm run report-to-html:run -- --input-md .../qualitative_d1_d6.md --mode dashboard` 生成发布预览 HTML
 
 财务关键验收：
 

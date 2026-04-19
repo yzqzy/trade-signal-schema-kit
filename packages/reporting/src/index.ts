@@ -98,3 +98,9 @@ export function toHtml(report: AnalysisReportInput): string {
 }
 
 export * from "./screener-renderer.js";
+export {
+  parseQualitativeMarkdownForDashboard,
+  qualitativeMarkdownToDashboardHtml,
+  renderQualitativeDashboardHtml,
+  type QualitativeDashboardModel,
+} from "./qualitative-dashboard-html.js";

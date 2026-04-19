@@ -20,7 +20,7 @@
 | `/workflow-analysis` / `workflow:run` | 全链路至 `analysis_report`、估值、manifest | 全链路终稿以 **Phase3 规则报告**为主；深度六维定性补强仍在 **Claude** 侧（与 [agent-framework-comparison](../strategy/agent-framework-comparison.md) 一致） |
 | `/valuation` / `valuation:run` | 估值 JSON/摘要（可选 full report） | **否** |
 | `/download-annual-report` / `phase0:download` | 年报 PDF 获取与缓存 | **否** |
-| `/report-to-html` / `report-to-html:run` | Markdown → HTML | **否** |
+| `/report-to-html` / `report-to-html:run` | Markdown → HTML（`--mode semantic` Phase3 报告；`--mode dashboard` 定性发布模板） | **否** |
 
 ## 推荐执行顺序（与 reference 一致）
 
@@ -44,7 +44,7 @@
 | `data_pack_market.md` | 结构化市场证据 | 保持为证据源，一般不覆盖叙事 |
 | `data_pack_report.md` | 年报提取证据（若有） | 同上 |
 | `qualitative_report.md` | Phase1B 合并与模板段落（**非**终稿叙事承诺） | 六维叙事终稿 + **监管与合规要点** + **`## 附录：证据索引`**（`[E*]` 全表）+ 按需 **证据缺口清单** / **PDF 声明**；**正文不出现 `https://`** |
-| `qualitative_d1_d6.md` | 契约骨架 + 摘录 | 各维正文已填充；**每维 ≥1 条 `[E*]` 或 `[M:§x]`**；**附录证据索引**；无大面积「待补全」类占位 |
+| `qualitative_d1_d6.md` | 契约骨架 + 摘录 + **发布级结构化参数表（output_schema 键名）** + **数据缺口与补齐建议**（工程拼接） | 各维正文已填充；**每维 ≥1 条 `[E*]` 或 `[M:§x]`**；**附录证据索引**；无大面积「待补全」类占位；结构化参数表的 `value` 列须由会话按证据填写（禁止空造数） |
 
 ## 失败语义
 

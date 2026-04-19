@@ -6,6 +6,8 @@ import path from "node:path";
 
 import { resolveReportHtmlDefaultPath } from "../contracts/output-layout-v2.js";
 import { resolveInputPath, resolveOutputPath } from "../pipeline/resolve-monorepo-path.js";
+import { qualitativeMarkdownToDashboardHtml } from "@trade-signal/reporting";
+
 import { renderPhase3Html } from "../stages/phase3/report-renderer.js";
 
 type CliArgs = {
@@ -15,6 +17,8 @@ type CliArgs = {
   code?: string;
   legacyPre?: boolean;
   toc?: boolean;
+  /** `semantic`：Phase3 语义 HTML；`dashboard`：定性发布模板（KPI/维度/参数表） */
+  mode?: "semantic" | "dashboard";
 };
 
 const REPORT_HTML_BOOLEAN_FLAGS = new Set(["legacy-pre", "toc"]);
@@ -36,12 +40,16 @@ function parseArgs(argv: string[]): CliArgs {
     values[name] = next;
     i += 1;
   }
+  const modeRaw = values.mode;
+  const mode: CliArgs["mode"] =
+    modeRaw === "dashboard" ? "dashboard" : modeRaw === "semantic" ? "semantic" : undefined;
   return {
     inputMdPath: values["input-md"] ?? values["markdown"],
     outputHtmlPath: values["output-html"] ?? values["output"],
     code: values.code,
     legacyPre: flags.has("legacy-pre"),
     toc: flags.has("toc"),
+    mode,
   };
 }
 
@@ -50,13 +58,17 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (!args.inputMdPath) {
     throw new Error(
-      "Missing required argument: --input-md <path-to-report.md> [--output-html <path>] [--legacy-pre] [--toc]",
+      "Missing required argument: --input-md <path-to-report.md> [--output-html <path>] [--mode semantic|dashboard] [--legacy-pre] [--toc]",
     );
   }
 
   const mdAbs = resolveInputPath(args.inputMdPath);
   const markdown = await readFile(mdAbs, "utf-8");
-  const html = renderPhase3Html(markdown, { legacyPre: args.legacyPre, toc: args.toc });
+  const mode = args.mode ?? "semantic";
+  const html =
+    mode === "dashboard"
+      ? qualitativeMarkdownToDashboardHtml(markdown)
+      : renderPhase3Html(markdown, { legacyPre: args.legacyPre, toc: args.toc });
 
   const outHtml =
     args.outputHtmlPath !== undefined
