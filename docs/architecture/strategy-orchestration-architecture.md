@@ -8,6 +8,23 @@
 - 上层保留通用编排骨架，支持接入更多策略（价值、成长、红利、事件驱动等）。
 - **CLI 与产物契约保持稳定**：演进以「接口先行 + 分阶段落地」为原则，避免大范围破坏性改名。
 
+## 三层系统结构
+
+```text
+research-strategies + reporting
+            │
+        schema-core
+            │
+    ┌───────┴────────┐
+ provider-http   provider-mcp
+            │
+      trade-signal-feed
+```
+
+- 研究流程层只消费标准字段，不直接依赖上游原始字段名。
+- 适配器层负责 HTTP/MCP 语义对齐与错误转换。
+- 策略层可替换，流程与报告契约保持稳定。
+
 ## 关键结论
 
 - `Phase 0/1/2/3` 本质是**通用处理阶段**（实现命名），与策略无关。
@@ -54,11 +71,11 @@
 
 **无报告源**：`A → B → C → E`。
 
-**当前 `workflow:run` 实现**：有年报 PDF 路径时为 **`B → D → C → E`**；无年报 PDF 时为 **`B → C → E`**。详见 [流程说明（Stage）](../guides/workflows.md) 与 [契约基线](./contract-baseline.md)。
+**当前 `workflow:run` 实现**：有年报 PDF 路径时为 **`B → D → C → E`**；无年报 PDF 时为 **`B → C → E`**。详见 [流程说明（Stage）](../guides/workflows.md)。
 
 ## 接口边界
 
-### `StrategyPlugin`（实现见 `packages/research-strategies/src/strategies/contracts.ts`）
+### `StrategyPlugin`（实现见 `packages/research-strategies/src/strategy/contracts.ts`）
 
 ```ts
 export interface StrategyPlugin {
@@ -87,10 +104,11 @@ export interface OrchestratorAdapter {
 
 ## Monorepo 目录与边界（与当前仓库对齐）
 
-- `packages/research-strategies/src/app/`：对外用例编排（workflow / business-analysis / valuation / report-to-html）
-- `packages/research-strategies/src/orchestrator/`：LangGraph 图、状态、checkpoint、编排适配器（**不含策略实现**）
-- `packages/research-strategies/src/stages/phase*`：阶段执行器（Phase0~Phase3）
-- `packages/research-strategies/src/strategies/`：`contracts.ts`、`registry.ts`、平行策略目录（如 `turtle/`、`value-v1/`）
+- `packages/research-strategies/src/runtime/`：对外用例编排与 LangGraph 运行时
+- `packages/research-strategies/src/steps/phase*`：阶段执行器（Phase0~Phase3）
+- `packages/research-strategies/src/strategy/`：`contracts.ts`、`registry.ts`、平行策略目录（如 `turtle/`、`value-v1/`）
+- `packages/research-strategies/src/adapters/`：外部能力适配（如 websearch）
+- `packages/research-strategies/src/crosscut/`：preflight、normalization、structured-inputs、feed-gap
 - `packages/research-strategies/src/contracts/`：跨层契约类型（如 `workflow-run-types.ts` / `RunWorkflowInput`）
 - `packages/research-strategies/src/cli/`：Node CLI 入口（`run:*` 脚本指向构建产物）
 - `packages/core-schema/`（包名 `@trade-signal/schema-core`）：通用契约，**不放策略私有字段**
@@ -99,7 +117,7 @@ export interface OrchestratorAdapter {
 
 1. **定义策略 ID 与版本**，实现 `StrategyPlugin`（`supports` / `evaluate` / 可选 `render`）。
 2. **实现 C2**：将策略所需的证据槽位从 C1 输出投影为策略上下文（不与 C1 混写）。
-3. **注册策略**：在 `packages/research-strategies/src/strategies/registry.ts` 将 `strategyId` 映射到插件实现；编排层仅解析 ID（CLI 已支持 `--strategy <id>`，与 `--mode` 等参数共存演进）。操作步骤见 [策略注册指南](../guides/strategy-registration.md)。
+3. **注册策略**：在 `packages/research-strategies/src/strategy/registry.ts` 将 `strategyId` 映射到插件实现；编排层仅解析 ID（CLI 已支持 `--strategy <id>`，与 `--mode` 等参数共存演进）。
 4. **契约对齐**：仅使用标准字段；需要新字段时走 **schema-core 变更**，而非在插件内引用 feed 原始键。
 5. **质量门禁**：通用门（conformance / contract / regression / golden）照跑；策略专有规则单独目录或 manifest（按 `strategyId` 分类）。
 
@@ -112,10 +130,19 @@ export interface OrchestratorAdapter {
 
 ## 质量与验收（DoD）
 
-- 通用编排与单一策略实现解耦：**新增策略不改 LangGraph 主流程核心代码**，在 `strategies/registry.ts` 注册并扩展策略目录即可。
+- 通用编排与单一策略实现解耦：**新增策略不改 LangGraph 主流程核心代码**，在 `strategy/registry.ts` 注册并扩展策略目录即可。
 - CLI 兼容：既有命令可用；新策略通过 **`--strategy` 或同类策略开关**扩展。
 - 支持从中间阶段恢复（至少从 Stage B 或 D 重跑）。
-- 文档之间应一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、[contract-baseline](./contract-baseline.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md)。
+- 文档之间应一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md)。
+
+## 新增策略接入操作清单
+
+1. 新建 `packages/research-strategies/src/strategy/<your-id>/plugin.ts`，导出 `createXxxStrategyPlugin(): StrategyPlugin`。  
+2. 在 `packages/research-strategies/src/contracts/workflow-run-types.ts` 扩展 `WorkflowStrategyId` 联合类型。  
+3. 在 `packages/research-strategies/src/strategy/registry.ts` 注册 `resolveWorkflowStrategyPlugin` 分支。  
+4. 在 `packages/research-strategies/src/cli/workflow.ts` 扩展 `--strategy` 白名单。  
+5. 在 `packages/research-strategies/src/quality/strategy-plugin-smoke.ts` 补最小 smoke 用例。  
+6. 运行回归：`pnpm run typecheck && pnpm run build && pnpm run test:linkage && pnpm run quality:all`。
 
 ## 与现状兼容说明
 

@@ -8,7 +8,7 @@
 ## 数据缺口与补齐建议
 ```
 
-实现：`packages/research-strategies/src/pipeline/feed-gap-contract.ts`。
+实现：`packages/research-strategies/src/crosscut/feed-gap/feed-gap-contract.ts`。
 
 ## 分级
 

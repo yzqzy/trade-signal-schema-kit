@@ -81,7 +81,7 @@ pnpm run workflow:run -- \
 
 当前常用策略：`turtle`、`value_v1`。入口是编排，策略是参数维度。
 
-Slash 参数与检查清单：`.claude/commands/*.md`、`.claude/skills/`；环境变量与 Feed：[docs/guides/agent-llm-and-env.md](docs/guides/agent-llm-and-env.md)。
+Slash 参数与检查清单：`.claude/commands/*.md`、`.claude/skills/`；环境变量与 Feed：[docs/guides/data-source.md](docs/guides/data-source.md)。
 
 ## 入口选择（目标 → 命令 → 产物）
 
@@ -115,14 +115,14 @@ pnpm run test:linkage   # build + 链路烟测
 
 `contract` / `regression` / `phase3-golden` 依赖仓库内 **`output/phase3_golden/`**；误删后见 [data-source.md](docs/guides/data-source.md)。
 
-**Feed、续跑、排障**：[docs/guides/agent-llm-and-env.md](docs/guides/agent-llm-and-env.md)；模板：`.env.example`、`.env.full.example`。
+**Feed、续跑、排障**：[docs/guides/data-source.md](docs/guides/data-source.md)；模板：`.env.example`、`.env.full.example`。
 
 ## 更多文档
 
 - [入口与 AI 叙事契约（单一路径）](docs/guides/entrypoint-narrative-contract.md)
 - [流程与 CLI 细节](docs/guides/workflows.md)
 - [数据契约与 quality](docs/guides/data-source.md)
-- [环境配置与实操](docs/guides/agent-llm-and-env.md)
+- [环境配置与实操](docs/guides/data-source.md)
 - [路线图](docs/strategy/strategy-roadmap.md)
 - [文档总索引](docs/README.md)
 - [Claude Code 指引](CLAUDE.md)
@@ -137,7 +137,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-以下示例中 **`600887` 可替换为任意标的代码**；仓库根执行，需配置 **`FEED_BASE_URL`**（见 [agent-llm-and-env](docs/guides/agent-llm-and-env.md)）。
+以下示例中 **`600887` 可替换为任意标的代码**；仓库根执行，需配置 **`FEED_BASE_URL`**（见 [data-source](docs/guides/data-source.md)）。
 
 ### `/workflow-analysis` → `workflow:run --mode turtle-strict`
 
@@ -182,7 +182,7 @@ pnpm run report-to-html:run -- \
   --code 600887
 ```
 
-**`apps/screener-web`**：已冻结；选股器用 `pnpm run screener:run`。若需 `pnpm run web:dev`，先 `pnpm run build`，见 [`apps/screener-web/README.md`](apps/screener-web/README.md)。
+**`apps/screener-web`**：已冻结；选股器统一使用 `pnpm run screener:run` 与 `output/screener/*` 产物，不再维护独立 Web 壳层入口。
 
 ## 参考
 

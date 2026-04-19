@@ -14,9 +14,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [system-architecture.md](./architecture/system-architecture.md) | 三层结构、数据流、设计边界 |
 | [strategy-orchestration-architecture.md](./architecture/strategy-orchestration-architecture.md) | Stage A~E、策略插件、`StrategyPlugin` / `OrchestratorAdapter`、C1/C2 |
-| [contract-baseline.md](./architecture/contract-baseline.md) | **M0 原语义契约基线**（CLI、顺序、产物、错误前缀、门禁） |
 
 ## guides（操作与契约）
 
@@ -24,15 +22,11 @@
 |------|------|
 | [workflows.md](./guides/workflows.md) | **流程真源（Stage 主叙事）**、Slash 与 CLI 参数、产物、PDF 分支与实现顺序 |
 | [entrypoint-narrative-contract.md](./guides/entrypoint-narrative-contract.md) | **证据包 vs 终稿叙事**、入口矩阵、CLI/Claude 失败语义、000021 验收示例（终稿证据索引：本地路径优先） |
-| [research-strategies-src-layout.md](./guides/research-strategies-src-layout.md) | `research-strategies` 源码顶层目录职责（主干 vs 支撑） |
-| [strategy-registration.md](./guides/strategy-registration.md) | 新增 Stage E 策略插件：注册步骤与回归命令 |
 | [phase0-download.md](./guides/phase0-download.md) | Phase 0 年报下载、校验、CLI 与退出码 |
 | [data-source.md](./guides/data-source.md) | Feed 接入原则、字段范围、质量门禁 |
 | [stock-analysis-e2e-checklist.md](./guides/stock-analysis-e2e-checklist.md) | 个股分析全链路跑通清单（A 股） |
 | [turtle-framework-alignment-gap-matrix.md](./guides/turtle-framework-alignment-gap-matrix.md) | Turtle 参考工程 ↔ 本仓能力差距矩阵（验收基线） |
 | [feed-gap-contract.md](./guides/feed-gap-contract.md) | Feed-first 缺口分级与 `## 数据缺口与补齐建议` 契约 |
-| [websearch-env.md](./guides/websearch-env.md) | Phase1B 可选火山 WebSearch 环境变量与 smoke 命令 |
-| [agent-llm-and-env.md](./guides/agent-llm-and-env.md) | **Feed 最小变量、Claude 优先三步法、续跑与常见故障** |
 
 ## strategy（选型与版本节奏）
 

@@ -156,7 +156,49 @@ MCP 场景（AI/Agent）：
 
 **港股说明**：`hk` 黄金样例用于回归一致性；港股侧与 A 股同等深度的业务语义与专项验证 **暂未实现**，后续里程碑会单独补齐。
 
+## WebSearch（Phase1B 可选增强）
+
+当配置 `WEB_SEARCH_API_KEY` 时，Phase1B 的以下条目会优先走联网搜索，无命中再回退 Feed 公告检索：
+
+- `违规/处罚记录`
+- `行业监管动态`
+- `回购计划`
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `WEB_SEARCH_API_KEY` | 启用时必填 | 联网搜索 API Key |
+| `WEB_SEARCH_PROVIDER` | 否 | 默认 `volc`；`none/off/disabled` 关闭 |
+| `WEB_SEARCH_BASE_URL` | 否 | 默认 `https://open.feedcoopapi.com/search_api/web_search` |
+| `WEB_SEARCH_TIMEOUT_MS` | 否 | 默认 `10000` |
+| `WEB_SEARCH_MAX_RESULTS` | 否 | 默认 `5`，最大 `50` |
+| `WEB_SEARCH_TIME_RANGE` | 否 | 默认 `OneYear`，支持 `OneDay/OneWeek/OneMonth/OneYear` 与 `1d/1w/1m/1y` |
+
+Smoke：
+
+```bash
+pnpm --filter @trade-signal/research-strategies run build
+pnpm --filter @trade-signal/research-strategies run run:websearch-smoke -- --query "牧原股份 回购" --limit 3
+```
+
+## 最小实操与排障
+
+推荐最小启动顺序：
+
+```bash
+pnpm install
+pnpm run build
+pnpm run business-analysis:run -- --code 600887 --year 2024
+```
+
+常见报错处理：
+
+| 现象 | 处理 |
+|------|------|
+| Phase1A 报网络/请求错误 | 检查 `FEED_BASE_URL` 与 `FEED_API_KEY` |
+| `turtle-strict` 立即失败 | 补 `--pdf`/`--report-url`，或确认自动发现可用 |
+| CLI 启动找不到模块 | 先执行 `pnpm run build` |
+
 ## 相关文档
 
 - [流程与 CLI](./workflows.md)
-- [系统架构](../architecture/system-architecture.md)
+- [策略与流程解耦（架构边界）](../architecture/strategy-orchestration-architecture.md)

@@ -11,7 +11,7 @@ description: "`workflow:run --mode turtle-strict`：TS 跑严格证据链与 Pha
 
 - 与仓库根 **`/workflow-analysis`**（等价 `pnpm run workflow:run -- --mode turtle-strict ...`）一致：**PDF 链 + 报告包 + Pre-flight + Phase3**。
 - **策略可切换**：Stage E 由 `--strategy turtle|value_v1` 决定；入口名不含策略名。
-- **叙事分层**：编排层 **不**调用 Anthropic/OpenAI 做自动叙事；**final-narrative**（六维定性终稿）默认由 **Claude** 在证据产物齐备后执行（与 [entrypoint-narrative-contract.md](../../docs/guides/entrypoint-narrative-contract.md) 一致）。
+- **叙事分层**：编排层 **不**调用 Anthropic/OpenAI 做自动叙事；**final-narrative**（六维定性终稿）默认由 **Claude** 在证据产物齐备后执行（与 [entrypoint-narrative-contract.md](../../../docs/guides/entrypoint-narrative-contract.md) 一致）。
 
 ## 顺序与检查
 
@@ -43,7 +43,7 @@ description: "`workflow:run --mode turtle-strict`：TS 跑严格证据链与 Pha
 ## Phase1B · WebSearch（火山，可选）
 
 - **用途**：在配置了 `WEB_SEARCH_API_KEY` 时，Phase1B 对 **`违规/处罚记录` / `行业监管动态` / `回购计划`** 优先走联网搜索；无有效命中再回退到 Feed 公告检索（不静默补数）。
-- **环境变量**：见仓库根目录 `.env.example` 与 [docs/guides/websearch-env.md](../../docs/guides/websearch-env.md)；开通步骤见 [references/byted-web-search/references/setup-guide.md](../../references/byted-web-search/references/setup-guide.md)。
+- **环境变量**：见仓库根目录 `.env.example` 与 [docs/guides/data-source.md](../../../docs/guides/data-source.md)；开通步骤见 [references/byted-web-search/references/setup-guide.md](../../../references/byted-web-search/references/setup-guide.md)。
 - **Smoke（验证 Key 与网络）**：
 
 ```bash

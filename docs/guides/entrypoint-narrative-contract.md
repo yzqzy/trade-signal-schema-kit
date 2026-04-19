@@ -92,5 +92,5 @@
 ## 相关文档
 
 - [workflows.md](./workflows.md) — Stage/Phase、产物路径、续跑
-- [agent-llm-and-env.md](./agent-llm-and-env.md) — Feed 与 Slash 三步法
+- [data-source.md](./data-source.md) — Feed、WebSearch 与最小实操三步法
 - 根目录 [README.md](../../README.md) — 首屏入口

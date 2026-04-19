@@ -29,7 +29,7 @@ pnpm run phase0:download -- \
   --category 年报
 ```
 
-环境变量兜底：`PHASE0_REPORT_URL`（可选）、`PHASE0_STOCK_CODE`、`PHASE0_YEAR`、`PHASE0_CATEGORY`。详见 [Phase 0 文档](../../docs/phase0-download.md)。
+环境变量兜底：`PHASE0_REPORT_URL`（可选）、`PHASE0_STOCK_CODE`、`PHASE0_YEAR`、`PHASE0_CATEGORY`。详见 [Phase 0 文档](../../docs/guides/phase0-download.md)。
 
 ## 输入校验
 
