@@ -44,6 +44,22 @@ export interface FinancialSnapshot {
   period: string;
   revenue?: number;
   netProfit?: number;
+  /** 净资产收益率（%） */
+  roePct?: number;
+  /** 毛利率（%） */
+  grossMarginPct?: number;
+  /** 资产负债率（%） */
+  debtRatioPct?: number;
+  /** 审计意见（原文/标准化标签） */
+  auditResult?: string;
+  /** 应收类核心口径（百万元） */
+  accountsReceivable?: number;
+  /** 合同负债（百万元） */
+  contractLiabilities?: number;
+  /** 信用减值损失（百万元） */
+  creditImpairmentLoss?: number;
+  /** EBITDA（百万元） */
+  ebitda?: number;
   operatingCashFlow?: number;
   totalAssets?: number;
   totalLiabilities?: number;

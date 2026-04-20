@@ -87,6 +87,26 @@ type StockFinancialPayload = {
     totalRevenue?: number;
     netProfit?: number;
     parentNetProfit?: number;
+    roePct?: number;
+    roe?: number;
+    grossMarginPct?: number;
+    grossMargin?: number;
+    debtRatioPct?: number;
+    debtRatio?: number;
+    auditResult?: string;
+    auditOpinion?: string;
+    accountsReceivable?: number;
+    accountReceivable?: number;
+    ar?: number;
+    contractLiabilities?: number;
+    contractLiability?: number;
+    contractDebt?: number;
+    creditImpairmentLoss?: number;
+    creditImpairLoss?: number;
+    badDebtLoss?: number;
+    ebitda?: number;
+    ebitDa?: number;
+    ebitdaTtm?: number;
     operatingCashFlow?: number;
     netCashflowOper?: number;
     totalAssets?: number;
@@ -135,6 +155,25 @@ function mapMcpFinancial(
     period: financial.period ?? financial.reportDate ?? period,
     revenue: asNumber(financial.revenue ?? financial.operatingRevenue ?? financial.totalRevenue),
     netProfit: asNumber(financial.netProfit ?? financial.parentNetProfit),
+    roePct: asNumber(financial.roePct ?? financial.roe),
+    grossMarginPct: asNumber(financial.grossMarginPct ?? financial.grossMargin),
+    debtRatioPct: asNumber(financial.debtRatioPct ?? financial.debtRatio),
+    auditResult:
+      typeof financial.auditResult === "string"
+        ? financial.auditResult
+        : typeof financial.auditOpinion === "string"
+          ? financial.auditOpinion
+          : undefined,
+    accountsReceivable: asNumber(
+      financial.accountsReceivable ?? financial.accountReceivable ?? financial.ar,
+    ),
+    contractLiabilities: asNumber(
+      financial.contractLiabilities ?? financial.contractLiability ?? financial.contractDebt,
+    ),
+    creditImpairmentLoss: asNumber(
+      financial.creditImpairmentLoss ?? financial.creditImpairLoss ?? financial.badDebtLoss,
+    ),
+    ebitda: asNumber(financial.ebitda ?? financial.ebitDa ?? financial.ebitdaTtm),
     operatingCashFlow: asNumber(financial.operatingCashFlow ?? financial.netCashflowOper),
     totalAssets: asNumber(financial.totalAssets),
     totalLiabilities: asNumber(financial.totalLiabilities),

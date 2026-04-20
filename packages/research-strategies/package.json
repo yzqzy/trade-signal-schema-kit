@@ -34,6 +34,7 @@
     "quality:strategy-registry": "node dist/packages/research-strategies/src/quality/strategy-plugin-smoke.js",
     "quality:conformance": "pnpm --filter @trade-signal/provider-http run build && pnpm --filter @trade-signal/provider-mcp run build && node dist/packages/research-strategies/src/quality/conformance-check.js",
     "quality:contract": "node dist/packages/research-strategies/src/quality/contract-check.js",
+    "quality:p1-fields": "node dist/packages/research-strategies/src/quality/p1-field-gate-check.js",
     "quality:regression": "node dist/packages/research-strategies/src/quality/regression-check.js --suite all",
     "quality:all": "pnpm run quality:conformance && pnpm run quality:contract && pnpm run quality:regression && pnpm run quality:phase3-golden && pnpm run quality:strategy-registry",
     "gen:phase3-golden": "node dist/packages/research-strategies/src/quality/generate-phase3-golden-fixtures.js",

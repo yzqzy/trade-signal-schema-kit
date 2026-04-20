@@ -5,6 +5,14 @@ export type ReportTopicType =
   | "turtle_strategy";
 
 export type RequiredFieldsStatus = "pass" | "degraded" | "fail";
+export type FieldSourceType = "structured" | "pdf_enhanced" | "hybrid";
+
+export const P1_CASH_QUALITY_FIELDS = [
+  "accountsReceivable",
+  "contractLiabilities",
+  "creditImpairmentLoss",
+  "ebitda",
+] as const;
 
 export interface TopicFieldContract {
   requiredFields: string[];
@@ -17,6 +25,7 @@ export interface TopicInputContract {
   displayName: string;
   primaryInputs: string[];
   secondaryInputs: string[];
+  sourceType: FieldSourceType;
   fields: TopicFieldContract;
 }
 
@@ -26,6 +35,7 @@ export const TOPIC_INPUT_CONTRACTS: Record<ReportTopicType, TopicInputContract> 
     displayName: "商业质量评估",
     primaryInputs: ["qualitative_report.md", "qualitative_d1_d6.md"],
     secondaryInputs: ["phase1b_qualitative.md"],
+    sourceType: "hybrid",
     fields: {
       requiredFields: [
         "title",
@@ -47,6 +57,7 @@ export const TOPIC_INPUT_CONTRACTS: Record<ReportTopicType, TopicInputContract> 
     displayName: "估值分析",
     primaryInputs: ["valuation_computed.json", "analysis_report.md"],
     secondaryInputs: ["data_pack_market.md"],
+    sourceType: "structured",
     fields: {
       requiredFields: [
         "title",
@@ -70,6 +81,7 @@ export const TOPIC_INPUT_CONTRACTS: Record<ReportTopicType, TopicInputContract> 
     displayName: "穿透回报率定量分析",
     primaryInputs: ["analysis_report.md", "data_pack_market.md"],
     secondaryInputs: ["valuation_computed.json"],
+    sourceType: "structured",
     fields: {
       requiredFields: [
         "title",
@@ -88,6 +100,7 @@ export const TOPIC_INPUT_CONTRACTS: Record<ReportTopicType, TopicInputContract> 
     displayName: "龟龟投资策略分析",
     primaryInputs: ["topic_aggregate"],
     secondaryInputs: ["phase3_preflight.md"],
+    sourceType: "hybrid",
     fields: {
       requiredFields: [
         "title",
@@ -108,6 +121,28 @@ export interface TopicValidationResult {
   missingRequiredFields: string[];
   missingOptionalFields: string[];
   degradedFallbackFields: string[];
+}
+
+export interface P1GateResult {
+  status: "pass" | "degraded";
+  missingFields: string[];
+}
+
+export function evaluateP1CashQualityGate(data: Record<string, unknown>): P1GateResult {
+  const missingFields = P1_CASH_QUALITY_FIELDS.filter((field) => {
+    const value = data[field];
+    return value === undefined || value === null || value === "";
+  });
+  if (missingFields.length > 0) {
+    return {
+      status: "degraded",
+      missingFields: [...missingFields],
+    };
+  }
+  return {
+    status: "pass",
+    missingFields: [],
+  };
 }
 
 export function validateTopicFields(

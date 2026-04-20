@@ -101,6 +101,26 @@ type FinancialPayload = {
   totalRevenue?: number;
   netProfit?: number;
   parentNetProfit?: number;
+  roePct?: number;
+  roe?: number;
+  grossMarginPct?: number;
+  grossMargin?: number;
+  debtRatioPct?: number;
+  debtRatio?: number;
+  auditResult?: string;
+  auditOpinion?: string;
+  accountsReceivable?: number;
+  accountReceivable?: number;
+  ar?: number;
+  contractLiabilities?: number;
+  contractLiability?: number;
+  contractDebt?: number;
+  creditImpairmentLoss?: number;
+  creditImpairLoss?: number;
+  badDebtLoss?: number;
+  ebitda?: number;
+  ebitDa?: number;
+  ebitdaTtm?: number;
   operatingCashFlow?: number;
   netCashflowOper?: number;
   totalAssets?: number;
@@ -241,6 +261,23 @@ function mapFinancialPayload(payload: FinancialPayload, code: string, period: st
     period: payload.period ?? payload.reportDate ?? period,
     revenue: asNumber(payload.revenue ?? payload.operatingRevenue ?? payload.totalRevenue),
     netProfit: asNumber(payload.netProfit ?? payload.parentNetProfit),
+    roePct: asNumber(payload.roePct ?? payload.roe),
+    grossMarginPct: asNumber(payload.grossMarginPct ?? payload.grossMargin),
+    debtRatioPct: asNumber(payload.debtRatioPct ?? payload.debtRatio),
+    auditResult:
+      typeof payload.auditResult === "string"
+        ? payload.auditResult
+        : typeof payload.auditOpinion === "string"
+          ? payload.auditOpinion
+          : undefined,
+    accountsReceivable: asNumber(payload.accountsReceivable ?? payload.accountReceivable ?? payload.ar),
+    contractLiabilities: asNumber(
+      payload.contractLiabilities ?? payload.contractLiability ?? payload.contractDebt,
+    ),
+    creditImpairmentLoss: asNumber(
+      payload.creditImpairmentLoss ?? payload.creditImpairLoss ?? payload.badDebtLoss,
+    ),
+    ebitda: asNumber(payload.ebitda ?? payload.ebitDa ?? payload.ebitdaTtm),
     operatingCashFlow: asNumber(payload.operatingCashFlow ?? payload.netCashflowOper),
     totalAssets: asNumber(payload.totalAssets),
     totalLiabilities: asNumber(payload.totalLiabilities),
