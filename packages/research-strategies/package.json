@@ -29,6 +29,7 @@
     "run:business-analysis": "node dist/packages/research-strategies/src/cli/business-analysis.js",
     "run:reports-site-emit": "node dist/packages/research-strategies/src/cli/reports-site-emit.js",
     "run:reports-site-sync": "node dist/packages/research-strategies/src/cli/reports-site-sync.js",
+    "run:reports-site-clear": "node dist/packages/research-strategies/src/cli/reports-site-clear.js",
     "run:websearch-smoke": "node dist/packages/research-strategies/src/cli/websearch-smoke.js",
     "run:screener": "node dist/packages/research-strategies/src/screener/cli.js",
     "quality:phase3-golden": "node dist/packages/research-strategies/src/quality/phase3-golden-check.js --suite all",

@@ -12,7 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
-      <div className="mx-auto flex h-16 max-w-[90rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-360 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           href="/reports"
           className="flex items-center text-gray-900 no-underline transition-opacity hover:opacity-80 dark:text-gray-100 dark:hover:opacity-80"
@@ -25,7 +25,9 @@ export function SiteHeader() {
             className="h-6 w-6 shrink-0 sm:h-6 sm:w-6"
             priority
           />
-          <span className="ml-2 font-bold text-base sm:text-lg">Trade Signal</span>
+          <span className="ml-2 font-bold text-base sm:text-lg">
+            Trade Signal
+          </span>
         </Link>
         <nav className="flex items-center gap-3 sm:gap-4" aria-label="主导航">
           <Link

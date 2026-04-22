@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
 import { TOPIC_LABEL_ZH, TOPIC_TYPES, type ReportTopicType } from "@/lib/reports/topic-labels";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const REPORTS_TIMEZONE = process.env.NEXT_PUBLIC_REPORTS_TIMEZONE?.trim() || "local";
 
 export type TimelineItem = {
   entryId: string;
@@ -27,6 +35,18 @@ function statusClass(s: TimelineItem["requiredFieldsStatus"]): string {
   if (s === "complete") return "rh-status rh-status--complete";
   if (s === "degraded") return "rh-status rh-status--degraded";
   return "rh-status rh-status--missing";
+}
+
+function formatIsoUtcText(value: string): string {
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return value;
+  if (REPORTS_TIMEZONE === "Asia/Shanghai") {
+    return `${parsed.tz("Asia/Shanghai").format("YYYY-MM-DD HH:mm:ss")} 北京时间`;
+  }
+  if (REPORTS_TIMEZONE !== "local") {
+    return `${parsed.tz(REPORTS_TIMEZONE).format("YYYY-MM-DD HH:mm:ss")} ${REPORTS_TIMEZONE}`;
+  }
+  return parsed.format("YYYY-MM-DD HH:mm:ss");
 }
 
 export function ReportsTimelineClient({
@@ -57,7 +77,7 @@ export function ReportsTimelineClient({
         <p className="rh-page-desc">按发布时间浏览报告，并可用专题、股票代码筛选。</p>
         {indexMeta ? (
           <p className="rh-page-meta">
-            索引 {indexMeta.version} · 生成 {indexMeta.generatedAt} · 条目 {indexMeta.entryCount}
+            索引 {indexMeta.version} · 生成 {formatIsoUtcText(indexMeta.generatedAt)} · 条目 {indexMeta.entryCount}
           </p>
         ) : null}
       </header>
@@ -113,7 +133,7 @@ export function ReportsTimelineClient({
                 {it.displayTitle}
               </Link>
               <div className="rh-card-meta">
-                <span>{it.publishedAt}</span>
+                <span title={it.publishedAt}>{formatIsoUtcText(it.publishedAt)}</span>
                 <span className="rh-pill">{TOPIC_LABEL_ZH[it.topicType]}</span>
                 <span>置信度 {it.confidenceState}</span>
                 <span className={statusClass(it.requiredFieldsStatus)}>字段 {statusBadge(it.requiredFieldsStatus)}</span>

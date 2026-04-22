@@ -23,6 +23,8 @@
     "test:screener": "pnpm run build && pnpm --filter @trade-signal/research-strategies run test:screener",
     "screener:run": "pnpm --filter @trade-signal/research-strategies run run:screener",
     "reports-site:emit": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-emit",
+    "reports-site:clear": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-clear --",
+    "reports:reset": "pnpm run reports-site:clear -- --target app --parts all",
     "sync:reports-to-app": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-sync",
     "sync:reports-to-docs": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-sync -- --legacy-docs"
   },

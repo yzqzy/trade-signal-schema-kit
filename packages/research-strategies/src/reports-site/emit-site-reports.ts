@@ -31,6 +31,17 @@ function dateKeyFromIso(iso: string): string {
   return iso.slice(0, 10);
 }
 
+function formatLocalDateTime(input: Date): string {
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  const y = input.getFullYear();
+  const m = pad(input.getMonth() + 1);
+  const d = pad(input.getDate());
+  const hh = pad(input.getHours());
+  const mm = pad(input.getMinutes());
+  const ss = pad(input.getSeconds());
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+}
+
 async function pathExists(p: string): Promise<boolean> {
   try {
     await readFile(p);
@@ -556,7 +567,7 @@ export async function rebuildSiteReportsIndex(siteDir: string): Promise<void> {
 
   const index: SiteReportsIndex = {
     version: "2.0",
-    generatedAt: new Date().toISOString(),
+    generatedAt: formatLocalDateTime(new Date()),
     entryCount: timeline.length,
     timelineHref: "/reports/",
   };
