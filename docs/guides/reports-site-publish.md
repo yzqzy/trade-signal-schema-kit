@@ -51,10 +51,25 @@ pnpm --filter @trade-signal/research-strategies run run:reports-site-sync -- \
 
 `workflow:run` / `business-analysis:run` 可选 **`--reports-site-dir output/site/reports`**：跑完后追加写入同一聚合目录。
 
-## GitHub Pages（仅站点子树）
+## GitHub Pages（本仓库 · Tag 发布）
+
+本仓库提供 GitHub Actions：推送 **`v*`** 标签后构建 `apps/research-hub` 静态导出并部署到 **GitHub Pages**（与 `trade-signal-docs` 的 `deploy.yml` 模式一致：`upload-pages-artifact` + `deploy-pages`）。
+
+- 工作流：[`.github/workflows/pages-deploy.yml`](../../.github/workflows/pages-deploy.yml)
+- 触发：`push` **`tags: ['v*']`**；另支持 **`workflow_dispatch`**（可选输入 `run_dir`：在构建前对指定 run 执行 `reports-site:emit` + `reports-site:sync` 写入 `apps/research-hub/public/reports`）。
+- 仓库设置：**Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**（首次需同意 Pages 权限）。
+- **项目页**（`https://<user>.github.io/<repo>/`）：CI 会设置 `NEXT_BASE_PATH=/<repo名>`，与 Next `basePath` / `assetPrefix` 对齐；站点入口为 **`/<repo>/reports/`**。
+- 本地模拟子路径构建：
+
+```bash
+NEXT_BASE_PATH=/你的仓库名 pnpm --filter @trade-signal/research-hub run build
+# 产物：apps/research-hub/out
+```
+
+## GitHub Pages（仅站点子树 · 通用说明）
 
 1. 在 CI 或本地生成并同步：`reports-site:emit` → `sync:reports-to-app`，再 `pnpm --filter @trade-signal/research-hub run build`（或直接部署 `output/site/reports` 子树）。
-2. 静态托管可将 **`research-hub/out/`** 作为站点根，入口 **`/reports/`**；若单独发布 `site/reports`，按托管商配置子路径。
+2. 静态托管可将 **`research-hub/out/`** 作为站点根，入口 **`/reports/`**；若单独发布 `site/reports`，按托管商配置子路径。兄弟仓库 **`trade-signal-docs`** 已有独立 Next 站点与 Pages 工作流，本仓研报子站与之解耦，仅文档上可对齐发布习惯。
 
 ## 与历史 HTML 产出的关系
 
