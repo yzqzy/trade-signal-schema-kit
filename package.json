@@ -27,8 +27,8 @@
     "reports:reset": "pnpm run reports-site:clear -- --target app --parts all",
     "sync:reports-to-app": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-sync",
     "sync:reports-to-docs": "pnpm run build && pnpm --filter @trade-signal/research-strategies run run:reports-site-sync -- --legacy-docs",
-    "release:show": "node scripts/release-tag.mjs --show",
-    "release:tag": "node scripts/release-tag.mjs"
+    "release": "node scripts/release-tag.mjs",
+    "release:show": "node scripts/release-tag.mjs --show"
   },
   "engines": {
     "node": ">=20"

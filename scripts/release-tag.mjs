@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /**
- * 最小化发版：同步根与 apps/research-hub 的 version，提交并打 v* 标签。
+ * 发版脚本（对齐 trade-signal-feed 风格）：同步 version、提交、打 tag、推送。
  *
  * 用法：
- *   pnpm run release:show
- *   pnpm run release:tag -- <X.Y.Z>
+ *   pnpm run release                 # patch +1
+ *   pnpm run release -- minor        # minor +1
+ *   pnpm run release -- major        # major +1
+ *   pnpm run release -- 0.2.3        # 指定版本
+ *   pnpm run release:show            # 查看当前版本
  */
 
 import fs from "node:fs";
@@ -15,7 +18,8 @@ import { execSync } from "node:child_process";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
-const SEMVER = /^\d+\.\d+\.\d+$/u;
+const SEMVER = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/u;
+const BUMP_TYPES = ["patch", "minor", "major"];
 
 const paths = {
   rootPkg: path.join(root, "package.json"),
@@ -46,9 +50,47 @@ function tagExists(tag) {
   }
 }
 
-function runTag(version) {
+function run(cmd, opts = {}) {
+  execSync(cmd, { cwd: root, stdio: "inherit", ...opts });
+}
+
+function cleanVersion(v) {
+  return (v || "0.0.0").replace(/-.*$/u, "");
+}
+
+function bumpVersion(current, type) {
+  const p = cleanVersion(current).split(".").map(Number);
+  while (p.length < 3) p.push(0);
+  if (type === "major") {
+    p[0] += 1;
+    p[1] = 0;
+    p[2] = 0;
+  } else if (type === "minor") {
+    p[1] += 1;
+    p[2] = 0;
+  } else {
+    p[2] += 1;
+  }
+  return p.slice(0, 3).join(".");
+}
+
+function resolveTargetVersion(arg) {
+  const rootPkg = readJson(paths.rootPkg);
+  const current = cleanVersion(rootPkg.version);
+  const type = !arg || arg === "patch" ? "patch" : arg;
+  if (BUMP_TYPES.includes(type)) {
+    const version = bumpVersion(current, type);
+    console.log(`Current ${current} -> ${type} => ${version}`);
+    return version;
+  }
+  if (SEMVER.test(arg)) return arg;
+  console.error("Usage: pnpm run release [patch|minor|major|X.Y.Z]");
+  process.exit(1);
+}
+
+function runRelease(version) {
   if (!SEMVER.test(version)) {
-    console.error(`Invalid version "${version}". Expected X.Y.Z (e.g. 0.2.0).`);
+    console.error(`Invalid version "${version}". Expected patch|minor|major|X.Y.Z`);
     process.exit(1);
   }
 
@@ -71,7 +113,7 @@ function runTag(version) {
     console.log(`Updated version to ${version} in package.json and apps/research-hub/package.json`);
   }
 
-  execSync("git add package.json apps/research-hub/package.json", { cwd: root, stdio: "inherit" });
+  run("git add package.json apps/research-hub/package.json");
 
   let hasStaged;
   try {
@@ -82,13 +124,17 @@ function runTag(version) {
   }
 
   if (hasStaged) {
-    execSync(`git commit -m "chore(release): ${gitTag}"`, { cwd: root, stdio: "inherit" });
+    run(`git commit -m "chore(release): ${gitTag}"`);
   } else {
     console.log("Nothing to commit (version files unchanged). Creating tag only.");
   }
 
-  execSync(`git tag ${gitTag}`, { cwd: root, stdio: "inherit" });
-  console.log(`Created tag ${gitTag}. Push with: git push && git push origin ${gitTag}`);
+  run(`git tag ${gitTag}`);
+  console.log(`Created tag ${gitTag}`);
+
+  run("git push");
+  run(`git push origin ${gitTag}`);
+  console.log(`Pushed commit + tag ${gitTag}`);
 }
 
 const arg = process.argv[2];
@@ -97,10 +143,4 @@ if (arg === "--show" || arg === "show") {
   process.exit(0);
 }
 
-if (!arg) {
-  console.error("Usage: pnpm run release:tag -- <X.Y.Z>");
-  console.error("       pnpm run release:show");
-  process.exit(1);
-}
-
-runTag(arg);
+runRelease(resolveTargetVersion(arg));
