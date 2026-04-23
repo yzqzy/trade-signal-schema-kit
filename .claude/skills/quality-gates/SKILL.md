@@ -1,43 +1,35 @@
 ---
 name: quality-gates
-description: "质量门禁：conformance → contract → regression → phase3-golden；另可跑 test:linkage 做链路结构烟测；regression/golden 支持 cn_a、hk、all 套件。"
+description: "质量门禁：conformance → contract → regression → phase3-golden；test:linkage 烟测；regression/golden 支持 cn_a、hk、all。"
 ---
 
-# quality-gates 规范
+## Purpose
 
-## 执行顺序（与 `quality:all` 一致）
+在变更后按固定顺序跑质量门禁，避免回归漂移；**不**替代业务编排或终稿收口。
 
-1. **conformance**：HTTP/MCP fixture 语义一致。
-2. **contract**：`output/phase3_golden/cn_a/` 下市场包与估值 JSON 结构契约。
-3. **regression**：对 golden 输入重跑 Phase3，规范化时间戳后与 `cn_a` / `hk` 基线比对哈希。
-4. **phase3-golden**：按各套件 `run/golden_manifest.json` 校验产出文件 sha256 + 字节数。
+## Scope / Boundary
 
-## 套件
+- **仅**脚本化校验（`pnpm run quality:*`、`test:linkage`）。
+- **不**修改产物、不写回终稿、不执行 `git commit`。
 
-| 套件 | 路径前缀 |
-|------|-----------|
-| cn_a | `output/phase3_golden/cn_a/` |
-| hk | `output/phase3_golden/hk/` |
-| all | 依次运行 cn_a + hk |
+## Execution Checklist
 
-`hk` 套件为黄金快照防回归；港股与 A 股同等深度的业务语义 **暂未与 cn_a 对齐**，后续里程碑补齐。
+1. `pnpm run quality:all`（或按仓库文档拆分步骤）。
+2. `pnpm run test:linkage`（链路结构烟测）。
+3. 按需：`pnpm --filter @trade-signal/research-strategies run quality:regression -- --suite hk|cn_a|all`。
+4. 按需：`pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --suite cn_a`。
 
-## 常用命令
+## Pass / Block Criteria
 
-```bash
-pnpm run quality:all
-pnpm run test:linkage
-pnpm --filter @trade-signal/research-strategies run quality:regression -- --suite hk
-pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --suite cn_a
-```
+| 结果 | 条件 |
+|------|------|
+| **通过** | 上述命令均以 0 退出 |
+| **阻断** | 任一门禁失败；更新 golden 后须同步 `golden_manifest` 与基线并复跑 |
 
-单 manifest 调试：
+## References
 
-```bash
-pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- \
-  --manifest ./output/phase3_golden/hk/run/golden_manifest.json
-```
-
-## 更新 golden 后
-
-- 同步更新对应 `run/golden_manifest.json` 与 `run/*` 基线文件，并跑 `pnpm run quality:all` 确认通过。
+- [Skill 统一模板](../../../docs/guides/skill-shared-skill-template.md)
+- 根目录 `package.json`：`quality:all`、`test:linkage`；`@trade-signal/research-strategies`：`quality:regression`、`quality:phase3-golden`
+- **顺序（与 `quality:all` 一致）**：conformance → contract → regression → phase3-golden
+- **套件路径**：`cn_a` → `output/phase3_golden/cn_a/`；`hk` → `output/phase3_golden/hk/`；`all` → 两者依次
+- 更新 golden 后：同步 `run/golden_manifest.json` 与基线文件，再跑 `pnpm run quality:all`

@@ -1,37 +1,39 @@
 ---
 name: repo-submit
-description: "Use when user asks to commit current changes in this repository."
+description: "在用户确认后，暂存并提交当前相关更改（conventional commits + 中文 message）。"
 ---
 
-# repo-submit
+## Purpose
 
-提交当前工作目录的更改。
+在明确授权下完成一次 **git commit**，避免误提交无关文件。
 
-## Instructions
+## Scope / Boundary
 
-⚠️ **必须先询问用户确认，未经允许不得执行！**
+- **仅**本地 `git add` + `git commit`；不 `push --force` 等破坏性操作。
+- **必须先**取得用户确认（未经允许不得执行 commit）。
 
-1. 运行 `git status` 查看未暂存的更改
-2. 运行 `git diff` 查看具体的更改内容
-3. 分析更改内容，使用中文生成合适的 commit message
-4. 使用 `git add` 暂存相关文件
-5. 使用 `git commit -m "<message>"` 提交，格式如下：
-   - feat: 新功能
-   - fix: 修复 bug
-   - perf: 性能优化
-   - refactor: 重构
-   - style: 代码样式调整
-   - docs: 文档更新
-   - test: 测试相关
-   - chore: 构建/工具链更新
-6. 尝试获取 git config user.email，如果获取成功则添加 Co-Authored-By: Claude <email>（其中 Claude 是固定值，email 动态获取），否则跳过此步骤
-7. 运行 `git status` 确认提交成功
+## Execution Checklist
+
+1. `git status` 查看未暂存更改。
+2. `git diff` 查看具体差异。
+3. 用中文生成合适 **conventional commits** 风格 message（feat/fix/docs/…）。
+4. `git add` 仅相关文件。
+5. `git commit -m "<message>"`；可选：若可读取 `git config user.email`，附加 `Co-Authored-By` 行。
+6. `git status` 确认提交成功。
+
+## Pass / Block Criteria
+
+| 结果 | 条件 |
+|------|------|
+| **完成** | 用户已确认且 commit 成功 |
+| **阻断** | 用户未确认 / 无有效改动 / 含无关文件且用户不同意暂存 |
+
+## References
+
+- [Skill 统一模板](../../../docs/guides/skill-shared-skill-template.md)
+- 路由入口：[`repo-router`](../repo-router/SKILL.md)
 
 ## Notes
 
-- commit message 使用中文
-- 只提交与当前任务相关的文件，避免提交无关更改
-- commit message 应该简洁描述本次更改的目的和内容
-- 遵循 conventional commits 规范
-- 永远不会执行破坏性操作如 git push --force
-- Co-Authored-By 部分需要动态获取 git config user.email，获取不到则不添加
+- message 简洁、中文为主；只提交与当前任务相关的文件。
+- 永不执行 `git push --force`。

@@ -8,7 +8,7 @@ argument-hint: [--code <股票代码>] [--year YYYY] [--pdf <path> | --report-ur
 ## 入口与执行映射
 
 - **入口（command）**：`/business-analysis`（参数、产物与 CLI 映射）
-- **默认执行 skill**：`business-analysis-finalize`（文件：`.claude/skills/business-analysis-finalize/SKILL.md`，负责 final-narrative 写回与失败阻断语义）
+- **默认执行 skill**：`business-analysis-finalize`（文件：`.claude/skills/business-analysis-finalize/SKILL.md`；**硬约束真源**：[skill-shared-final-narrative-criteria.md](../../docs/guides/skill-shared-final-narrative-criteria.md)、[skill-shared-pdf-gate-semantics.md](../../docs/guides/skill-shared-pdf-gate-semantics.md)）
 
 ## 单一路径（必读）
 
@@ -31,7 +31,7 @@ argument-hint: [--code <股票代码>] [--year YYYY] [--pdf <path> | --report-ur
 - 若 Phase1B 存在 **「未搜索到相关信息」**：须含 **`## 证据缺口清单（Phase1B）`**。
 - **PDF**：若无 `data_pack_report.md`，或 `gateVerdict` 为 **`CRITICAL`**：须按 skill 写 **`> …` 声明**，且 **不得**标 **`[终稿状态: 完成]`**（须 **阻断**）。若 `gateVerdict` 为 **`DEGRADED`**：仍须 **`> PDF 抽取质量声明`**，但在满足 skill 深度与其它硬约束时 **允许** **`[终稿状态: 完成]`**。
 
-未满足时：使用 skill 中的 **阻断模板**，文件末尾 **`[终稿状态: 阻断]`**，**不得**宣称终稿完成。细则见 `.claude/skills/business-analysis-finalize/SKILL.md` 与 [entrypoint-narrative-contract.md](../../docs/guides/entrypoint-narrative-contract.md)。
+未满足时：使用 [共享规范](../../docs/guides/skill-shared-final-narrative-criteria.md#阻断模板) 中的 **阻断模板**，文件末尾 **`[终稿状态: 阻断]`**，**不得**宣称终稿完成。入口见 `.claude/skills/business-analysis-finalize/SKILL.md` 与 [entrypoint-narrative-contract.md](../../docs/guides/entrypoint-narrative-contract.md)。
 
 ## PDF 默认尝试（编排层）
 

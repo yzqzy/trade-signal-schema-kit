@@ -181,7 +181,7 @@ Phase1A → Phase1B → Phase3 → ReportPolish → manifest
 
 ## 独立商业分析流程
 
-**Claude Code**：`/business-analysis`（见 `.claude/commands/business-analysis.md`）。**CLI**：`pnpm run business-analysis:run`（根目录）或包内 filter。默认收口 skill：`business-analysis-finalize`（文件：`.claude/skills/business-analysis-finalize/SKILL.md`）。
+**Claude Code**：`/business-analysis`（见 `.claude/commands/business-analysis.md`）。**CLI**：`pnpm run business-analysis:run`（根目录）或包内 filter。默认收口 skill：`business-analysis-finalize`（`.claude/skills/business-analysis-finalize/SKILL.md`；硬约束真源：[skill-shared-final-narrative-criteria.md](./skill-shared-final-narrative-criteria.md)、[skill-shared-pdf-gate-semantics.md](./skill-shared-pdf-gate-semantics.md)）。
 
 产出：`qualitative_report.md`、**`qualitative_d1_d6.md`**、`data_pack_market.md`、`phase1b_evidence_quality.json`（§7/§8 证据结构离线指标）、可选 `data_pack_report.md`、`business_analysis_manifest.json`。其中纯 CLI 路径下 `qualitative_*` 可为草稿；六维终稿以 Claude 会话写回为准。
 
@@ -404,12 +404,7 @@ pnpm --filter @trade-signal/research-strategies run quality:phase3-golden -- --s
 - 最小内容：结论、证据引用、参数化因子表
 - Phase1B 当前补充范围：§7 管理层与治理、§8 行业与竞争、§10 MD&A 摘要（中间产物保留来源 URL；终稿引用规则见下条）
 - 语义边界：该文件在纯 CLI 中不承诺等同 `final-narrative`；若需六维终稿，请在 Claude 会话执行收口流程（见 `entrypoint-narrative-contract.md`）。
-- **Claude 终稿（`business-analysis-finalize`）额外硬要求**（可读性 + 可审计）：
-  - **正文**：用 **`[E1]`…`[En]`**（及可选 **`[M:§x]`** 指 `data_pack_market.md` 章节）承载引用；**禁止正文出现裸 URL**；附录采用**本地路径优先**（如 `data_pack_report.md`/`phase1b_qualitative.md` + 章节或 `p.N`），仅在本地文件无法承载出处时保留外链。
-  - 须有独立小节 **`## 监管与合规要点`**（处罚/诉讼/内控审计/关联交易/治理变更等，**以证据包已有内容为准**；无证据则写入缺口，不得静默省略）。
-  - 若 `phase1b_qualitative.md` 出现 **`⚠️ 未搜索到相关信息`**：终稿须附 **`## 证据缺口清单（Phase1B）`**。
-  - **PDF**：若无 `data_pack_report.md`，或 `gateVerdict` 为 **`CRITICAL`**：须写 **`> …` 声明**，且 **不得**标 **`[终稿状态: 完成]`**（须 **`[终稿状态: 阻断]`**）。若 `gateVerdict` 为 **`DEGRADED`**（仅关键块低置信）：须写 **`> PDF 抽取质量声明`**，但在满足 skill 其它硬约束时 **允许** **`[终稿状态: 完成]`**（须明确置信边界与人工复核优先级，见 `data_pack_report` 头部 JSON）。编排层默认仍 **best-effort** 拉 PDF；强制交付级用 **`--strict`** 或显式 `--pdf`。
-  - 「终稿完成」语义以 [entrypoint-narrative-contract.md](./entrypoint-narrative-contract.md) 硬验收清单为准。
+- **Claude 终稿（`business-analysis-finalize`）**：可读性 + 可审计硬要求全文见 [skill-shared-final-narrative-criteria.md](./skill-shared-final-narrative-criteria.md) 与 [skill-shared-pdf-gate-semantics.md](./skill-shared-pdf-gate-semantics.md)；入口契约见 [entrypoint-narrative-contract.md](./entrypoint-narrative-contract.md)。
 
 ### `valuation_computed`（Stage E / Phase 3 中间产物）
 

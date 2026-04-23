@@ -1,14 +1,30 @@
 ---
 name: repo-status
-description: "Use when user asks to check git status, current branch, and recent commits."
+description: "查看 git status、当前分支、最近提交（只读）。"
 ---
 
-# repo-status
+## Purpose
 
-查看当前 git 仓库状态。
+快速了解工作区与分支状态，**不**修改仓库。
 
-## Instructions 
+## Scope / Boundary
 
-1. 运行 `git status` 查看状态
-2. 运行 `git branch` 查看当前分支
-3. 运行 `git log --oneline -5` 查看最近 5 条 commit
+- **仅**只读 Git 命令。
+- **不**暂存、提交、推送。
+
+## Execution Checklist
+
+1. `git status`
+2. `git branch`（或带当前分支标记的等价命令）
+3. `git log --oneline -5`
+
+## Pass / Block Criteria
+
+| 结果 | 条件 |
+|------|------|
+| **完成** | 三条命令均执行并汇总输出给用户 |
+
+## References
+
+- [Skill 统一模板](../../../docs/guides/skill-shared-skill-template.md)
+- 路由入口：[`repo-router`](../repo-router/SKILL.md)

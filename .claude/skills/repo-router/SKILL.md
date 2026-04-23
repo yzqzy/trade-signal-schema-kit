@@ -1,21 +1,30 @@
 ---
 name: repo-router
-description: "Use when user asks for git 状态检查、提交当前更改、查看最近提交等仓库操作。路由到 repo-status 与 repo-submit。"
+description: "Git 状态 / 提交等仓库操作：路由到 repo-status 与 repo-submit。"
 ---
 
-# repo-router（仓库操作路由）
+## Purpose
 
-本技能用于承接仓库操作类需求（Git 状态、提交），与视频生产能力解耦。
+承接「看状态」vs「做提交」类需求，避免与研究工作流 skill 混淆。
 
-## 子技能表
+## Scope / Boundary
 
-| 子技能 | 说明 | 触发场景 |
-|--------|------|----------|
-| repo-status | 查看当前仓库状态 | git status、当前分支、最近提交 |
-| repo-submit | 提交当前工作目录更改 | 提交代码、生成 commit message、只提交相关文件 |
+- **仅** Git 只读或经确认的提交（由子 skill 执行）。
+- **不**跑 workflow、business-analysis、质量门禁（除非用户显式要求顺序组合）。
 
-## 路由规则
+## Execution Checklist
 
-1. 看当前仓库状态 / 当前分支 / 最近 commit → 使用 `repo-status`。
-2. 提交当前改动 / 帮我 commit → 使用 `repo-submit`。
-3. 仓库操作与内容制作并行时，先完成内容改动，再执行 `repo-submit`。
+1. 判断意图：状态 / 分支 / log → **`repo-status`**；提交 → **`repo-submit`**。
+2. 仓库操作与代码改动并行时：**先**完成改动与测试，**再** `repo-submit`。
+
+## Pass / Block Criteria
+
+| 场景 | 动作 |
+|------|------|
+| 仅查询 | 使用 `repo-status`，无需确认 |
+| 提交 | 使用 `repo-submit`；须遵守其子 skill 的用户确认规则 |
+
+## References
+
+- [Skill 统一模板](../../../docs/guides/skill-shared-skill-template.md)
+- 子 skill：[`repo-status`](../repo-status/SKILL.md)（只读状态）、[`repo-submit`](../repo-submit/SKILL.md)（需用户确认后提交）

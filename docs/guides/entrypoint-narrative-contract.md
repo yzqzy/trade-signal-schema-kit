@@ -28,7 +28,7 @@
 ### 商业分析（`/business-analysis`）
 
 1. **证据产物**（CLI 或 Slash 触发的同一套编排）：`data_pack_market.md` +（有 PDF 时）`data_pack_report.md` + `phase1b_qualitative.{json,md}` 等。
-2. **AI 六维叙事收口（Claude）**：在 Claude Code 会话中，执行 skill `business-analysis-finalize`（文件：`.claude/skills/business-analysis-finalize/SKILL.md`），用证据包与 Phase1B 结构生成终稿叙事，**写回** run 目录下的：
+2. **AI 六维叙事收口（Claude）**：在 Claude Code 会话中，执行 skill `business-analysis-finalize`（入口：`.claude/skills/business-analysis-finalize/SKILL.md`；**硬约束全文**：[skill-shared-final-narrative-criteria.md](./skill-shared-final-narrative-criteria.md)、[skill-shared-pdf-gate-semantics.md](./skill-shared-pdf-gate-semantics.md)），用证据包与 Phase1B 结构生成终稿叙事，**写回** run 目录下的：
    - `qualitative_report.md`（终稿）
    - `qualitative_d1_d6.md`（填充稿，替换仅表格/骨架占位）
 3. 若需全链路或估值，再按 manifest 建议命令衔接 `/workflow-analysis` 或 `/valuation`。
@@ -57,7 +57,7 @@
 
 ## 「终稿完成」硬验收清单（business-analysis）
 
-以下**全部满足**才可对外称 **final-narrative 已完成**并使用 **`[终稿状态: 完成]`**；否则须 **`[终稿状态: 阻断]`**（见 `.claude/skills/business-analysis-finalize/SKILL.md`）。
+以下**全部满足**才可对外称 **final-narrative 已完成**并使用 **`[终稿状态: 完成]`**；否则须 **`[终稿状态: 阻断]`**（细则见 [skill-shared-final-narrative-criteria.md](./skill-shared-final-narrative-criteria.md) 与 skill 入口 `.claude/skills/business-analysis-finalize/SKILL.md`）。
 
 1. **呈现**：`qualitative_report.md` 与 `qualitative_d1_d6.md` **正文无裸 URL**；均有 **`## 附录：证据索引`**（`[E*]` / `[M:§x]` 映射完整）。
 2. **`qualitative_d1_d6.md`**：`D1`~`D6` 每节至少 **1** 条 **`[E*]`** 或 **`[M:§x]`**。
