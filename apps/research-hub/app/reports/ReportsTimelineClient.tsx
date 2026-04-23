@@ -75,6 +75,9 @@ export function ReportsTimelineClient({
       <header className="rh-page-header">
         <h1 className="rh-page-title">报告中心</h1>
         <p className="rh-page-desc">按发布时间浏览报告，并可用专题、股票代码筛选。</p>
+        <p className="rh-page-desc">
+          <Link href="/reports/methodology">查看：穿透收益率与前置筛选说明</Link>
+        </p>
         {indexMeta ? (
           <p className="rh-page-meta">
             索引 {indexMeta.version} · 生成 {formatIsoUtcText(indexMeta.generatedAt)} · 条目 {indexMeta.entryCount}

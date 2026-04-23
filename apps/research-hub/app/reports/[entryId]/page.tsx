@@ -108,6 +108,9 @@ export default async function ReportEntryPage({ params }: { params: Promise<{ en
             <span className="rh-pill rh-pill--mono">run {meta.sourceRunId}</span>
             <span className="rh-pill">置信度 {meta.confidenceState}</span>
             <span className={metaStatusClass(meta.requiredFieldsStatus)}>字段 {meta.requiredFieldsStatus}</span>
+            <Link className="rh-pill" href="/reports/methodology">
+              公式说明
+            </Link>
           </div>
         </div>
       </header>

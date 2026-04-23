@@ -49,6 +49,7 @@ function riskCn(v: string): string {
   if (t === "high") return "高";
   if (t === "medium") return "中";
   if (t === "low") return "低";
+  if (t === "not_evaluated") return "暂未评估（前置筛选结束）";
   if (t === "unknown") return "未判定";
   return v;
 }
@@ -84,10 +85,18 @@ function RhMetadataCard({ raw }: { raw: string }) {
     switch (k) {
       case "decision":
         return "决策";
+      case "decision_source":
+        return "决策来源";
       case "confidence":
         return "置信度";
+      case "confidence_source":
+        return "置信来源";
+      case "analysis_stage":
+        return "分析阶段";
       case "trap_risk":
         return "风险等级";
+      case "trap_risk_source":
+        return "风险评估来源";
       case "position":
         return "仓位建议";
       default:
@@ -99,6 +108,16 @@ function RhMetadataCard({ raw }: { raw: string }) {
     if (key === "decision") return decisionCn(value);
     if (key === "confidence") return confidenceCn(value);
     if (key === "trap_risk") return riskCn(value);
+    if (key === "decision_source" && value === "factor4_decision") return "完整流程（含因子4）";
+    if (key === "decision_source" && value.startsWith("early_reject_")) return "前置筛选结论";
+    if (key === "confidence_source" && value === "factor_votes") return "因子投票";
+    if (key === "confidence_source" && value === "early_reject_default") return "前置筛选默认置信";
+    if (key === "analysis_stage" && value === "factor4_complete") return "完整评估";
+    if (key === "analysis_stage" && value === "early_reject") return "前置筛选结束";
+    if (key === "trap_risk_source" && value === "factor4") return "因子4评估";
+    if (key === "trap_risk_source" && value === "not_evaluated_due_to_early_reject") {
+      return "因前置筛选结束未进入风险评估";
+    }
     return value;
   };
 

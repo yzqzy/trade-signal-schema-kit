@@ -42,11 +42,30 @@ function asCalculationBlockquote(lines: string[]): string {
  * 机器可读投资结论块（`rh-metadata`），由 `research-hub` 渲染为标签卡片。
  * 仅使用 `key: value` 行，避免在 Markdown 中嵌入 HTML。
  */
-function buildInvestmentVerdictBlock(report: AnalysisReport, f4: Factor4Result | undefined): string {
+function buildInvestmentVerdictBlock(
+  report: AnalysisReport,
+  f4: Factor4Result | undefined,
+  opts?: {
+    reportMode?: "full" | "reject";
+    rejectType?: string;
+  },
+): string {
   const trap = f4?.trapRisk;
-  const trapNorm =
-    trap === "low" || trap === "medium" || trap === "high" ? trap : trap && trap !== "—" ? trap : "unknown";
+  const rejectMode = opts?.reportMode === "reject";
+  const trapNorm = rejectMode
+    ? "not_evaluated"
+    : trap === "low" || trap === "medium" || trap === "high"
+      ? trap
+      : trap && trap !== "—"
+        ? trap
+        : "unknown";
   const pos = (f4?.position ?? "—").replace(/\s+/g, " ").trim() || "—";
+  const analysisStage = rejectMode ? "early_reject" : "factor4_complete";
+  const decisionSource = rejectMode
+    ? `early_reject_${(opts?.rejectType ?? "unknown").toLowerCase()}`
+    : "factor4_decision";
+  const confidenceSource = rejectMode ? "early_reject_default" : "factor_votes";
+  const trapRiskSource = rejectMode ? "not_evaluated_due_to_early_reject" : "factor4";
   return [
     "## 投资结论",
     "",
@@ -54,8 +73,12 @@ function buildInvestmentVerdictBlock(report: AnalysisReport, f4: Factor4Result |
     "",
     "```rh-metadata",
     `decision: ${report.decision}`,
+    `decision_source: ${decisionSource}`,
     `confidence: ${report.confidence ?? "medium"}`,
+    `confidence_source: ${confidenceSource}`,
+    `analysis_stage: ${analysisStage}`,
     `trap_risk: ${trapNorm}`,
+    `trap_risk_source: ${trapRiskSource}`,
     `position: ${pos}`,
     "```",
     "",
@@ -64,17 +87,18 @@ function buildInvestmentVerdictBlock(report: AnalysisReport, f4: Factor4Result |
 
 function renderPhase3RejectMarkdown(result: Phase3ExecutionResult): string {
   const report = result.report;
+  const rejectType = result.factor2?.rejectType ?? "unknown";
   const blocks = report.sections.map((s) => [`### ${s.heading}`, "", s.content.trim(), ""].join("\n"));
   return [
     `# ${report.title}`,
     "",
-    buildInvestmentVerdictBlock(report, result.factor4),
-    "> **报告类型：REJECT（早停）** — 仅输出否决因子、阈值对比与补救指引；不包含完整因子 3/4 定量展开，避免无意义 `—` 占位。",
+    buildInvestmentVerdictBlock(report, result.factor4, { reportMode: "reject", rejectType }),
+    "> **结果：前置筛选结束（非异常）** — 因子2-S4（穿透收益率不足），当前为前置筛选结论。",
     "",
     ...blocks,
     "---",
     "",
-    "*本模板由 `reportMode=reject` 触发；完整分析请解决否决项后重跑。*",
+    "*本模板由 `reportMode=reject` 触发；若需完整因子3/4结论，请先修复穿透收益率阈值问题后重跑。*",
     "",
   ].join("\n");
 }
@@ -103,7 +127,7 @@ export function renderPhase3Markdown(result: Phase3ExecutionResult): string {
     "",
   ].join("\n");
 
-  const verdict = buildInvestmentVerdictBlock(report, f4);
+  const verdict = buildInvestmentVerdictBlock(report, f4, { reportMode: "full" });
 
   const execSummary = [
     "## 一、Executive Summary（执行摘要）",

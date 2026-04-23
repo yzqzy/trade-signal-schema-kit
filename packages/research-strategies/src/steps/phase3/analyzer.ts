@@ -58,20 +58,42 @@ function buildRejectReport(
   companyName: string | undefined,
   reason: string,
   checkpoints: string[],
-  opts?: { thresholdCompare?: string },
+  opts?: {
+    thresholdCompare?: string;
+    executedFactors?: string[];
+    skippedFactors?: string[];
+    humanReason?: string;
+    formulaSummary?: string;
+  },
 ): AnalysisReport {
   const label =
     companyName?.trim() && companyName.trim() !== code ? `${companyName.trim()}（${code}）` : code;
   const sections: AnalysisReport["sections"] = [
-    { heading: "否决摘要（早停）", content: reason },
+    { heading: "否决摘要（前置筛选结束）", content: reason },
   ];
+  if (opts?.humanReason?.trim()) {
+    sections.push({ heading: "前置筛选说明（人话）", content: opts.humanReason.trim() });
+  }
   if (opts?.thresholdCompare?.trim()) {
     sections.push({ heading: "关键阈值对比", content: opts.thresholdCompare.trim() });
+  }
+  if (opts?.formulaSummary?.trim()) {
+    sections.push({ heading: "计算口径说明（简版）", content: opts.formulaSummary.trim() });
+  }
+  if ((opts?.executedFactors?.length ?? 0) > 0 || (opts?.skippedFactors?.length ?? 0) > 0) {
+    sections.push({
+      heading: "执行范围",
+      content: [
+        `- 已执行：${opts?.executedFactors?.join("、") ?? "—"}`,
+        `- 未执行：${opts?.skippedFactors?.join("、") ?? "—"}`,
+      ].join("\n"),
+    });
   }
   sections.push({ heading: "Checkpoint 轨迹", content: checkpoints.join("\n\n") || "(无)" });
   sections.push({
     heading: "证据与数据缺口 / 补救建议",
     content: [
+      "- 主因定位：本次前置筛选结束触发于**因子2（穿透收益率不足）**，请优先复核 `R`、`rf`、`II` 与市值口径。",
       "- 核对 `data_pack_market.md`：财务口径（合并/母公司）、OCF/Capex/净利润等关键行是否可解析。",
       "- 若已进入 PDF 分支：查看 `data_pack_report.md` 顶部 **PDF 抽取缺陷摘要** 与 `phase3_preflight.md` 的 PDF 门禁提示。",
       "- Phase1B 外部证据：查看 `phase1b_evidence_quality.json`（§8 `topicHitRatio` / `crossItemDuplicateUrlRatio`）与 `phase1b_qualitative.json` 的 `retrievalDiagnostics`（宽召回 / AI 重排标记）。",
@@ -164,6 +186,10 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
   const f2 = runFactor2(ctx.marketPack, f1b);
   appendCheckpoint(ctx, `因子2: ${f2.passed ? "通过" : f2.reason}`);
   if (!f2.passed) {
+    const factor2Reason =
+      f2.rejectType === "S4"
+        ? "因子2-S4（穿透收益率不足）｜研报结论：回报率显著低于门槛"
+        : f2.reason ?? "因子2否决";
     const thresholdCompare =
       f2.R !== undefined && f2.II !== undefined
         ? [
@@ -175,12 +201,27 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
             .filter(Boolean)
             .join("\n")
         : undefined;
+    const formulaSummary = [
+      "- 穿透收益率口径：`R = I / 市值`。",
+      "- 门槛口径：`II = max(3.5%, rf + 2%)`。",
+      "- S4 触发条件：`R < rf` 或 `R < II*0.5`。",
+    ].join("\n");
+    const humanReason =
+      f2.R !== undefined && f2.II !== undefined
+        ? `这次不是程序异常，而是前置筛选结束。因为穿透收益率 R=${f2.R.toFixed(2)}% 明显低于门槛（II=${f2.II.toFixed(2)}%，且低于 Rf=${(ctx.marketPack.rf ?? 2.5).toFixed(2)}%），因此不再进入后续因子计算。`
+        : "这次不是程序异常，而是前置筛选结束。主因是穿透收益率不足，未满足策略最低门槛。";
     const report = buildRejectReport(
       ctx.marketPack.code,
       ctx.marketPack.name,
-      f2.reason ?? "因子2否决",
+      factor2Reason,
       ctx.checkpoints,
-      thresholdCompare ? { thresholdCompare } : undefined,
+      {
+        thresholdCompare,
+        humanReason,
+        formulaSummary,
+        executedFactors: ["因子1A", "因子1B", "因子2"],
+        skippedFactors: ["因子3", "因子4"],
+      },
     );
     return {
       valuation: {

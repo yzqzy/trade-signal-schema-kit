@@ -20,6 +20,10 @@ description: "`workflow:run --mode turtle-strict`：TS 跑严格证据链与 Pha
    - Phase1A 后跑 **Pre-flight**（`[strict:preflight]`）。
    - 缺 `data_pack_report.md` 时 **fail-fast**（`[strict:workflow:strict]`）。
 3. **（默认）Claude 收口**：在 `data_pack_market.md`、（若有）`data_pack_report.md`、Phase1B 与 Phase3 报告就绪后，于会话内完成与策略一致的定性终稿补强；证据不足时 **明确阻断**，不宣称已完成终稿。
+4. **自动触发约定（新增）**：当用户通过 `/workflow-analysis` 发起且编排成功后，助手应**直接执行**终稿补强（写回 run 目录目标文件），**不需要二次询问**「是否继续补强」。仅在以下情形才允许先确认：
+   - 用户明确要求「仅跑 CLI 产物/先不写回」；
+   - 将覆盖用户刚手改但未确认保留的终稿文件；
+   - 证据门禁触发阻断（例如 `gateVerdict=CRITICAL` 或缺核心输入）需要用户先补链。
 
 ## 关键差异（`standard` vs `turtle-strict`）
 
