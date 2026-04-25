@@ -25,7 +25,7 @@ export interface RunWorkflowInput {
   refreshMarket?: boolean;
   preflightRemedyPass?: number;
   /**
-   * 从 `workflow_graph_checkpoint.json` 续跑：仅重跑自 Stage B 或 D 起的子链（需相同 `--output-dir`）。
+   * 从 `workflow_checkpoint.json` 续跑：仅重跑自 Stage B 或 D 起的子链（需相同 `--output-dir`）。
    */
   resumeFromStage?: "B" | "D";
   /** 显式 run id；默认由编排生成 UUID */

@@ -50,12 +50,12 @@
     "test:screener": "node dist/packages/research-runtime/src/tests/screener-smoke.js"
   },
   "dependencies": {
-    "@langchain/langgraph": "0.2.74",
     "@trade-signal/provider-http": "workspace:*",
-    "@trade-signal/research-adapters": "workspace:*",
     "@trade-signal/research-contracts": "workspace:*",
-    "@trade-signal/research-pipelines": "workspace:*",
-    "@trade-signal/research-registry": "workspace:*",
+    "@trade-signal/research-feature": "workspace:*",
+    "@trade-signal/research-policy": "workspace:*",
+    "@trade-signal/research-selection": "workspace:*",
+    "@trade-signal/research-topic": "workspace:*",
     "@trade-signal/schema-core": "workspace:*",
     "dotenv": "^17.2.3",
     "file-type": "^22.0.1",

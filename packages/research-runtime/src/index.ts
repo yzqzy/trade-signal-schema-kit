@@ -36,9 +36,11 @@ export * from "./contracts/report-conflict-log.js";
 export * from "./contracts/report-topic-contract.js";
 export * from "./contracts/report-index-contract.js";
 export * from "@trade-signal/research-contracts";
-export * from "@trade-signal/research-registry";
-export * from "@trade-signal/research-adapters";
-export * from "@trade-signal/research-pipelines";
+export * from "@trade-signal/research-feature";
+export * from "@trade-signal/research-policy";
+export * from "@trade-signal/research-topic";
+export * from "@trade-signal/research-selection";
+export { bootstrapV2PluginRegistry } from "./bootstrap/v2-plugin-registry.js";
 export * from "./strategy/contracts.js";
 export { createTurtleStrategyPlugin } from "./strategy/turtle/plugin.js";
 export { createValueV1StrategyPlugin } from "./strategy/value-v1/plugin.js";
@@ -46,7 +48,7 @@ export { resolveWorkflowStrategyPlugin } from "./strategy/registry.js";
 export {
   createDefaultWorkflowOrchestratorAdapter,
   type OrchestratorAdapter,
-} from "./runtime/graph/workflow-orchestrator-adapter.js";
+} from "./runtime/workflow/orchestrator-adapter.js";
 export { buildMarketPackMarkdown } from "./runtime/workflow/build-market-pack.js";
 export { runPreflightAfterPhase1A } from "./crosscut/preflight/preflight.js";
 export { normalizeCodeForFeed } from "./crosscut/normalization/normalize-stock-code.js";

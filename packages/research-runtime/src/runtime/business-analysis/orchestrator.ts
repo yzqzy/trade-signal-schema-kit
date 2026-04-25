@@ -12,7 +12,7 @@ import {
   strictBusinessAnalysisMissingReportPack,
 } from '../../crosscut/preflight/strict-mode-message.js';
 import { renderPhase1BMarkdown } from '../../steps/phase1b/renderer.js';
-import { resolveWorkflowThreadId } from '../../runtime/graph/langgraph/invoke-workflow-graph.js';
+import { resolveWorkflowThreadId } from "../workflow/pipeline/invoke-pipeline.js";
 import {
   executeWorkflowDataPipeline,
   type RunWorkflowInput,

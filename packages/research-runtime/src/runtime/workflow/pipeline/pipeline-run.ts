@@ -1,4 +1,4 @@
-import type { WorkflowGraphState } from "./workflow-state.js";
+import type { WorkflowRunState } from "./run-state.js";
 import {
   nodeFinalizeManifest,
   nodeInitPrep,
@@ -10,12 +10,12 @@ import {
   nodeStageE,
   routeAfterB,
   routeAfterInit,
-} from "./workflow-nodes.js";
+} from "./stage-nodes.js";
 
-function mergeWorkflowState(
-  base: WorkflowGraphState,
-  patch: Partial<WorkflowGraphState>,
-): WorkflowGraphState {
+function mergeRunState(
+  base: WorkflowRunState,
+  patch: Partial<WorkflowRunState>,
+): WorkflowRunState {
   const left = base.completedStages ?? [];
   const right = patch.completedStages ?? [];
   const completedStages = [...new Set([...left, ...right])];
@@ -23,30 +23,30 @@ function mergeWorkflowState(
 }
 
 /**
- * Phase0–1B +（条件）2A/2B + Phase3 preflight，与旧 LangGraph pipeline 图等价。
+ * Phase0–1B +（条件）2A/2B + Phase3 preflight；分支与顺序与 `stage-nodes` 中路由一致。
  */
-export async function runWorkflowPipeline(initial: WorkflowGraphState): Promise<WorkflowGraphState> {
-  let state = mergeWorkflowState(initial, await nodeInitPrep(initial));
+export async function runWorkflowPipeline(initial: WorkflowRunState): Promise<WorkflowRunState> {
+  let state = mergeRunState(initial, await nodeInitPrep(initial));
   const afterInit = routeAfterInit(state);
   if (afterInit === "stageB") {
-    state = mergeWorkflowState(state, await nodeStageB(state));
+    state = mergeRunState(state, await nodeStageB(state));
     const afterB = routeAfterB(state);
     if (afterB === "stageD") {
-      state = mergeWorkflowState(state, await nodeStageD(state));
+      state = mergeRunState(state, await nodeStageD(state));
     }
   } else {
-    state = mergeWorkflowState(state, await nodeStageD(state));
+    state = mergeRunState(state, await nodeStageD(state));
   }
-  state = mergeWorkflowState(state, await nodeStageC(state));
-  state = mergeWorkflowState(state, await nodePreflight3(state));
+  state = mergeRunState(state, await nodeStageC(state));
+  state = mergeRunState(state, await nodePreflight3(state));
   return state;
 }
 
 /** 完整 workflow：pipeline + Stage E + ReportPolish + manifest。 */
-export async function runWorkflowFull(initial: WorkflowGraphState): Promise<WorkflowGraphState> {
+export async function runWorkflowFull(initial: WorkflowRunState): Promise<WorkflowRunState> {
   let state = await runWorkflowPipeline(initial);
-  state = mergeWorkflowState(state, await nodeStageE(state));
-  state = mergeWorkflowState(state, await nodeReportPolish(state));
-  state = mergeWorkflowState(state, await nodeFinalizeManifest(state));
+  state = mergeRunState(state, await nodeStageE(state));
+  state = mergeRunState(state, await nodeReportPolish(state));
+  state = mergeRunState(state, await nodeFinalizeManifest(state));
   return state;
 }

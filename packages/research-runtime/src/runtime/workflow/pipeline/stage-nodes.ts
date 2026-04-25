@@ -30,7 +30,7 @@ import {
 import { buildMarketPackMarkdown } from "../../workflow/build-market-pack.js";
 import { refreshMarketPackMarkdown } from "../../workflow/refresh-market-pack.js";
 import { readWorkflowCheckpoint, writeWorkflowCheckpoint, type WorkflowCheckpointFile } from "./checkpoint-io.js";
-import type { WorkflowGraphState } from "./workflow-state.js";
+import type { WorkflowRunState } from "./run-state.js";
 
 function asYear(value?: string): string {
   if (value && /^\d{4}$/.test(value)) return value;
@@ -51,7 +51,7 @@ async function readUtf8Optional(filePath?: string): Promise<string | undefined> 
   }
 }
 
-function mergeCompletedStages(state: WorkflowGraphState, stage: string): string[] {
+function mergeCompletedStages(state: WorkflowRunState, stage: string): string[] {
   return Array.from(new Set([...(state.completedStages ?? []), stage]));
 }
 
@@ -60,7 +60,7 @@ async function persistCheckpoint(
   runId: string,
   threadId: string,
   completedStages: string[],
-  state: WorkflowGraphState,
+  state: WorkflowRunState,
 ): Promise<void> {
   const payload: WorkflowCheckpointFile = {
     version: "1",
@@ -101,7 +101,7 @@ async function persistCheckpoint(
   await writeWorkflowCheckpoint(outputDir, payload);
 }
 
-export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeInitPrep(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const runId = input.runId ?? randomUUID();
   const threadId = runId;
@@ -109,7 +109,7 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
   if (input.resumeFromStage) {
     if (!input.outputDir?.trim()) {
       throw new Error(
-        "[workflow] output v2 续跑必须提供 --output-dir，指向含 workflow_graph_checkpoint.json 的 run 根目录（例如 output/workflow/600887/<runId>/）",
+        "[workflow] output v2 续跑必须提供 --output-dir，指向含 workflow_checkpoint.json 的 run 根目录（例如 output/workflow/600887/<runId>/）",
       );
     }
   }
@@ -155,7 +155,7 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
     const cp = await readWorkflowCheckpoint(outputDir);
     if (!cp) {
       throw new Error(
-        `[workflow] resumeFromStage=${input.resumeFromStage} 但缺少 ${path.join(outputDir, "workflow_graph_checkpoint.json")}`,
+        `[workflow] resumeFromStage=${input.resumeFromStage} 但缺少 ${path.join(outputDir, "workflow_checkpoint.json")}`,
       );
     }
     const inputPdf = input.pdfPath?.trim() ? path.resolve(input.pdfPath.trim()) : undefined;
@@ -176,7 +176,7 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
     }
 
     const resumedStages = Array.from(new Set([...(cp.completedStages ?? []), "initPrep"]));
-    const merged: Partial<WorkflowGraphState> = {
+    const merged: Partial<WorkflowRunState> = {
       runId: cp.runId,
       threadId: cp.threadId,
       normalizedCode: cp.snapshot.normalizedCode ?? normalizedCode,
@@ -210,7 +210,7 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
       completedStages: resumedStages,
       resumeLoaded: true,
     };
-    const mergedFull = { ...state, ...merged, input } as WorkflowGraphState;
+    const mergedFull = { ...state, ...merged, input } as WorkflowRunState;
     await persistCheckpoint(outputDir, cp.runId, cp.threadId, resumedStages, mergedFull);
     return merged;
   }
@@ -231,7 +231,7 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
   pdfPath = ensuredPdf.pdfPath ?? pdfPath;
   reportUrlResolved = ensuredPdf.reportUrlResolved ?? reportUrlResolved;
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     runId,
     threadId,
     normalizedCode,
@@ -251,11 +251,11 @@ export async function nodeInitPrep(state: WorkflowGraphState): Promise<Partial<W
     ...next,
     input,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeStageB(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeStageB(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const normalizedCode = state.normalizedCode!;
   const outputDir = state.outputDir!;
@@ -293,7 +293,7 @@ export async function nodeStageB(state: WorkflowGraphState): Promise<Partial<Wor
 
   const resolvedCompanyName = input.companyName ?? phase1a.instrument.name ?? normalizedCode;
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     phase1aJsonPath,
     marketPackPath,
     marketPackMarkdown,
@@ -306,21 +306,21 @@ export async function nodeStageB(state: WorkflowGraphState): Promise<Partial<Wor
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeStageD(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeStageD(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const pdfPath = state.pdfPath;
   const outputDir = state.outputDir!;
   if (!pdfPath) {
     const mergedStages = mergeCompletedStages(state, "stageD_skipped");
-    const patch: Partial<WorkflowGraphState> = { completedStages: ["stageD_skipped"] };
+    const patch: Partial<WorkflowRunState> = { completedStages: ["stageD_skipped"] };
     await persistCheckpoint(outputDir, state.runId!, state.threadId!, mergedStages, {
       ...state,
       ...patch,
       completedStages: mergedStages,
-    } as WorkflowGraphState);
+    } as WorkflowRunState);
     return patch;
   }
   const phase2aJsonPath = path.join(outputDir, "pdf_sections.json");
@@ -334,7 +334,7 @@ export async function nodeStageD(state: WorkflowGraphState): Promise<Partial<Wor
   const phase2bMarkdownPath = path.join(outputDir, "data_pack_report.md");
   await writeText(phase2bMarkdownPath, reportPackMarkdown);
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     phase2aJsonPath,
     phase2bMarkdownPath,
     reportPackMarkdown,
@@ -345,11 +345,11 @@ export async function nodeStageD(state: WorkflowGraphState): Promise<Partial<Wor
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeStageC(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const normalizedCode = state.normalizedCode!;
   const outputDir = state.outputDir!;
@@ -374,7 +374,7 @@ export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<Wor
     JSON.stringify(computePhase1bEvidenceQualityMetrics(phase1b), null, 2),
   );
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     phase1b,
     phase1bJsonPath,
     phase1bMarkdownPath,
@@ -385,11 +385,11 @@ export async function nodeStageC(state: WorkflowGraphState): Promise<Partial<Wor
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodePreflight3(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodePreflight3(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const outputDir = state.outputDir!;
   const marketPackMarkdown = state.marketPackMarkdown!;
@@ -417,7 +417,7 @@ export async function nodePreflight3(state: WorkflowGraphState): Promise<Partial
     }
   }
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     phase3PreflightPath,
     phase3PreflightVerdict: phase3Preflight.verdict,
     phase3PreflightMarkdown: phase3Preflight.markdown,
@@ -429,11 +429,11 @@ export async function nodePreflight3(state: WorkflowGraphState): Promise<Partial
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeStageE(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeStageE(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const outputDir = state.outputDir!;
   const marketPackMarkdown = state.marketPackMarkdown!;
@@ -465,7 +465,7 @@ export async function nodeStageE(state: WorkflowGraphState): Promise<Partial<Wor
   );
   await writeText(reportMarkdownPath, reportMarkdown);
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     phase3Execution,
     valuationPath,
     reportMarkdownPath,
@@ -476,11 +476,11 @@ export async function nodeStageE(state: WorkflowGraphState): Promise<Partial<Wor
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeReportPolish(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeReportPolish(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const outputDir = state.outputDir!;
   const phase3Execution = state.phase3Execution;
   if (!phase3Execution) {
@@ -518,7 +518,7 @@ export async function nodeReportPolish(state: WorkflowGraphState): Promise<Parti
   await writeText(penetrationReturnMarkdownPath, rendered.penetrationReturnMarkdown);
   await writeText(valuationTopicMarkdownPath, rendered.valuationMarkdown);
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     reportViewModelPath,
     turtleOverviewMarkdownPath,
     businessQualityMarkdownPath,
@@ -531,11 +531,11 @@ export async function nodeReportPolish(state: WorkflowGraphState): Promise<Parti
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export async function nodeFinalizeManifest(state: WorkflowGraphState): Promise<Partial<WorkflowGraphState>> {
+export async function nodeFinalizeManifest(state: WorkflowRunState): Promise<Partial<WorkflowRunState>> {
   const input = state.input;
   const outputDir = state.outputDir!;
   const normalizedCode = state.normalizedCode!;
@@ -625,7 +625,7 @@ export async function nodeFinalizeManifest(state: WorkflowGraphState): Promise<P
   };
   await writeText(manifestPath, JSON.stringify(manifest, null, 2));
 
-  const next: Partial<WorkflowGraphState> = {
+  const next: Partial<WorkflowRunState> = {
     manifestPath,
     completedStages: ["finalizeManifest"],
   };
@@ -634,16 +634,16 @@ export async function nodeFinalizeManifest(state: WorkflowGraphState): Promise<P
     ...state,
     ...next,
     completedStages: mergedStages,
-  } as WorkflowGraphState);
+  } as WorkflowRunState);
   return next;
 }
 
-export function routeAfterB(state: WorkflowGraphState): "stageD" | "stageC" {
+export function routeAfterB(state: WorkflowRunState): "stageD" | "stageC" {
   return state.pdfPath ? "stageD" : "stageC";
 }
 
 /** 续跑 D：跳过 Stage B；否则自 B 进入主链。 */
-export function routeAfterInit(state: WorkflowGraphState): "stageB" | "stageD" {
+export function routeAfterInit(state: WorkflowRunState): "stageB" | "stageD" {
   if (state.input.resumeFromStage === "D") return "stageD";
   return "stageB";
 }

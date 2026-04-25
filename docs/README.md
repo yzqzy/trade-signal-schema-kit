@@ -40,7 +40,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [agent-framework-comparison.md](./strategy/agent-framework-comparison.md) | LangGraph 选型、PoC 范围、**Claude Code 与 LangGraph 分层** |
+| [agent-framework-comparison.md](./strategy/agent-framework-comparison.md) | **Claude Code 与 TS 主链分层**、职责边界与验收关注点（线性 pipeline） |
 | [strategy-roadmap.md](./strategy/strategy-roadmap.md) | v0.1~v0.3 节奏与策略插件化跨版本说明 |
 
 ## 阅读建议

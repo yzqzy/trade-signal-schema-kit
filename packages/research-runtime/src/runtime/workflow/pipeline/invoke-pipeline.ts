@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { normalizeCodeForFeed } from "../../../crosscut/normalization/normalize-stock-code.js";
 import { resolveOutputPath } from "../../../crosscut/normalization/resolve-monorepo-path.js";
 import type {
   RunWorkflowInput,
@@ -8,8 +7,8 @@ import type {
   WorkflowDataPipelineResult,
 } from "../../../contracts/workflow-run-types.js";
 import { readWorkflowCheckpoint } from "./checkpoint-io.js";
-import { runWorkflowFull, runWorkflowPipeline } from "./workflow-linear.js";
-import type { WorkflowGraphState } from "./workflow-state.js";
+import { runWorkflowFull, runWorkflowPipeline } from "./pipeline-run.js";
+import type { WorkflowRunState } from "./run-state.js";
 
 function assertState<T>(value: T | undefined | null, message: string): T {
   if (value === undefined || value === null) {
@@ -29,14 +28,14 @@ export async function resolveWorkflowThreadId(input: RunWorkflowInput): Promise<
     const cp = await readWorkflowCheckpoint(outputDir);
     if (cp?.threadId) return cp.threadId;
     throw new Error(
-      `[workflow] resumeFromStage=${input.resumeFromStage} 但缺少有效 workflow_graph_checkpoint.json（threadId）`,
+      `[workflow] resumeFromStage=${input.resumeFromStage} 但缺少有效 workflow_checkpoint.json 中的 threadId`,
     );
   }
   if (input.runId?.trim()) return input.runId.trim();
   return randomUUID();
 }
 
-export function mapStateToWorkflowDataPipelineResult(state: WorkflowGraphState): WorkflowDataPipelineResult {
+export function mapStateToWorkflowDataPipelineResult(state: WorkflowRunState): WorkflowDataPipelineResult {
   return {
     outputDir: assertState(state.outputDir, "[workflow] 缺少 outputDir"),
     normalizedCode: assertState(state.normalizedCode, "[workflow] 缺少 normalizedCode"),
@@ -58,7 +57,7 @@ export function mapStateToWorkflowDataPipelineResult(state: WorkflowGraphState):
   };
 }
 
-export function mapStateToWorkflowArtifacts(state: WorkflowGraphState): WorkflowArtifacts {
+export function mapStateToWorkflowArtifacts(state: WorkflowRunState): WorkflowArtifacts {
   return {
     outputDir: assertState(state.outputDir, "[workflow] 缺少 outputDir"),
     phase1aJsonPath: assertState(state.phase1aJsonPath, "[workflow] 缺少 phase1aJsonPath"),
@@ -84,14 +83,14 @@ export function mapStateToWorkflowArtifacts(state: WorkflowGraphState): Workflow
 
 export async function invokeWorkflowDataPipeline(input: RunWorkflowInput): Promise<WorkflowDataPipelineResult> {
   const threadId = await resolveWorkflowThreadId(input);
-  const initial: WorkflowGraphState = { input: { ...input, runId: threadId } };
+  const initial: WorkflowRunState = { input: { ...input, runId: threadId } };
   const finalState = await runWorkflowPipeline(initial);
   return mapStateToWorkflowDataPipelineResult(finalState);
 }
 
 export async function invokeWorkflowFull(input: RunWorkflowInput): Promise<WorkflowArtifacts> {
   const threadId = await resolveWorkflowThreadId(input);
-  const initial: WorkflowGraphState = { input: { ...input, runId: threadId } };
+  const initial: WorkflowRunState = { input: { ...input, runId: threadId } };
   const finalState = await runWorkflowFull(initial);
   return mapStateToWorkflowArtifacts(finalState);
 }

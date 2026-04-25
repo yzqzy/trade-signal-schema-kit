@@ -12,6 +12,21 @@
       ],
       "@trade-signal/research-strategies": [
         "./packages/research-runtime/src/index.ts"
+      ],
+      "@trade-signal/research-contracts": [
+        "./packages/research-contracts/src/index.ts"
+      ],
+      "@trade-signal/research-feature": [
+        "./packages/research-feature/src/index.ts"
+      ],
+      "@trade-signal/research-policy": [
+        "./packages/research-policy/src/index.ts"
+      ],
+      "@trade-signal/research-topic": [
+        "./packages/research-topic/src/index.ts"
+      ],
+      "@trade-signal/research-selection": [
+        "./packages/research-selection/src/index.ts"
       ]
     },
     "declaration": true,

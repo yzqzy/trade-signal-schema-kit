@@ -1,9 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { WorkflowGraphState } from "./workflow-state.js";
+import type { WorkflowRunState } from "./run-state.js";
 
-const CHECKPOINT_FILENAME = "workflow_graph_checkpoint.json";
+const CHECKPOINT_FILENAME = "workflow_checkpoint.json";
 
 export type WorkflowCheckpointFile = {
   version: "1";
@@ -12,7 +12,7 @@ export type WorkflowCheckpointFile = {
   completedStages: string[];
   /** 仅序列化可恢复字段，避免超大对象 */
   snapshot: Pick<
-    WorkflowGraphState,
+    WorkflowRunState,
     | "normalizedCode"
     | "outputDir"
     | "pdfPath"
@@ -44,22 +44,27 @@ export type WorkflowCheckpointFile = {
   >;
 };
 
-export function checkpointPathFor(outputDir: string): string {
+function checkpointFilePath(outputDir: string): string {
   return path.join(outputDir, CHECKPOINT_FILENAME);
+}
+
+/** run 根目录下 `workflow_checkpoint.json` 的绝对路径 */
+export function checkpointPathFor(outputDir: string): string {
+  return checkpointFilePath(outputDir);
 }
 
 export async function writeWorkflowCheckpoint(
   outputDir: string,
   payload: WorkflowCheckpointFile,
 ): Promise<void> {
-  const filePath = checkpointPathFor(outputDir);
+  const filePath = checkpointFilePath(outputDir);
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, JSON.stringify(payload, null, 2), "utf-8");
 }
 
 export async function readWorkflowCheckpoint(outputDir: string): Promise<WorkflowCheckpointFile | undefined> {
   try {
-    const raw = await readFile(checkpointPathFor(outputDir), "utf-8");
+    const raw = await readFile(checkpointFilePath(outputDir), "utf-8");
     return JSON.parse(raw) as WorkflowCheckpointFile;
   } catch {
     return undefined;

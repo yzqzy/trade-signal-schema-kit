@@ -9,4 +9,4 @@ export type {
 export {
   invokeWorkflowDataPipeline as executeWorkflowDataPipeline,
   invokeWorkflowFull as runResearchWorkflow,
-} from "../../runtime/graph/langgraph/invoke-workflow-graph.js";
+} from "./pipeline/invoke-pipeline.js";

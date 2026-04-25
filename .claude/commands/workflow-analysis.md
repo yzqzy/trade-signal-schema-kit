@@ -12,7 +12,7 @@ argument-hint: [--code] [--mode standard|turtle-strict] [--pdf|--report-url] [--
 
 ## 与「终稿 / 发布」的关系
 
-- **CLI / LangGraph**：确定性阶段、估值、`analysis_report.md`（规则审计）与 **report-polish**（`report_view_model.json` + 四页 Markdown）。**cli-evidence-only**：TS 不调模型厂商叙事 API。
+- **CLI / TS 主链**：确定性阶段、估值、`analysis_report.md`（规则审计）与 **report-polish**（`report_view_model.json` + 四页 Markdown）。**cli-evidence-only**：TS 不调模型厂商叙事 API。
 - **发布进站点**：对本次 run 执行 `pnpm run reports-site:emit -- --run-dir <run 根目录>`，再 `pnpm run sync:reports-to-app`；emit 会**优先**使用 polish 四页作为各专题 `content.md` 来源（见 [reports-site-publish.md](../../docs/guides/reports-site-publish.md)）。
 - **六维定性终稿**：不属于本入口；请用 **`/business-analysis`** 并在会话内执行 **`business-analysis-finalize`**，写回 `qualitative_report.md` / `qualitative_d1_d6.md`。
 

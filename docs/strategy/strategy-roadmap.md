@@ -33,4 +33,4 @@
 ## 策略插件化（跨版本）
 
 - 编排层显式 **Stage** 与 **`StrategyPlugin`**，支持 Turtle 之外策略接入；详见 [策略与流程解耦](../architecture/strategy-orchestration-architecture.md)。
-- Agent 侧：**LangGraph TS 编排 + Claude Code 定性**，见 [Agent 编排框架选型](./agent-framework-comparison.md)。
+- Agent 侧：**TS workflow 主链 + Claude Code 定性**，见 [Agent 编排与 TS 主链](./agent-framework-comparison.md)。

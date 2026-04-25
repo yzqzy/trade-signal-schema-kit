@@ -38,7 +38,7 @@ function formatDiscoveryError(
 }
 
 /**
- * 统一「显式 PDF / URL → Phase0 下载 →（可选）Feed 自动发现」语义，供 LangGraph initPrep 与 business-analysis 主编排复用。
+ * 统一「显式 PDF / URL → Phase0 下载 →（可选）Feed 自动发现」语义，供 workflow `initPrep` 与 business-analysis 主编排复用。
  */
 export async function ensureAnnualPdfOnDisk(
   params: EnsureAnnualPdfOnDiskParams,

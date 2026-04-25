@@ -48,8 +48,8 @@
 
 - **根目录**：仍使用仓库根下 `output/`（包内执行时解析到 monorepo 根，见 `resolve-monorepo-path`）。
 - **workflow**：未传 `--output-dir` 时默认父目录为 `output/workflow/<code>/`，产物在 `output/workflow/<code>/<runId>/`；`<runId>` 为 UUID。显式 `--output-dir <父目录>` 时写入 `<父目录>/<runId>/`。
-- **business-analysis**：与 workflow 共用 LangGraph 管线；未传 `--output-dir` 时默认父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。
-- **续跑**：`--resume-from-stage` 时必须传入 `--output-dir`，且指向**已有 run 根目录**（该目录下含 `workflow_graph_checkpoint.json`）。
+- **business-analysis**：与 workflow 共用同一套阶段语义（独立 `business-analysis` 编排器）；未传 `--output-dir` 时默认父目录为 `output/business-analysis/<code>/`，产物在 `output/business-analysis/<code>/<runId>/`。
+- **续跑**：`--resume-from-stage` 时必须传入 `--output-dir`，且指向**已有 run 根目录**（该目录下含 `workflow_checkpoint.json`）。
 - **`valuation:run`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/valuation/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。**`--from-manifest` 且未传 `--code` 时**，分区代码回退到 **`manifest.outputLayout.code`**（避免 `_adhoc`）。`--from-manifest` 且默认 `--output-dir` 时，估值产物仍写入 manifest 所在 run 目录。
 - **`run:phase3`（独立 CLI）**：`--output-dir` 为默认 `output` 时，写入 `output/phase3/<code>/<runId>/`；可用 `--code` 指定分区（缺省 `_adhoc`）。显式 `--output-dir` 为**写入根目录**，不再追加子 UUID。
 - **screener**：在 `--output-dir` 根下写入 `output/screener/<market>/<mode>/<runId>/`（若根为默认 `output`，则完整路径为 `output/screener/...`）。
@@ -145,17 +145,17 @@ Phase1A → Phase1B → Phase3 → ReportPolish → manifest
 
 以下条目是历史 `contract-baseline` 的冻结信息，已并入本文件维护：
 
-- Workflow 编排实现：`packages/research-runtime/src/runtime/workflow/orchestrator.ts`（入口）+ `packages/research-runtime/src/runtime/graph/langgraph/`（LangGraph 内核）
+- Workflow 编排实现：`packages/research-runtime/src/runtime/workflow/orchestrator.ts`（入口）+ `packages/research-runtime/src/runtime/workflow/pipeline/`（`pipeline-run.ts` / `stage-nodes.ts` 与各 `node*` 阶段）
 - Business-analysis 编排：`packages/research-runtime/src/runtime/business-analysis/orchestrator.ts`
 - 严格文案与错误前缀实现：`packages/research-runtime/src/crosscut/preflight/strict-mode-message.ts`
 - 质量发布门禁：`pnpm run typecheck`、`pnpm run build`、`pnpm run test:linkage`、`pnpm run quality:all`
 
-## LangGraph 编排与 Claude Code 协作（分层）
+## TypeScript 主链编排与 Claude Code 协作（分层）
 
-- **LangGraph**：主链外层流程（阶段、分支、checkpoint、重试、审计）。
+- **TS 主链**（`runtime/workflow/pipeline/` 线性执行 + 各 `node*` 阶段 + `workflow_checkpoint.json` 续跑）：阶段、分支、续跑、落盘与 manifest。
 - **Claude Code**：深度定性、PDF 对照与六维契约写作（Skills / slash commands）。
 
-组合方式：图编排跑采集与规则 Phase3，并在 Stage **F（report-polish）** 产出多页 Markdown 发布稿（TS，可审计）；**final-narrative（六维终稿）**仅在 **`/business-analysis`** 路径由 **Claude 会话**（`business-analysis-finalize`）完成；纯 CLI 跑通 workflow 表示 **evidence-pack / 规则报告 / report-polish** 就绪，**cli-evidence-only** 不宣称已完成六维终稿叙事。契约见 [entrypoint-narrative-contract.md](./entrypoint-narrative-contract.md) 与 [report-polish-narrative-contract.md](./report-polish-narrative-contract.md)。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
+组合方式：TS 主链跑采集与规则 Phase3，并在 Stage **F（report-polish）** 产出多页 Markdown 发布稿（可审计）；**final-narrative（六维终稿）**仅在 **`/business-analysis`** 路径由 **Claude 会话**（`business-analysis-finalize`）完成；纯 CLI 跑通 workflow 表示 **evidence-pack / 规则报告 / report-polish** 就绪，**cli-evidence-only** 不宣称已完成六维终稿叙事。契约见 [entrypoint-narrative-contract.md](./entrypoint-narrative-contract.md) 与 [report-polish-narrative-contract.md](./report-polish-narrative-contract.md)。分层与职责见 [Agent 编排与 TS 主链](../strategy/agent-framework-comparison.md)。
 
 ## 逻辑总览（方法论）
 
@@ -249,7 +249,7 @@ Claude：`/valuation`（见 `.claude/commands/`）。研报站发布见 [reports
 
 | 目录 | 职责 |
 |------|------|
-| `runtime/` | workflow / business-analysis 编排与 LangGraph 运行时 |
+| `runtime/` | workflow / business-analysis 编排与 TS 主链（`workflow/pipeline/` 线性执行） |
 | `steps/phase*` | Phase0~Phase3 阶段执行器（固定流程） |
 | `strategy/` | 策略协议实现与注册表 |
 | `adapters/` | 外部能力适配（例如 websearch） |
@@ -348,7 +348,7 @@ pnpm run workflow:run -- \
 - 可选 PDF 分支：`--pdf` 或 `--report-url`（启用 Phase2A/2B；`--report-url` 会走 Phase0 下载）
 - 中期报告：`--interim-pdf <path>` 经 Phase2A/2B 生成 `data_pack_report_interim.md` 并作为 Phase3 interim 输入；亦可 `--interim-report-md` 直接传入已渲染 md（**同时传时 PDF 优先**）
 - 主要产物：`phase1a_data_pack.json`、`data_pack_market.md`、`phase1b_qualitative.{json,md}`、`phase1b_evidence_quality.json`、可选 `pdf_sections.json` / `data_pack_report.md`、可选 `pdf_sections_interim.json` / `data_pack_report_interim.md`、`valuation_computed.json`、`analysis_report.{md,html}`、`phase3_preflight.md`、`workflow_manifest.json`
-- 编排侧：`workflow_graph_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用对应字段为 `RunWorkflowInput.resumeFromStage`。
+- 编排侧：`workflow_checkpoint.json`（续跑快照）与 `workflow_manifest.json` 的 `orchestration` 扩展字段（`engine`、`strategyId`、`runId`、`threadId`、`completedStages`）。续跑：`--resume-from-stage B|D`（**必须** `--output-dir` 指向已有 run 根目录 `.../workflow/<code>/<runId>/`；`D` 会跳过 Stage B）。程序化调用对应字段为 `RunWorkflowInput.resumeFromStage`。
 - Feed 与续跑环境说明见 [数据源与字段契约](./data-source.md)。
 - Phase2 分区/渲染契约烟测（需先 `pnpm run build`）：`pnpm --filter @trade-signal/research-runtime run test:phase2`
 

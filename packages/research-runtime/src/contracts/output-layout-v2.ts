@@ -26,7 +26,7 @@ export type OutputLayoutV2Meta = {
 };
 
 /**
- * Workflow / business-analysis（走同一条 LangGraph 管线）在**未传** `outputDir` 时：
+ * Workflow / business-analysis 在**未传** `outputDir` 时（同一套阶段语义与续跑文件布局）：
  * - `workflow` 默认父目录：`output/workflow/<code>/` → 产物 `output/workflow/<code>/<runId>/`
  * - `business-analysis` 在 orchestrator 中传入父目录 `output/business-analysis/<code>/` → 产物 `output/business-analysis/<code>/<runId>/`
  *
@@ -37,7 +37,7 @@ export function resolveWorkflowDefaultRunDirectory(input: {
   code: string;
   /** 父目录；未传则 `output/workflow/<normalizedCode>` */
   outputDir?: string;
-  /** 与 LangGraph thread/run 对齐；未传则生成 UUID */
+  /** 与 workflow checkpoint threadId/run 对齐；未传则生成 UUID */
   runId: string;
 }): { outputDir: string; normalizedCode: string; runId: string; layout: OutputLayoutV2Meta } {
   const normalizedCode = normalizeCodeForFeed(input.code);

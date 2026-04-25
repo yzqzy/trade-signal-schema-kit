@@ -8,7 +8,24 @@
 - 上层保留通用编排骨架，支持接入更多策略（价值、成长、红利、事件驱动等）。
 - **CLI 与产物契约保持稳定**：演进以「接口先行 + 分阶段落地」为原则，避免大范围破坏性改名。
 
-## 三层系统结构
+## 工作区与分层（V2 拆包真源）
+
+```text
+@trade-signal/research-contracts  （领域类型与 manifest）
+        ↑ 仅类型依赖
+@trade-signal/research-feature
+@trade-signal/research-policy
+@trade-signal/research-topic
+@trade-signal/research-selection
+        ↑ 编排聚合
+@trade-signal/research-runtime  （Stage/CLI/发布编排壳；不承载各层注册实现）
+        │  /  @trade-signal/schema-core  ·  @trade-signal/provider-http
+```
+
+- **数据与契约**：`schema-core` 标准字段；`provider-http` 为默认 HTTP 适配；领域五对象与插件 ID 在 `research-contracts` 与各层包内真源化。
+- **四层插件**：Feature / Policy / Topic / Selection 各为独立 workspace 包，注册与 bootstrap 落在各自包；`runtime` 仅做 `bootstrapV2PluginRegistry` 等跨层启动顺序，符合 `docs/architecture/v2-*.md` 依赖方向。
+
+## 历史图示（研究流程相对上游）
 
 ```text
 research-runtime
@@ -32,12 +49,12 @@ research-runtime
   1. **通用编排层**（可恢复、可审计、schema 化 I/O）
   2. **策略插件层**（`StrategyPlugin`：Turtle / 其他策略）
 
-## Claude Code 与图编排（分层，勿混用）
+## Claude Code 与 TS 主链（分层，勿混用）
 
 - **Claude Code**：IDE 侧深度定性、六维契约与 PDF 对照（Skills / slash commands）。
-- **LangGraph**：TS 主链全流程状态编排（阶段、分支、checkpoint、重试、审计）。
+- **TS 主链**（`runtime/workflow/pipeline/`，`pipeline-run.ts` + `stage-nodes.ts` 与各 `node*`）：阶段、分支、`workflow_checkpoint.json` 续跑、落盘与审计。
 
-外层用 LangGraph 跑 Stage；定性 narrative 在 **Claude Code** 完成（入口/产物契约见 [entrypoint-narrative-contract.md](../guides/entrypoint-narrative-contract.md)）。选型见 [Agent 编排框架选型](../strategy/agent-framework-comparison.md)。
+外层用 **TypeScript 线性 workflow runner** 跑 Stage；定性 narrative 在 **Claude Code** 完成（入口/产物契约见 [entrypoint-narrative-contract.md](../guides/entrypoint-narrative-contract.md)）。分层与职责见 [Agent 编排与 TS 主链](../strategy/agent-framework-comparison.md)。
 
 ## 阶段映射（Phase ↔ Stage）
 
@@ -103,7 +120,7 @@ export interface OrchestratorAdapter {
 
 ## Monorepo 目录与边界（与当前仓库对齐）
 
-- `packages/research-runtime/src/runtime/`：对外用例编排与 LangGraph 运行时
+- `packages/research-runtime/src/runtime/`：对外用例编排与 TS 主链（`workflow/pipeline/`）
 - `packages/research-runtime/src/steps/phase*`：阶段执行器（Phase0~Phase3）
 - `packages/research-runtime/src/strategy/`：`contracts.ts`、`registry.ts`、平行策略目录（如 `turtle/`、`value-v1/`）
 - `packages/research-runtime/src/adapters/`：外部能力适配（如 websearch）
@@ -129,10 +146,10 @@ export interface OrchestratorAdapter {
 
 ## 质量与验收（DoD）
 
-- 通用编排与单一策略实现解耦：**新增策略不改 LangGraph 主流程核心代码**，在 `strategy/registry.ts` 注册并扩展策略目录即可。
+- 通用编排与单一策略实现解耦：**新增策略不改主流程节点编排核心代码**，在 `strategy/registry.ts` 注册并扩展策略目录即可。
 - CLI 兼容：既有命令可用；新策略通过 **`--strategy` 或同类策略开关**扩展。
 - 支持从中间阶段恢复（至少从 Stage B 或 D 重跑）。
-- 文档之间应一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、本文件、[agent 选型](../strategy/agent-framework-comparison.md)。
+- 文档之间应一致：[workflows](../guides/workflows.md)、[data-source](../guides/data-source.md)、本文件、[Agent 编排与 TS 主链](../strategy/agent-framework-comparison.md)。
 
 ## 新增策略接入操作清单
 
@@ -150,7 +167,7 @@ export interface OrchestratorAdapter {
 
 ## 文档职责划分（不合并）
 
-- [agent-framework-comparison.md](../strategy/agent-framework-comparison.md)：框架选型、PoC 范围、Deep Agents vs LangGraph。
+- [agent-framework-comparison.md](../strategy/agent-framework-comparison.md)：Claude Code 与 TS 主链的职责划分、可观测与验收关注指标。
 - **本文件**：业务阶段抽象、策略插件化、C1/C2、编排边界。
 
 二者互相链接，维护时各改各的职责范围。

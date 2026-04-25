@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { initCliEnv } from "../lib/init-cli-env.js";
-import { createDefaultWorkflowOrchestratorAdapter } from "../runtime/graph/workflow-orchestrator-adapter.js";
+import { createDefaultWorkflowOrchestratorAdapter } from "../runtime/workflow/orchestrator-adapter.js";
 import type { WorkflowMode } from "../contracts/workflow-run-types.js";
 import { emitSiteReportsFromRun } from "../reports-site/emit-site-reports.js";
 
@@ -28,7 +28,7 @@ type CliArgs = {
   preflightRemedyPass?: number;
   /** 从 checkpoint 续跑；必须与 `--output-dir` 指向 run 根目录同用 */
   resumeFromStage?: ResumeFromStage;
-  /** 显式 run 目录名（与 LangGraph `thread_id` 对齐）；续跑时以 checkpoint 为准，本参数会被忽略 */
+  /** 显式 run 目录名（与 checkpoint 内 `threadId` 对齐）；续跑时以 checkpoint 为准，本参数会被忽略 */
   runId?: string;
   /** 可选：聚合写入 `site/reports`（entries/views/index），供文档站同步 */
   reportsSiteDir?: string;

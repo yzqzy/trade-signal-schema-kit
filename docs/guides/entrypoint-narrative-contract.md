@@ -19,7 +19,7 @@
 | 入口 | 主要职责 | 是否终稿叙事入口 |
 |------|-----------|------------------|
 | `/business-analysis` / `business-analysis:run` | PDF 链 + Phase1A/1B/2A/2B，产出证据与定性草稿文件 | **Slash 路径**：默认包含你在会话中执行的 **AI 收口**（见下节）；**纯 CLI**：cli-evidence-only |
-| `/workflow-analysis` / `workflow:run` | 全链路至 `analysis_report`、估值、manifest，并 **report-polish** 四页 Markdown + `report_view_model.json` | **发布型终稿**以 report-polish + `reports-site:emit` 为准；**六维定性终稿**仍仅由 **`/business-analysis` + `business-analysis-finalize`** 承担（与 [agent-framework-comparison](../strategy/agent-framework-comparison.md) 一致） |
+| `/workflow-analysis` / `workflow:run` | 全链路至 `analysis_report`、估值、manifest，并 **report-polish** 四页 Markdown + `report_view_model.json` | **发布型终稿**以 report-polish + `reports-site:emit` 为准；**六维定性终稿**仍仅由 **`/business-analysis` + `business-analysis-finalize`** 承担（与 [Agent 编排与 TS 主链](../strategy/agent-framework-comparison.md) 分工一致） |
 | `/valuation` / `valuation:run` | 估值 JSON/摘要（可选 full report） | **否** |
 | `/download-annual-report` / `phase0:download` | 年报 PDF 获取与缓存 | **否** |
 | `reports-site:emit` / `sync:reports-to-app` | 将单次 run 聚合为研报站静态数据（`content.md` v2，见 [reports-site-publish](./reports-site-publish.md)） | **否** |

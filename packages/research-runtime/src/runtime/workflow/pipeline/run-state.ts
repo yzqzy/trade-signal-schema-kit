@@ -5,9 +5,9 @@ import type { PreflightLevel } from "../../../crosscut/preflight/preflight.js";
 
 /**
  * workflow 各阶段共享状态；由线性 runner 逐步合并，续跑时由
- * `workflow_graph_checkpoint.json` 与磁盘产物恢复。
+ * `workflow_checkpoint.json` 与磁盘产物恢复。
  */
-export interface WorkflowGraphState {
+export interface WorkflowRunState {
   input: RunWorkflowInput;
   runId?: string;
   threadId?: string;

@@ -5,11 +5,9 @@
  */
 import assert from "node:assert/strict";
 
-import {
-  bootstrapV2PluginRegistry,
-  listRegisteredPolicyIds,
-  listRegisteredTopicIds,
-} from "@trade-signal/research-registry";
+import { listRegisteredPolicyIds } from "@trade-signal/research-policy";
+import { listRegisteredTopicIds } from "@trade-signal/research-topic";
+import { bootstrapV2PluginRegistry } from "../bootstrap/v2-plugin-registry.js";
 
 function main(): void {
   bootstrapV2PluginRegistry();

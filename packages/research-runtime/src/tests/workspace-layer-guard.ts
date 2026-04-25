@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * workspace 拆包依赖守卫：防止跨包反向依赖。
+ * workspace 拆包依赖守卫：仅允许 contracts → feature|policy|topic|selection；禁止层间互引与直连 runtime（被守护包内）。
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -39,23 +39,42 @@ function runRule(root: string, rule: GuardRule): void {
 function main(): void {
   const cwd = process.cwd();
   const root = path.basename(cwd) === "research-runtime" ? path.resolve(cwd, "../..") : cwd;
+  const L = String.raw`feature|policy|topic|selection|runtime`;
   const rules: GuardRule[] = [
     {
       packageName: "research-contracts",
-      forbiddenImportRe:
-        /from\s+["']@trade-signal\/research-(registry|pipelines|adapters|runtime)["']/u,
+      forbiddenImportRe: new RegExp(
+        `from\\s+["']@trade-signal/research-(${L})["']`,
+        "u",
+      ),
     },
     {
-      packageName: "research-registry",
-      forbiddenImportRe: /from\s+["']@trade-signal\/research-(pipelines|adapters|runtime)["']/u,
+      packageName: "research-feature",
+      forbiddenImportRe: new RegExp(
+        String.raw`from\s+["']@trade-signal/research-(policy|topic|selection|runtime)["']`,
+        "u",
+      ),
     },
     {
-      packageName: "research-adapters",
-      forbiddenImportRe: /from\s+["']@trade-signal\/research-(pipelines|registry|runtime)["']/u,
+      packageName: "research-policy",
+      forbiddenImportRe: new RegExp(
+        String.raw`from\s+["']@trade-signal/research-(feature|topic|selection|runtime)["']`,
+        "u",
+      ),
     },
     {
-      packageName: "research-pipelines",
-      forbiddenImportRe: /from\s+["']@trade-signal\/research-runtime["']/u,
+      packageName: "research-topic",
+      forbiddenImportRe: new RegExp(
+        String.raw`from\s+["']@trade-signal/research-(feature|policy|selection|runtime)["']`,
+        "u",
+      ),
+    },
+    {
+      packageName: "research-selection",
+      forbiddenImportRe: new RegExp(
+        String.raw`from\s+["']@trade-signal/research-(feature|policy|topic|runtime)["']`,
+        "u",
+      ),
     },
   ];
   for (const r of rules) runRule(root, r);

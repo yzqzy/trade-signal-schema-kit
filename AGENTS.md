@@ -66,8 +66,12 @@ More: `pnpm run typecheck`, `pnpm run quality:all`; filter runs e.g. `pnpm --fil
 |---------|------|
 | `schema-core` | Contracts & standard fields |
 | `provider-http` | Primary data adapter (**HTTP-only** default per V2 docs) |
-| `research-runtime` | Orchestration, CLI, strategies |
-| `reporting` | MD/HTML helpers (not the primary site pipeline) |
+| `research-contracts` | V2 domain types & manifest schemas |
+| `research-feature` | Feature layer: registry, HTTP channel helpers |
+| `research-policy` | Policy layer: IDs & registry |
+| `research-topic` | Topic layer: IDs & registry |
+| `research-selection` | Selection layer: registry & selection manifest builder |
+| `research-runtime` | Cross-layer orchestration, CLI, strategies, site emit |
 
 ## Skills (pointers)
 
