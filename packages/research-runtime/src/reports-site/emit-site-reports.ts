@@ -25,6 +25,7 @@ import {
   validateFinalNarrativeMarkdown,
   type FinalNarrativeStatus,
 } from "../runtime/business-analysis/final-narrative-status.js";
+import type { Phase1BItem, Phase1BQualitativeSupplement } from "../steps/phase1b/types.js";
 
 export type EmitSiteReportsOptions = {
   /** workflow 或 business-analysis 单次 run 根目录（含 manifest） */
@@ -104,12 +105,6 @@ function parseMarketPackMarkdownContext(md: string): { companyName?: string; mar
   return { companyName, market };
 }
 
-/** Phase3 龟龟报告中的「因子 1B」整节（workflow 无 Phase1B 时的商业质量占位摘录） */
-function extractTurtleReportFactor1bSection(reportMd: string): string | undefined {
-  const m = reportMd.match(/## 三、因子1B：深度定性分析[\s\S]*?(?=\n## [四五六七八九十])/u);
-  return m?.[0]?.trim();
-}
-
 async function tryReadCompanyContext(
   runDir: string,
   manifestInput: Record<string, unknown>,
@@ -180,10 +175,271 @@ async function writeEntry(params: {
   meta: EntryMeta;
   contentMarkdown: string;
 }): Promise<void> {
+  const violations = findPublishedMarkdownQualityViolations(params.contentMarkdown);
+  if (violations.length > 0) {
+    throw new Error(
+      `[reports-site] ${params.meta.entryId} 含发布禁用内容：${violations.join(", ")}`,
+    );
+  }
   const dir = path.join(params.siteDir, "entries", params.meta.entryId);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "meta.json"), JSON.stringify(params.meta, null, 2), "utf-8");
   await writeFile(path.join(dir, "content.md"), params.contentMarkdown, "utf-8");
+}
+
+export function findPublishedMarkdownQualityViolations(markdown: string): string[] {
+  const checks: Array<[string, RegExp]> = [
+    ["文件名包装标题", /^##\s+qualitative_(?:report|d1_d6)\.md\s*$/imu],
+    ["内部状态词：草稿", /草稿/u],
+    ["内部状态词：待 Claude", /待\s*Claude(?:\s*Code)?/iu],
+    ["内部状态词：尚未完成", /尚未完成/u],
+    ["内部状态词：成稿要求", /成稿要求/u],
+    ["内部状态词：初始状态", /初始状态/u],
+  ];
+  return checks.filter(([, re]) => re.test(markdown)).map(([name]) => name);
+}
+
+function statusRank(s: RequiredFieldsStatus): number {
+  if (s === "complete") return 3;
+  if (s === "degraded") return 2;
+  return 1;
+}
+
+function isBetterTimelineItem(a: TimelineItem, b: TimelineItem): boolean {
+  const ar = statusRank(a.requiredFieldsStatus);
+  const br = statusRank(b.requiredFieldsStatus);
+  if (ar !== br) return ar > br;
+  if (a.publishedAt !== b.publishedAt) return a.publishedAt > b.publishedAt;
+  return a.entryId > b.entryId;
+}
+
+function stripFinalStatusLine(markdown: string): string {
+  return markdown
+    .replace(/^\s*\[终稿状态:\s*(?:完成|complete)\]\s*\n*/imu, "")
+    .trim();
+}
+
+function splitEvidenceAppendix(markdown: string): { body: string; appendix: string } {
+  const idx = markdown.search(/^##\s+附录：证据索引\s*$/imu);
+  if (idx < 0) return { body: markdown.trim(), appendix: "" };
+  return {
+    body: markdown.slice(0, idx).trim(),
+    appendix: markdown.slice(idx).trim(),
+  };
+}
+
+function hasD1D6Sections(markdown: string): boolean {
+  return ["D1", "D2", "D3", "D4", "D5", "D6"].every((d) =>
+    new RegExp(`^##\\s+${d}\\b`, "imu").test(markdown),
+  );
+}
+
+type PdfQualitySummary = {
+  gateVerdict?: "OK" | "DEGRADED" | "CRITICAL" | string;
+  lowConfidenceCritical?: string[];
+  missingCritical?: string[];
+  allowsFinalNarrativeComplete?: boolean;
+  humanReviewPriority?: string[];
+};
+
+type EvidenceRetrievalSummary = {
+  hasCriticalGap: boolean;
+  webSearchUsed: boolean;
+  webSearchLimited: boolean;
+  missingItems: string[];
+  limitedItems: string[];
+};
+
+function parsePdfQualitySummary(markdown: string | undefined): PdfQualitySummary {
+  if (!markdown?.trim()) return {};
+  const m = markdown.match(/<!--\s*PDF_EXTRACT_QUALITY:(\{[\s\S]*?\})\s*-->/u);
+  if (m?.[1]) {
+    try {
+      return JSON.parse(m[1]) as PdfQualitySummary;
+    } catch {
+      /* fall through */
+    }
+  }
+  const gate = markdown.match(/gateVerdict["`:\s=]+(OK|DEGRADED|CRITICAL)/iu)?.[1]?.toUpperCase();
+  return gate ? { gateVerdict: gate } : {};
+}
+
+function isRateLimited(reason: string | undefined): boolean {
+  return /rate[_ -]?limit|限流|quota|too many/i.test(reason ?? "");
+}
+
+function flattenPhase1BItems(phase1b: Phase1BQualitativeSupplement | undefined): Phase1BItem[] {
+  if (!phase1b) return [];
+  return [...(phase1b.section7 ?? []), ...(phase1b.section8 ?? [])];
+}
+
+function summarizeEvidenceRetrieval(phase1b: Phase1BQualitativeSupplement | undefined): EvidenceRetrievalSummary {
+  const critical = /违规|处罚|诉讼|仲裁|监管|问询|关注函|警示函|立案|纪律处分|公开谴责/u;
+  const items = flattenPhase1BItems(phase1b);
+  const missing = items.filter((it) => it.evidences.length === 0);
+  const limited = items.filter((it) => isRateLimited(it.retrievalDiagnostics?.webSearchFailureReason));
+  return {
+    hasCriticalGap: missing.some((it) => critical.test(it.item)),
+    webSearchUsed: items.some((it) => it.retrievalDiagnostics?.webSearchUsed),
+    webSearchLimited: limited.length > 0,
+    missingItems: missing.map((it) => it.item),
+    limitedItems: limited.map((it) => it.item),
+  };
+}
+
+function deriveBusinessAnalysisConfidence(input: {
+  status: RequiredFieldsStatus;
+  finalNarrativeStatus: FinalNarrativeStatus;
+  pdfQuality: PdfQualitySummary;
+  evidence: EvidenceRetrievalSummary;
+}): ConfidenceState {
+  if (input.finalNarrativeStatus === "blocked" || input.status === "missing") return "unknown";
+  if (input.finalNarrativeStatus !== "complete" || input.status === "degraded") return "low";
+  if (input.pdfQuality.gateVerdict === "CRITICAL") return "low";
+  if (input.pdfQuality.gateVerdict === "DEGRADED") return "medium";
+  if (input.evidence.hasCriticalGap || input.evidence.webSearchLimited) return "medium";
+  return "high";
+}
+
+function evidenceStatusLabel(evidence: EvidenceRetrievalSummary): string {
+  if (evidence.webSearchLimited && evidence.missingItems.length > 0) {
+    return "外部检索受限，已回退 Feed；部分关键项仍未形成可确认候选证据";
+  }
+  if (evidence.hasCriticalGap) return "关键合规项存在证据缺口";
+  if (evidence.webSearchUsed) return "WebSearch / Feed 已形成候选证据";
+  return "Feed 已形成候选证据";
+}
+
+function renderQualitySnapshot(input: {
+  confidence: ConfidenceState;
+  pdfQuality: PdfQualitySummary;
+  evidence: EvidenceRetrievalSummary;
+}): string {
+  const gate = input.pdfQuality.gateVerdict ?? "UNKNOWN";
+  const low = input.pdfQuality.lowConfidenceCritical?.length ? input.pdfQuality.lowConfidenceCritical.join(", ") : "无";
+  return [
+    "## Quality Snapshot",
+    "",
+    "| 项目 | 状态 |",
+    "|:-----|:-----|",
+    "| 商业质量 | 较强但需观察 |",
+    `| 最终置信度 | ${input.confidence} |`,
+    `| PDF gate | ${gate}；低置信关键块：${low} |`,
+    `| 监管证据状态 | ${evidenceStatusLabel(input.evidence)} |`,
+    `| 证据完整度 | ${input.evidence.missingItems.length > 0 ? `存在缺口：${input.evidence.missingItems.join("、")}` : "关键项已形成候选证据"} |`,
+  ].join("\n");
+}
+
+function compactPdfLead(markdown: string, pdfQuality: PdfQualitySummary): string {
+  const gate = pdfQuality.gateVerdict;
+  if (gate !== "DEGRADED" && gate !== "CRITICAL") return markdown.trim();
+  const low = pdfQuality.lowConfidenceCritical?.length ? pdfQuality.lowConfidenceCritical.join(", ") : "部分章节";
+  const short = `> 证据质量：年报抽取为 ${gate}，${low} 需复核，详见文末。`;
+  return markdown
+    .replace(/^>\s*PDF 抽取质量声明：.*(?:\r?\n)?/mu, `${short}\n`)
+    .trim();
+}
+
+function sanitizeTechnicalEvidenceText(markdown: string): string {
+  return markdown
+    .replace(/WebSearch rate limit|WebSearch\s+rate_limit|rate_limit_exceeded|Volc WebSearch API 错误 \[[^\]]+\]/giu, "外部检索受限")
+    .replace(/检索过程受到\s*外部检索受限\s*影响/gu, "外部检索受限")
+    .replace(/且外部搜索存在限流失败/gu, "且外部检索受限")
+    .replace(/、Phase1B\s*监管\/处罚检索缺口，以及\s*P13\s*低置信导致非经常性损益判断需降级/gu, "，以及外部证据与 PDF 抽取质量边界");
+}
+
+function moveEvidenceGapsBeforeAppendix(markdown: string): string {
+  const gapRe = /^##\s+证据缺口清单（Phase1B）\s*[\s\S]*?(?=^##\s+附录：证据索引\s*$|(?![\s\S]))/imu;
+  const m = markdown.match(gapRe);
+  if (!m?.[0]) return markdown;
+  const without = markdown.replace(gapRe, "").replace(/\n{3,}/g, "\n\n").trim();
+  const appendixAt = without.search(/^##\s+附录：证据索引\s*$/imu);
+  if (appendixAt < 0) return [without, m[0].trim()].join("\n\n");
+  return [without.slice(0, appendixAt).trim(), m[0].trim(), without.slice(appendixAt).trim()].join("\n\n");
+}
+
+function normalizeRegulatorySection(markdown: string): string {
+  const re = /^##\s+监管与合规要点\s*\n([\s\S]*?)(?=^##\s+)/mu;
+  const m = markdown.match(re);
+  if (!m?.[1]) return markdown;
+  const lines = m[1].trim().split(/\r?\n/u).filter((line) => line.trim());
+  const bullets = lines.filter((line) => line.trim().startsWith("- "));
+  if (bullets.length === 0 || /###\s+已确认事项/u.test(m[1])) return markdown;
+  const confirmed = bullets.filter((line) => /审计意见|内控|资本配置|回购/u.test(line));
+  const notFound = bullets.filter((line) => /处罚|监管措施|诉讼|仲裁/u.test(line));
+  const needsReview = bullets.filter((line) => !confirmed.includes(line) && !notFound.includes(line));
+  const block = [
+    "## 监管与合规要点",
+    "",
+    "### 已确认事项",
+    "",
+    ...(confirmed.length ? confirmed : ["- 本次证据包未形成可直接确认的新增监管事项。"]),
+    "",
+    "### 未发现但证据不足",
+    "",
+    ...(notFound.length ? notFound : ["- 暂无需要以否定式披露的事项；若依赖外部检索，仍以证据缺口清单为准。"]),
+    "",
+    "### 需补充核验",
+    "",
+    ...(needsReview.length ? needsReview : ["- 无额外补充核验项。"]),
+    "",
+  ].join("\n");
+  return markdown.replace(re, `${block}\n`);
+}
+
+function renderEvidenceQualitySection(input: {
+  pdfQuality: PdfQualitySummary;
+  evidence: EvidenceRetrievalSummary;
+}): string {
+  const rows = [
+    "## 证据质量与限制",
+    "",
+    "| 项目 | 说明 |",
+    "|:-----|:-----|",
+  ];
+  const gate = input.pdfQuality.gateVerdict ?? "UNKNOWN";
+  const low = input.pdfQuality.lowConfidenceCritical?.length ? input.pdfQuality.lowConfidenceCritical.join("、") : "无";
+  const missing = input.pdfQuality.missingCritical?.length ? input.pdfQuality.missingCritical.join("、") : "无";
+  rows.push(`| PDF 抽取 | gate=${gate}；低置信关键块=${low}；缺失关键块=${missing} |`);
+  rows.push(`| 人工复核优先级 | ${input.pdfQuality.humanReviewPriority?.length ? input.pdfQuality.humanReviewPriority.join("、") : "无"} |`);
+  rows.push(`| 外部证据检索 | ${evidenceStatusLabel(input.evidence)} |`);
+  rows.push(`| WebSearch | ${input.evidence.webSearchUsed ? (input.evidence.webSearchLimited ? "已尝试，但部分查询受限并回退 Feed" : "已尝试并完成") : "未启用"} |`);
+  rows.push(`| 仍需补链 | ${input.evidence.missingItems.length ? input.evidence.missingItems.join("、") : "无"} |`);
+  return rows.join("\n");
+}
+
+function renderBusinessAnalysisPublishedMarkdown(input: {
+  qualitativeReportMarkdown: string;
+  qualitativeD1D6Markdown: string;
+  finalNarrativeStatus: FinalNarrativeStatus;
+  confidence: ConfidenceState;
+  pdfQuality: PdfQualitySummary;
+  evidence: EvidenceRetrievalSummary;
+}): string {
+  const q = moveEvidenceGapsBeforeAppendix(
+    normalizeRegulatorySection(
+      sanitizeTechnicalEvidenceText(compactPdfLead(stripFinalStatusLine(input.qualitativeReportMarkdown), input.pdfQuality)),
+    ),
+  );
+  const d = stripFinalStatusLine(input.qualitativeD1D6Markdown);
+  const qSplit = splitEvidenceAppendix(q);
+  const dSplit = splitEvidenceAppendix(d);
+  const sections = [qSplit.body.replace(/^(# .+?\n(?:> .+?\n)?)/u, `$1\n${renderQualitySnapshot(input)}\n`)];
+  if (input.finalNarrativeStatus === "complete" && dSplit.body && !hasD1D6Sections(qSplit.body)) {
+    sections.push(["## D1-D6 深度章节", "", dSplit.body].join("\n"));
+  }
+  sections.push(renderEvidenceQualitySection(input));
+  if (qSplit.appendix) {
+    sections.push(qSplit.appendix);
+  } else if (dSplit.appendix) {
+    sections.push(dSplit.appendix);
+  }
+  return sections
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .replace(/外部搜索有\s*rate\s+limit\s*失败/giu, "外部检索受限")
+    .replace(/rate\s+limit/giu, "外部检索受限");
 }
 
 type WorkflowManifest = {
@@ -218,6 +474,7 @@ type BusinessAnalysisManifest = {
     qualitativeReportPath?: string;
     qualitativeD1D6Path?: string;
     marketPackPath?: string;
+    phase1bJsonPath?: string;
     phase1bMarkdownPath?: string;
     dataPackReportPath?: string;
   };
@@ -289,6 +546,7 @@ async function emitFromWorkflow(runDir: string, siteDir: string, manifestPath: s
     topic: ReportTopicType;
     status: RequiredFieldsStatus;
     markdown: string;
+    publishable?: boolean;
   }> = [];
 
   /** 龟龟整包 */
@@ -353,44 +611,10 @@ async function emitFromWorkflow(runDir: string, siteDir: string, manifestPath: s
     topics.push({ topic: "penetration-return", status, markdown });
   }
 
-  /** 商业质量（终稿在 business-analysis；workflow 用 Phase1B 或 Phase3 因子 1B 占位） */
+  /** 商业质量终稿由 business-analysis 发布；workflow 侧只保留 manifest 质量信息，不写站点条目。 */
   {
-    const p1bPath = resolveArtifactPath(runDir, m.outputs.phase1bMarkdownPath);
-    const hasP1b = Boolean(p1bPath && (await pathExists(p1bPath)));
-    let status: RequiredFieldsStatus = "missing";
-    let markdown = "";
-    if (hasPolishBusiness && polishBusinessPath) {
-      markdown = (await readFile(polishBusinessPath, "utf-8")).trim();
-      /** 仍为 degraded：workflow 侧无 `qualitative_report.md` 六维终稿 */
-      status = "degraded";
-    } else {
-      const parts: string[] = [];
-      if (hasP1b && p1bPath) {
-        const md = await readFile(p1bPath, "utf-8");
-        status = "degraded";
-        parts.push(
-          "> **说明**：workflow 产物不包含 `qualitative_report.md` 终稿；以下为 Phase1B 外部证据补充稿（占位降级）。完整商业质量评估请运行 `business-analysis:run`。",
-          "## Phase1B（phase1b 补充稿）",
-          md.trim(),
-        );
-      } else {
-        const f1b = hasReportMd ? extractTurtleReportFactor1bSection(reportMarkdown) : undefined;
-        if (f1b) {
-          status = "degraded";
-          parts.push(
-            "> **说明**：当前 run 未携带 Phase1B 外部证据稿；以下为 **Phase3 报告中的因子 1B 摘要**（占位，**不是**六维商业质量终稿）。完整评估请运行 `business-analysis:run` 并在 Claude 会话收口 `qualitative_report.md`。",
-            f1b,
-          );
-        } else if (hasReportMd) {
-          status = "degraded";
-          parts.push(
-            "> **说明**：未找到 Phase1B 稿件，且本报告无可摘录的「因子 1B」章节。请运行 `business-analysis:run` 生成商业质量证据与终稿。",
-          );
-        }
-      }
-      markdown = joinSections(parts);
-    }
-    topics.push({ topic: "business-quality", status, markdown });
+    const markdown = hasPolishBusiness && polishBusinessPath ? (await readFile(polishBusinessPath, "utf-8")).trim() : "";
+    topics.push({ topic: "business-quality", status: markdown ? "degraded" : "missing", markdown, publishable: false });
   }
 
   const sourceMarkdownAbsForTopic = (topic: ReportTopicType): string | undefined => {
@@ -416,6 +640,19 @@ async function emitFromWorkflow(runDir: string, siteDir: string, manifestPath: s
 
   for (const t of topics) {
     if (!t.markdown.trim()) continue;
+    if (t.publishable === false) {
+      const q = topicQuality.get(t.topic);
+      manifestTopics.push({
+        v2TopicId: siteTopicTypeToV2TopicId(t.topic),
+        siteTopicType: t.topic,
+        entryId: buildEntryId(date, codeDigits, t.topic, runShort),
+        requiredFieldsStatus: t.status,
+        sourceMarkdownRelative: relFromRun(runDir, sourceMarkdownAbsForTopic(t.topic)),
+        qualityStatus: q?.qualityStatus ?? "degraded",
+        blockingReasons: q?.blockingReasons,
+      });
+      continue;
+    }
     const entryId = buildEntryId(date, codeDigits, t.topic, runShort);
     const meta: EntryMeta = {
       entryId,
@@ -543,26 +780,28 @@ async function emitFromBusinessAnalysis(
   if (hasQ && hasD1) status = "complete";
   else if (hasQ || hasD1) status = "degraded";
 
-  const parts: string[] = [];
   let qMarkdown = "";
   let d1Markdown = "";
   if (hasQ && qPath) {
     qMarkdown = await readFile(qPath, "utf-8");
-    parts.push(`## qualitative_report.md\n\n${qMarkdown.trim()}`);
   }
   if (hasD1 && d1) {
     d1Markdown = await readFile(d1, "utf-8");
-    parts.push(`## qualitative_d1_d6.md\n\n${d1Markdown.trim()}`);
   }
-
-  const markdown = joinSections(parts);
-  if (!markdown.trim()) return;
 
   const dataPackReportPath =
     typeof m.outputs.dataPackReportPath === "string" ? resolveArtifactPath(runDir, m.outputs.dataPackReportPath) : undefined;
   const dataPackReportMarkdown = dataPackReportPath && (await pathExists(dataPackReportPath))
     ? await readFile(dataPackReportPath, "utf-8")
     : undefined;
+  const phase1bJsonPath =
+    typeof m.outputs.phase1bJsonPath === "string" ? resolveArtifactPath(runDir, m.outputs.phase1bJsonPath) : undefined;
+  const phase1b =
+    phase1bJsonPath && (await pathExists(phase1bJsonPath))
+      ? await readJson<Phase1BQualitativeSupplement>(phase1bJsonPath)
+      : undefined;
+  const pdfQuality = parsePdfQualitySummary(dataPackReportMarkdown);
+  const evidence = summarizeEvidenceRetrieval(phase1b);
   const finalNarrative = validateFinalNarrativeMarkdown({
     qualitativeReportMarkdown: qMarkdown,
     qualitativeD1D6Markdown: d1Markdown,
@@ -574,10 +813,52 @@ async function emitFromBusinessAnalysis(
     status = "complete";
   }
 
-  const confidenceBa = parseConfidenceFromReportMd(markdown);
-
   const topic: ReportTopicType = "business-quality";
   const entryId = buildEntryId(date, codeDigits, topic, runShort);
+
+  if (finalNarrative.status !== "complete") {
+    const topicManifest: TopicManifestV1 = {
+      manifestVersion: TOPIC_MANIFEST_VERSION,
+      generatedAt: new Date().toISOString(),
+      publishedAt,
+      runProfile: "stock_full",
+      outputLayout: { code: m.outputLayout.code, runId: m.outputLayout.runId },
+      topics: [
+        {
+          v2TopicId: siteTopicTypeToV2TopicId(topic),
+          siteTopicType: topic,
+          entryId,
+          requiredFieldsStatus: status,
+          sourceMarkdownRelative:
+            relFromRun(runDir, qPath) ??
+            relFromRun(runDir, d1) ??
+            (typeof m.outputs.qualitativeReportPath === "string" ? m.outputs.qualitativeReportPath : undefined),
+          qualityStatus: finalNarrative.status,
+          blockingReasons: finalNarrative.blockingReasons,
+        },
+      ],
+    };
+    await writeTopicManifest(runDir, topicManifest);
+    return;
+  }
+
+  const confidenceBa = deriveBusinessAnalysisConfidence({
+    status,
+    finalNarrativeStatus: finalNarrative.status,
+    pdfQuality,
+    evidence,
+  });
+
+  const markdown = renderBusinessAnalysisPublishedMarkdown({
+    qualitativeReportMarkdown: qMarkdown,
+    qualitativeD1D6Markdown: d1Markdown,
+    finalNarrativeStatus: finalNarrative.status,
+    confidence: confidenceBa,
+    pdfQuality,
+    evidence,
+  });
+  if (!markdown.trim()) return;
+
   const manifestRel = path.relative(siteDir, manifestPath);
   const meta: EntryMeta = {
     entryId,
@@ -650,12 +931,18 @@ export async function rebuildSiteReportsIndex(siteDir: string): Promise<void> {
     }
   }
 
-  /** 去重：同一自然日 + code + topic 仅保留 publishedAt 最新 */
+  /** 去重：同一自然日 + code + topic 仅保留质量最高；同质量保留最新 */
   const dedup = new Map<string, TimelineItem>();
-  const sorted = [...items].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
-  for (const it of sorted) {
+  for (const it of items) {
     const dk = `${dateKeyFromIso(it.publishedAt)}|${it.code}|${it.topicType}`;
-    dedup.set(dk, it);
+    const prev = dedup.get(dk);
+    if (!prev || isBetterTimelineItem(it, prev)) dedup.set(dk, it);
+  }
+  const winnerIds = new Set([...dedup.values()].map((it) => it.entryId));
+  for (const it of items) {
+    if (winnerIds.has(it.entryId)) continue;
+    const dir = path.join(entriesRoot, it.entryId);
+    await rm(dir, { recursive: true, force: true });
   }
   const timeline = [...dedup.values()].sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1));
 

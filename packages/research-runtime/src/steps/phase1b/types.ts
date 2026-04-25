@@ -34,6 +34,17 @@ export type Phase1BRetrievalDiagnostics = {
   webSearchFailureReason?: string;
   /** 门禁层备注（URL 非法、时间不可解析等） */
   webSearchGateNotes?: string[];
+  /** WebSearch 无命中或失败后，是否回退 Feed `/stock/report/search` */
+  feedFallbackUsed?: boolean;
+  /** Feed 回退后的有效证据数量 */
+  feedEvidenceCount?: number;
+  /** 面向发布层的证据检索状态摘要 */
+  evidenceRetrievalStatus?:
+    | "web_hit"
+    | "web_limited_feed_hit"
+    | "web_limited_feed_empty"
+    | "feed_hit"
+    | "feed_empty";
 };
 
 export interface Phase1BItem {

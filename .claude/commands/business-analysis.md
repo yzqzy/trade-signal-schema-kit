@@ -15,6 +15,7 @@ argument-hint: [--code <股票代码>] [--year YYYY] [--pdf <path> | --report-ur
 1. **证据管线（TS/CLI）**：可重复、可门禁；产出 **evidence-pack**（`data_pack_*`、`phase1b_qualitative.*` 等）及工程合并的 `qualitative_report.md` / `qualitative_d1_d6.md` 草稿（**cli-evidence-only**，不宣称 AI 六维终稿）。
 2. **终稿叙事（Claude，默认步骤）**：在同一会话执行 skill `business-analysis-finalize`（`.claude/skills/business-analysis-finalize/SKILL.md`），基于证据包完成 **final-narrative**，写回 `qualitative_report.md`（终稿）与 `qualitative_d1_d6.md`（填充稿）。
 3. **失败语义**：若证据不足或无法负责任生成终稿，**禁止**对用户宣称「已完成终稿」；应列出缺口。纯 CLI/CI 跑通只表示证据链状态，**不等于**终稿完成。
+4. **站点发布**：只有 `business_analysis_manifest.json` 的 `finalNarrativeStatus=complete` 时，`reports-site:emit` 才发布 `topic:business-six-dimension` 完整页；否则只写降级 manifest，不生成用户可见商业质量页。
 
 ### 与 `/workflow-analysis`（report-polish）的边界
 
@@ -78,3 +79,4 @@ pnpm run business-analysis:run -- \
 
 - 仅估值摘要：`pnpm run valuation:run -- --from-manifest "<输出目录>/business_analysis_manifest.json"`（`/valuation`）。
 - 完整估值与终稿报告：manifest 中 `pipeline.valuation.suggestedWorkflowFullCommand`，或直接使用 `/workflow-analysis`（`workflow:run -- --mode turtle-strict`）。
+- 完整商业质量页入站点：确认 `finalNarrativeStatus=complete` 后执行 `pnpm run reports-site:emit -- --run-dir "<输出目录>"`，再 `pnpm run sync:reports-to-app`；同日同股同 Topic 若已有 workflow 降级入口，发布层会保留 complete 版本。

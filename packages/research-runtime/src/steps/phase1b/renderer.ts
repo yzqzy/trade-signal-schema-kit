@@ -1,4 +1,4 @@
-import type { Phase1BEvidence, Phase1BQualitativeSupplement } from "./types.js";
+import type { Phase1BEvidence, Phase1BItem, Phase1BQualitativeSupplement } from "./types.js";
 
 /** 渲染 C2 投影后的 `Phase1BQualitativeSupplement`（与 M2 前输出结构一致）。 */
 
@@ -14,6 +14,30 @@ function renderSources(evidences: Phase1BEvidence[]): string {
     .join("<br/>");
 }
 
+function humanRetrievalStatus(item: Phase1BItem): string {
+  const d = item.retrievalDiagnostics;
+  if (item.evidences.length > 0) {
+    if (d?.evidenceRetrievalStatus === "web_limited_feed_hit") {
+      return "WebSearch 受限，已回退 Feed 并取得候选证据";
+    }
+    if (d?.evidenceRetrievalStatus === "web_hit") return "WebSearch 命中";
+    if (d?.evidenceRetrievalStatus === "feed_hit") return "Feed 命中";
+    return "已取得候选证据";
+  }
+  if (d?.evidenceRetrievalStatus === "web_limited_feed_empty") {
+    return "外部检索受限，已回退 Feed，仍未形成可确认候选证据";
+  }
+  if (d?.webSearchUsed && d.webSearchFailureReason) {
+    return "外部检索未形成可用结果，已保留为证据缺口";
+  }
+  return "Feed 类别检索无命中，保留为证据缺口";
+}
+
+function renderContent(item: Phase1BItem): string {
+  if (item.evidences.length > 0) return item.content || NOT_FOUND_TEXT;
+  return humanRetrievalStatus(item);
+}
+
 function renderSection7(report: Phase1BQualitativeSupplement): string {
   const lines = [
     "## 7. 管理层与治理",
@@ -22,7 +46,7 @@ function renderSection7(report: Phase1BQualitativeSupplement): string {
     "|:-----|:-----|:-----|",
   ];
   for (const item of report.section7) {
-    lines.push(`| ${item.item} | ${item.content || NOT_FOUND_TEXT} | ${renderSources(item.evidences)} |`);
+    lines.push(`| ${item.item} | ${renderContent(item)} | ${renderSources(item.evidences)} |`);
   }
   return lines.join("\n");
 }
@@ -35,7 +59,7 @@ function renderSection8(report: Phase1BQualitativeSupplement): string {
     "|:-----|:-----|:-----|",
   ];
   for (const item of report.section8) {
-    lines.push(`| ${item.item} | ${item.content || NOT_FOUND_TEXT} | ${renderSources(item.evidences)} |`);
+    lines.push(`| ${item.item} | ${renderContent(item)} | ${renderSources(item.evidences)} |`);
   }
   return lines.join("\n");
 }

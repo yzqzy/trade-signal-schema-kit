@@ -13,8 +13,8 @@ argument-hint: [--code] [--mode standard|turtle-strict] [--pdf|--report-url] [--
 ## 与「终稿 / 发布」的关系
 
 - **CLI / TS 主链**：确定性阶段、估值、`analysis_report.md`（规则审计）与 **report-polish**（`report_view_model.json` + 四页 Markdown）。**cli-evidence-only**：TS 不调模型厂商叙事 API。
-- **发布进站点**：对本次 run 执行 `pnpm run reports-site:emit -- --run-dir <run 根目录>`，再 `pnpm run sync:reports-to-app`；emit 会**优先**使用 polish 四页作为各专题 `content.md` 来源（见 [reports-site-publish.md](../../docs/guides/reports-site-publish.md)）。
-- **六维定性终稿**：不属于本入口；请用 **`/business-analysis`** 并在会话内执行 **`business-analysis-finalize`**，写回 `qualitative_report.md` / `qualitative_d1_d6.md`。
+- **发布进站点**：对本次 run 执行 `pnpm run reports-site:emit -- --run-dir <run 根目录>`，再 `pnpm run sync:reports-to-app`；emit 使用 polish 三个确定性 Topic（总览、穿透、估值），商业质量只写 manifest 降级状态，不发布为完整页（见 [reports-site-publish.md](../../docs/guides/reports-site-publish.md)）。
+- **六维定性终稿**：不属于 workflow TS 主链；若需要完整商业质量页，必须继续跑 **`/business-analysis`** 并在会话内执行 **`business-analysis-finalize`**，写回 `qualitative_report.md` / `qualitative_d1_d6.md`。发布层会用该 complete 终稿覆盖同日同股同 Topic 的 workflow 降级入口。
 
 契约：[docs/guides/entrypoint-narrative-contract.md](../../docs/guides/entrypoint-narrative-contract.md) · [report-polish-narrative-contract.md](../../docs/guides/report-polish-narrative-contract.md)
 
@@ -63,6 +63,15 @@ pnpm run workflow:run -- --code 600887 --year 2024
 
 ```bash
 pnpm run reports-site:emit -- --run-dir "./output/workflow/<code>/<runId>"
+pnpm run sync:reports-to-app
+```
+
+若用户要求“完整四 Topic 入站点”，在 workflow 发布后继续执行：
+
+```bash
+pnpm run business-analysis:run -- --code <code> --strict
+# 在会话内执行 business-analysis-finalize，确认 business_analysis_manifest.json finalNarrativeStatus=complete
+pnpm run reports-site:emit -- --run-dir "./output/business-analysis/<code>/<runId>"
 pnpm run sync:reports-to-app
 ```
 

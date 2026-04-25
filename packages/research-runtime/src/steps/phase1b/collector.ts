@@ -187,6 +187,71 @@ function postProcessSection8Evidences(item: string, evidences: Phase1BEvidence[]
   return deduped.slice(0, Math.max(0, limit));
 }
 
+function textOfEvidence(e: Phase1BEvidence): string {
+  return [e.title, e.source, e.snippet].filter(Boolean).join(" ");
+}
+
+function isWeakRegulatoryNoise(e: Phase1BEvidence): boolean {
+  const t = textOfEvidence(e);
+  return /募集资金.*监管协议|资金存储.*监管协议|回购规则|自律监管指引第?7号|股吧|社区|论坛/u.test(t);
+}
+
+function isStrongGovernanceNegative(e: Phase1BEvidence): boolean {
+  const t = textOfEvidence(e);
+  return /行政处罚|监管措施|警示函|监管函|问询函|关注函|纪律处分|公开谴责|立案调查|立案|诉讼|仲裁|责令改正|整改/u.test(t);
+}
+
+function postProcessHighSensitivityEvidences(item: string, evidences: Phase1BEvidence[], limit: number): Phase1BEvidence[] {
+  if (item !== "违规/处罚记录" && item !== "行业监管动态") return evidences.slice(0, Math.max(0, limit));
+  const seen = new Set<string>();
+  const filtered = evidences.filter((e) => {
+    const url = e.url.trim();
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    if (isWeakRegulatoryNoise(e)) return false;
+    if (item === "违规/处罚记录") return isStrongGovernanceNegative(e);
+    return /行业|政策|法规|标准|监管|问询|处罚|警示|立案|规范|食品安全/u.test(textOfEvidence(e));
+  });
+  return filtered.slice(0, Math.max(0, limit));
+}
+
+export function filterPhase1BHighSensitivityEvidencesForTest(
+  item: string,
+  evidences: Phase1BEvidence[],
+  limit = 5,
+): Phase1BEvidence[] {
+  return postProcessHighSensitivityEvidences(item, evidences, limit);
+}
+
+function isWebSearchLimited(reason: string | undefined): boolean {
+  return /rate[_ -]?limit|限流|quota|too many/i.test(reason ?? "");
+}
+
+function enrichRetrievalDiagnosticsAfterFeed(
+  diagnostics: Section8RetrievalDiag | undefined,
+  evidences: Phase1BEvidence[],
+  usedFeedFallback: boolean,
+): Section8RetrievalDiag | undefined {
+  if (!diagnostics && !usedFeedFallback) return undefined;
+  const webUsed = diagnostics?.webSearchUsed === true;
+  const limited = isWebSearchLimited(diagnostics?.webSearchFailureReason);
+  const evidenceRetrievalStatus: Phase1BRetrievalDiagnostics["evidenceRetrievalStatus"] =
+    webUsed && !usedFeedFallback && evidences.length > 0
+      ? "web_hit"
+      : webUsed && limited && evidences.length > 0
+        ? "web_limited_feed_hit"
+        : webUsed && limited
+          ? "web_limited_feed_empty"
+          : evidences.length > 0
+            ? "feed_hit"
+            : "feed_empty";
+  return {
+    ...(diagnostics ?? {}),
+    ...(usedFeedFallback ? { feedFallbackUsed: true, feedEvidenceCount: evidences.length } : {}),
+    evidenceRetrievalStatus,
+  };
+}
+
 function buildQueries(_input: Phase1BInput): FeedSearchQuery[] {
   const mk = (
     catalog: ExternalEvidenceCatalog,
@@ -343,6 +408,7 @@ export async function collectExternalEvidenceC1(
       }
 
       if (evidences.length === 0) {
+        let usedFeedFallback = false;
         if (query.catalog === "8") {
           const tiered = await searchFeedSection8Tiered(clientOptions, input, query);
           evidences = tiered.evidences;
@@ -350,6 +416,12 @@ export async function collectExternalEvidenceC1(
         } else {
           evidences = await searchFeed(clientOptions, input, query);
         }
+        usedFeedFallback = true;
+        evidences = postProcessHighSensitivityEvidences(query.item, evidences, limit);
+        diagnostics = enrichRetrievalDiagnosticsAfterFeed(diagnostics, evidences, usedFeedFallback);
+      } else {
+        evidences = postProcessHighSensitivityEvidences(query.item, evidences, limit);
+        diagnostics = enrichRetrievalDiagnosticsAfterFeed(diagnostics, evidences, false);
       }
 
       if (query.catalog === "8") {

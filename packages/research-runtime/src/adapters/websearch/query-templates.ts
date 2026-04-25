@@ -24,10 +24,12 @@ export function buildPhase1bWebSearchQueries(
       primary: [
         clip100(`${name} ${code} 行政处罚 监管措施 警示函`),
         clip100(`${name} ${code} 证监会 问询函 立案`),
+        clip100(`${name} ${code} 诉讼 仲裁 处罚 整改`),
       ],
       fallback: [
         clip100(`${name} 违规 处罚 监管`),
         clip100(`${code} 纪律处分 公开谴责`),
+        clip100(`${name} 关注函 监管函 问询函`),
       ],
     };
   }

@@ -91,20 +91,30 @@ function signalLines(vm: ReportViewModelV1): string[] {
   if (vm.valuation.weightedAverage !== undefined) {
     out.push(`- **估值有结构化锚点**：综合估值 ${fmtNum(vm.valuation.weightedAverage)}，方法数 ${vm.valuation.methodCount}，一致性 ${vm.valuation.consistency ?? "—"}。[E6]`);
   }
-  out.push(`- **商业质量仍需叙事收口**：workflow 草稿可定位证据，但完整 D1-D6 专业终稿须由 Claude Code 按模板完成。[E3][E4]`);
+  out.push(`- **商业质量纳入独立校验**：D1-D6 结论以 evidence refs 与 final narrative gate 为准，站点发布只展示通过门禁的 Topic 成稿。[E3][E4]`);
   if (vm.dataPackReport.pdfGateVerdict && vm.dataPackReport.pdfGateVerdict !== "OK") {
     out.push(`- **PDF 抽取质量需披露**：当前 gate=${vm.dataPackReport.pdfGateVerdict}，涉及年报章节的结论必须声明置信边界。[E4]`);
   }
   return out;
 }
 
-function topicQualityNote(vm: ReportViewModelV1, topicId: string): string {
+function sanitizeInternalStatusText(text: string): string {
+  return text
+    .replace(/草稿/g, "结构化预览")
+    .replace(/待\s*Claude(?:\s*Code)?/giu, "需进一步")
+    .replace(/尚未完成/g, "未进入完整发布态")
+    .replace(/成稿要求/g, "研报关注点")
+    .replace(/初始状态/g, "证据状态")
+    .replace(/终稿/g, "成稿");
+}
+
+function topicEvidenceBoundary(vm: ReportViewModelV1, topicId: string): string {
   const topic = vm.topicReports.find((t) => t.topicId === topicId);
   if (!topic?.blockingReasons?.length) return "";
   return [
-    "> **Topic 质量状态**：" + (topic.qualityStatus ?? "draft"),
+    "> **证据边界**：本页仅展示 workflow 可审计证据组织结果；完整发布状态以 `topic_manifest.json` 和 final narrative gate 为准。",
     ">",
-    ...topic.blockingReasons.map((r) => `> - ${r}`),
+    ...topic.blockingReasons.map((r) => `> - ${sanitizeInternalStatusText(r)}`),
     "",
   ].join("\n");
 }
@@ -115,7 +125,7 @@ function phase1bCoverage(buffers: ReportPolishComposeBuffers): string {
   const rows = [
     "| 维度 | 当前证据状态 | 成稿处理 |",
     "|:-----|:-------------|:---------|",
-    `| 管理层与治理 | ${/##\s*7/u.test(text) ? "有 Phase1B 补充" : "待核对"} | 仅作为 D4 草稿证据，不直接贴链接表 |`,
+    `| 管理层与治理 | ${/##\s*7/u.test(text) ? "有 Phase1B 补充" : "待核对"} | 仅作为 D4 证据线索，不直接贴链接表 |`,
     `| 行业与竞争 | ${/##\s*8/u.test(text) ? "有 Phase1B 补充" : "待核对"} | 映射到 D2/D3 |`,
     `| MD&A | ${/##\s*10/u.test(text) ? "有 Phase1B 补充" : "待核对"} | 映射到 D5 |`,
     `| 显式未命中 | ${missing} 项 | 写入缺口清单，不静默补结论 |`,
@@ -128,7 +138,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
   return [
     `# ${name}（${vm.normalizedCode}）· 龟龟投资策略分析`,
     "",
-    `> **Position Recommendation**：${decisionZh(vm.phase3.decision)}；${verdictTone(vm)}。本页为 Markdown-first Topic 成稿草稿，数值与判断来自同 run 的结构化证据，不调用模型 SDK 自动补叙事。`,
+    `> **Position Recommendation**：${decisionZh(vm.phase3.decision)}；${verdictTone(vm)}。数值与判断来自同 run 的结构化证据，发布层按 Topic 门禁选择可展示版本。`,
     "",
     "## Turtle KPI Snapshot",
     "",
@@ -146,16 +156,16 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
     "",
     "- 年报与市场包中的财务口径保持一致；缺失或低置信章节只作为降级证据使用。[E2][E4]",
     "- Phase3 规则结论优先作为投资纪律锚点，Topic 叙事不得重算策略公式。[E7]",
-    "- 商业质量页若未经过 Claude Code final-narrative 收口，只作为结构化草稿，不作为完整六维终稿。",
+    "- 商业质量页以 `business-analysis-finalize` 的 final narrative gate 为完整发布依据。",
     "",
     "## 基本面速写 · 商业质量分析",
     "",
     "| 观察项 | 当前判断 | 证据 |",
     "|:-------|:---------|:-----|",
-    `| 商业模式 | 需在 D1 中完成一句话赚钱逻辑和资本特征拆解 | E2/E3/E4 |`,
-    `| 护城河 | 需在 D2 中用 ROE、份额、客户粘性或成本优势交叉验证 | E2/E3 |`,
-    `| 外部环境 | 需在 D3 中区分周期、政策与行业格局 | E3 |`,
-    `| 治理与管理层 | 需在 D4 中覆盖审计、处罚、关联交易、资本配置 | E3/E4 |`,
+    `| 商业模式 | D1 聚焦赚钱逻辑、收入质量、资本特征和现金收款 | E2/E3/E4 |`,
+    `| 护城河 | D2 用 ROE、份额、客户粘性或成本优势交叉验证 | E2/E3 |`,
+    `| 外部环境 | D3 区分周期、政策与行业格局 | E3 |`,
+    `| 治理与管理层 | D4 覆盖审计、处罚、关联交易、资本配置 | E3/E4 |`,
     "",
     "## 穿透回报率分析",
     "",
@@ -181,8 +191,8 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
     "",
     "## 风险提示",
     "",
-    "- 本页为确定性管线生成的 Markdown 草稿，不构成投资建议。",
-    "- 若证据包缺失、PDF gate 降级或 Phase1B 未命中，应优先补证据后再做专业叙事定稿。",
+    "- 本页由确定性管线生成，不构成投资建议。",
+    "- 若证据包缺失、PDF gate 降级或 Phase1B 未命中，相关结论保持降级披露。",
     "",
     "## 附录：证据索引",
     "",
@@ -200,23 +210,23 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
   return [
     `# ${name}（${vm.normalizedCode}）· 商业质量评估`,
     "",
-    topicQualityNote(vm, "topic:business-six-dimension"),
-    "> **Business Quality Verdict**：本页为六维专业 Markdown 草稿；完整发布级终稿须由 Claude Code 按 `business-analysis-finalize` 收口，并写入 `[终稿状态: 完成]`。",
+    topicEvidenceBoundary(vm, "topic:business-six-dimension"),
+    "> **Business Quality Verdict**：本页按 D1-D6 框架组织 workflow 证据，站点完整商业质量页以 `business-analysis-finalize` 通过门禁后的成稿为准。",
     "",
     "## Quality Snapshot",
     "",
-    "| 维度 | 初始状态 | 成稿要求 |",
+    "| 维度 | 研报关注点 | 证据锚点 |",
     "|:-----|:---------|:---------|",
-    "| D1 商业模式与资本特征 | 草稿 | 一句话赚钱逻辑、收入质量、利润质量、资本消耗、现金收款 |",
-    "| D2 竞争优势与护城河 | 草稿 | 行业地图、护城河来源、伪优势过滤、对标、监控 KPI |",
-    "| D3 外部环境 | 草稿 | 周期性、政策监管、行业趋势、负面约束 |",
-    "| D4 管理层与治理 | 草稿 | 治理红旗、审计意见、处罚诉讼、资本配置、言行一致 |",
-    "| D5 MD&A 解读 | 草稿 | 管理层叙事可信度、前瞻信号、隐含风险 |",
-    "| D6 控股结构 | 草稿 | 股权结构、关联交易、少数股东权益、SOTP 触发条件 |",
+    "| D1 商业模式与资本特征 | 赚钱逻辑、收入质量、利润质量、资本消耗、现金收款 | E2/E4 |",
+    "| D2 竞争优势与护城河 | 行业地图、护城河来源、伪优势过滤、对标、监控 KPI | E2/E3 |",
+    "| D3 外部环境 | 周期性、政策监管、行业趋势、负面约束 | E3/E4 |",
+    "| D4 管理层与治理 | 治理红旗、审计意见、处罚诉讼、资本配置、言行一致 | E3/E4 |",
+    "| D5 MD&A 解读 | 管理层叙事可信度、前瞻信号、隐含风险 | E4 |",
+    "| D6 控股结构 | 股权结构、关联交易、少数股东权益、SOTP 触发条件 | E1/E4 |",
     "",
     "## Executive Summary",
     "",
-    `**${name} 的商业质量判断尚未完成专业终稿收口。** 当前 TS 管线已提供市场包、年报 data_pack、Phase1B 外部证据和 Phase3 规则结论；本页按中国移动参考稿结构组织为 D1-D6 草稿，禁止把检索表直接当成最终报告。[E2][E3][E4]`,
+    `**${name} 的商业质量评估以证据闭环为核心。** 当前 TS 管线提供市场包、年报 data_pack、Phase1B 外部证据和 Phase3 规则结论；D1-D6 章节按参考稿结构组织，并通过证据编号连接到本地材料。[E2][E3][E4]`,
     "",
     "## 关键发现",
     "",
@@ -224,19 +234,19 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 维度一：商业模式与资本特征",
     "",
-    "**核心判断**：待 Claude Code 结合收入结构、利润质量、资本消耗与现金收款模式完成定稿。[E2][E4]",
+    "**核心判断**：商业模式分析围绕收入来源、利润含金量、资本消耗和现金收款四个锚点展开，避免只用增长率替代商业质量判断。[E2][E4]",
     "",
-    "| 子项 | 当前草稿锚点 | 后续写作要求 |",
+    "| 子项 | 证据锚点 | 分析口径 |",
     "|:-----|:-------------|:-------------|",
-    "| 商业模式 | 市场包与年报包 | 写清楚客户、产品、收费方式、成本结构 |",
-    "| 收入质量 | 财务历史与 Phase1B | 拆分增长来源，区分一次性与可持续 |",
-    "| 利润质量 | Phase3 利润锚点 | 说明扣非、非经、毛利/费用变化 |",
-    "| 资本消耗 | Capex、折旧、营运资本 | 判断轻/重资产与维护性投入 |",
-    "| 现金收款 | OCF、应收、合同负债 | 解释利润和现金流是否匹配 |",
+    "| 商业模式 | 市场包与年报包 | 客户、产品、收费方式、成本结构 |",
+    "| 收入质量 | 财务历史与 Phase1B | 增长来源、一次性与可持续收入区分 |",
+    "| 利润质量 | Phase3 利润锚点 | 扣非、非经、毛利和费用变化 |",
+    "| 资本消耗 | Capex、折旧、营运资本 | 轻/重资产属性与维护性投入 |",
+    "| 现金收款 | OCF、应收、合同负债 | 利润与现金流匹配度 |",
     "",
     "## 维度二：竞争优势与护城河",
     "",
-    "**核心判断**：待用行业份额、ROE 稳定性、客户粘性、成本优势或监管牌照交叉验证护城河强弱。[E2][E3]",
+    "**核心判断**：护城河判断需要用行业份额、ROE 稳定性、客户粘性、成本优势或监管牌照交叉验证。[E2][E3]",
     "",
     "### 护城河来源（Greenwald 三维框架）",
     "",
@@ -246,11 +256,11 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 维度三：外部环境",
     "",
-    "**核心判断**：待区分行业周期、政策红利、监管约束与竞争格局变化。[E3]",
+    "**核心判断**：外部环境分析区分行业周期、政策红利、监管约束与竞争格局变化。[E3]",
     "",
     "## 维度四：管理层与公司治理",
     "",
-    "**核心判断**：必须覆盖处罚/监管、诉讼、审计意见、关联交易、管理层变化与资本配置记录。[E3][E4]",
+    "**核心判断**：治理评估覆盖处罚/监管、诉讼、审计意见、关联交易、管理层变化与资本配置记录。[E3][E4]",
     "",
     "## 监管与合规要点",
     "",
@@ -261,11 +271,11 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 维度五：MD&A 解读",
     "",
-    "**核心判断**：待比较管理层叙事、实际财务变化和前瞻指引，尤其关注“管理层没解释什么”。[E4]",
+    "**核心判断**：MD&A 解读比较管理层叙事、实际财务变化和前瞻指引，尤其关注“管理层没解释什么”。[E4]",
     "",
     "## 维度六：控股结构分析",
     "",
-    "**核心判断**：待检查控股股东、子公司利润外溢、少数股东权益、复杂结构和 SOTP 触发条件。[E1][E4]",
+    "**核心判断**：控股结构分析检查控股股东、子公司利润外溢、少数股东权益、复杂结构和 SOTP 触发条件。[E1][E4]",
     "",
     "## 交叉验证与深度分析",
     "",
@@ -275,7 +285,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 深度总结",
     "",
-    "当前商业质量页已具备参考稿的章节骨架，但仍是 **draft/degraded**：需要 Claude Code 将证据转写为 D1-D6 实质正文、补 `[E*]` 引用、写清反证和后续跟踪指标。",
+    "商业质量评估必须同时回答“这家公司如何赚钱”“优势能否维持”“风险是否被数字验证”三个问题；当 PDF gate 或外部证据不足时，结论应降低置信度并保留缺口。",
     "",
     "## 未来1-3年关键观察变量",
     "",

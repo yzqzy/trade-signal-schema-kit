@@ -54,6 +54,8 @@ pnpm --filter @trade-signal/research-runtime run run:reports-site-sync -- \
 ## 架构 V2：`topic_manifest.json` / `publish_only`
 
 - 每次 `reports-site:emit` 在 **run 根目录** 写入 **`topic_manifest.json`**（`manifestVersion: "1.0"`），列出本次写入站点的专题：`v2TopicId`、`siteTopicType`、`entryId`、`sourceMarkdownRelative` 等，供外部工具与 **manifest 驱动发布** 对齐（见 [v2-plugin-model](../architecture/v2-plugin-model.md)）。
+- 发布索引按 **同一自然日 + 股票代码 + Topic** 去重，优先级为 `complete > degraded > missing`，同优先级取更新发布时间；被替换的 entry 目录会从 `entries/` 移除，避免静态导出继续暴露旧降级页。
+- workflow run 不再把降级的 `business_quality.md` 发布为完整商业质量页；只有 business-analysis run 的 `finalNarrativeStatus=complete` 才会发布 `topic:business-six-dimension` 正文。
 - **仅再发布**：若目录下 **没有** `workflow_manifest.json` / `business_analysis_manifest.json`，但存在合法的 **`topic_manifest.json`**，则 emit 走 **`emitFromTopicManifestOnly`**，按清单中的 `sourceMarkdownRelative` 读取 Markdown 并重写 `entries`（`runProfile: publish_only` 场景）。
 
 ## 选股（Selection）侧产物

@@ -11,7 +11,7 @@ description: "`workflow:run --mode turtle-strict`：TS 严格链 + Phase3 + repo
 
 - **包含**：PDF 链（或 URL）、Pre-flight、`data_pack_report` 在 strict 下的 fail-fast、Phase3、`report-polish` 四页 + `report_view_model.json`。
 - **不包含**：`qualitative_report.md` / `qualitative_d1_d6.md` 的 **final-narrative** 写回（见 **`/business-analysis` + `business-analysis-finalize`**）。
-- **发布**：多页稿以 report-polish 为准 → `reports-site:emit` → `sync:reports-to-app`（见 [report-polish-narrative-contract.md](../../../docs/guides/report-polish-narrative-contract.md)）。
+- **发布**：report-polish 的总览 / 穿透 / 估值进入 `reports-site:emit`；商业质量若未经过 `business-analysis-finalize`，只写降级 manifest，不发布为完整 Topic 页。
 
 ## Execution Checklist
 
@@ -21,8 +21,9 @@ description: "`workflow:run --mode turtle-strict`：TS 严格链 + Phase3 + repo
    - `report_view_model.json`
    - `turtle_overview.md`、`business_quality.md`、`penetration_return.md`、`valuation.md`
    - `workflow_manifest.json` 的 `outputs` 含上述路径字段
-4. 若用户需要进站点：提示 `pnpm run reports-site:emit -- --run-dir <run>` → `pnpm run sync:reports-to-app`。
-5. 若缺失 polish 文件：提示 `pnpm run build` 后重跑 workflow；**不要求**用会话「六维终稿」替代 report-polish。
+4. 若用户需要进站点：执行 `pnpm run reports-site:emit -- --run-dir <run>` → `pnpm run sync:reports-to-app`；确认 `topic:business-six-dimension` 未以 workflow 降级页发布。
+5. 若用户需要完整四 Topic：继续执行 `/business-analysis` + `business-analysis-finalize`，再对 business-analysis run 执行 `reports-site:emit`；发布层按 complete 优先覆盖同日同股同 Topic。
+6. 若缺失 polish 文件：提示 `pnpm run build` 后重跑 workflow；**不要求**用会话「六维终稿」替代 report-polish。
 
 ## Pass / Block Criteria
 
@@ -30,6 +31,7 @@ description: "`workflow:run --mode turtle-strict`：TS 严格链 + Phase3 + repo
 |------|------|
 | **编排通过** | CLI 退出成功且上节 report-polish 文件齐全 |
 | **阻断** | strict 下缺年报包 / Pre-flight 失败 / Phase3 抛错（见 CLI 前缀） |
+| **完整四 Topic 发布** | workflow 三个确定性 Topic 已入站点，且 business-analysis manifest 的 `finalNarrativeStatus=complete` 商业质量页已入站点 |
 
 ## References
 
