@@ -160,6 +160,7 @@ function parseConfidenceFromReportMd(md: string): ConfidenceState {
 
 type ValuationQualitySummary = {
   activeMethodCount: number;
+  activeCoreMethodCount: number;
   consistency?: string;
   coefficientOfVariation?: number;
 };
@@ -168,11 +169,15 @@ function parseValuationQuality(rawJson: string | undefined): ValuationQualitySum
   if (!rawJson?.trim()) return undefined;
   try {
     const v = JSON.parse(rawJson) as {
-      methods?: Array<{ value?: number | null }>;
+      methods?: Array<{ id?: string; method?: string; name?: string; value?: number | null }>;
       crossValidation?: { consistency?: string; coefficientOfVariation?: number };
     };
+    const methods = Array.isArray(v.methods) ? v.methods : [];
+    const active = methods.filter((m) => typeof m.value === "number" && Number.isFinite(m.value));
+    const core = /DCF|DDM|PE[_\s-]?BAND|PE\s*Band|市盈率/i;
     return {
-      activeMethodCount: (v.methods ?? []).filter((m) => typeof m.value === "number" && Number.isFinite(m.value)).length,
+      activeMethodCount: active.length,
+      activeCoreMethodCount: active.filter((m) => core.test(String(m.method ?? m.name ?? m.id ?? ""))).length,
       consistency: v.crossValidation?.consistency,
       coefficientOfVariation: v.crossValidation?.coefficientOfVariation,
     };
@@ -184,6 +189,7 @@ function parseValuationQuality(rawJson: string | undefined): ValuationQualitySum
 function deriveValuationConfidence(base: ConfidenceState, q: ValuationQualitySummary | undefined): ConfidenceState {
   if (!q) return base === "unknown" ? "unknown" : "low";
   if (q.activeMethodCount < 2) return "low";
+  if (q.activeCoreMethodCount < 2 && base === "high") return "medium";
   if (q.consistency === "low") return "medium";
   if (typeof q.coefficientOfVariation === "number" && q.coefficientOfVariation > 40) return "medium";
   return base === "unknown" ? "medium" : base;
@@ -355,7 +361,7 @@ function renderQualitySnapshot(input: {
     "|:-----|:-----|",
     "| 商业质量 | 较强但需观察 |",
     `| 最终置信度 | ${input.confidence} |`,
-    `| PDF gate | ${gate}；低置信关键块：${low} |`,
+    `| 年报抽取质量 | ${gate}；低置信关键块：${low} |`,
     `| 监管证据状态 | ${evidenceStatusLabel(input.evidence)} |`,
     `| 证据完整度 | ${input.evidence.missingItems.length > 0 ? "存在需补充核验项，详见文末证据质量表" : "关键项已形成候选证据"} |`,
   ].join("\n");
@@ -431,7 +437,7 @@ function renderEvidenceQualitySection(input: {
   const gate = input.pdfQuality.gateVerdict ?? "UNKNOWN";
   const low = input.pdfQuality.lowConfidenceCritical?.length ? input.pdfQuality.lowConfidenceCritical.join("、") : "无";
   const missingPdf = input.pdfQuality.missingCritical?.length ? input.pdfQuality.missingCritical.join("、") : "无";
-  rows.push(`| PDF 抽取 | gate=${gate}；低置信关键块=${low}；缺失关键块=${missingPdf} |`);
+  rows.push(`| 年报抽取 | 质量=${gate}；低置信关键块=${low}；缺失关键块=${missingPdf} |`);
   rows.push(`| 人工复核优先级 | ${input.pdfQuality.humanReviewPriority?.length ? input.pdfQuality.humanReviewPriority.join("、") : "无"} |`);
   rows.push(`| 外部证据检索 | ${evidenceStatusLabel(input.evidence)} |`);
   rows.push(`| 开放信息补充 | ${input.evidence.webSearchUsed ? (input.evidence.webSearchLimited ? "未形成关键反证；不作为监管事件主证据" : "已形成候选线索；不作为监管事件主证据") : "未启用或未触发"} |`);

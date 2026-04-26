@@ -123,7 +123,12 @@ function signalLines(vm: ReportViewModelV1): string[] {
   const ii = vm.phase3.factor2?.II;
   const gg = vm.phase3.factor3?.GG;
   if (r !== undefined && ii !== undefined) {
-    out.push(`- **穿透回报率通过门槛**：粗算 R=${fmtPct(r)}，门槛 II=${fmtPct(ii)}，安全边际 ${fmtNum(r - ii)} pct。[E2][E7]`);
+    const margin = r - ii;
+    out.push(
+      margin >= 0
+        ? `- **穿透回报率高于门槛**：粗算 R=${fmtPct(r)}，门槛 II=${fmtPct(ii)}，安全边际 ${fmtNum(margin)} pct。[E2][E7]`
+        : `- **粗算穿透回报率低于门槛**：R=${fmtPct(r)}，门槛 II=${fmtPct(ii)}，缺口 ${fmtNum(Math.abs(margin))} pct，需依赖精算、分红和现金流改善继续验证。[E2][E7]`,
+    );
   }
   if (gg !== undefined) {
     out.push(`- **精算结果提供第二锚点**：GG=${fmtPct(gg)}，外推可信度 ${vm.phase3.factor3?.extrapolationTrust ?? "—"}。[E7]`);
@@ -131,9 +136,9 @@ function signalLines(vm: ReportViewModelV1): string[] {
   if (vm.valuation.weightedAverage !== undefined) {
     out.push(`- **估值有结构化锚点**：综合估值 ${fmtNum(vm.valuation.weightedAverage)}，方法数 ${vm.valuation.methodCount}，一致性 ${vm.valuation.consistency ?? "—"}。[E6]`);
   }
-  out.push(`- **商业质量纳入独立校验**：D1-D6 结论以 evidence refs 与 final narrative gate 为准，站点发布只展示通过门禁的 Topic 成稿。[E3][E4]`);
+  out.push(`- **商业质量纳入独立校验**：D1-D6 结论以证据编号与六维成稿状态为准，站点只展示达到发布标准的 Topic。[E3][E4]`);
   if (vm.dataPackReport.pdfGateVerdict && vm.dataPackReport.pdfGateVerdict !== "OK") {
-    out.push(`- **PDF 抽取质量需披露**：当前 gate=${vm.dataPackReport.pdfGateVerdict}，涉及年报章节的结论必须声明置信边界。[E4]`);
+    out.push(`- **年报抽取质量需披露**：当前证据质量为 ${vm.dataPackReport.pdfGateVerdict}，涉及年报章节的结论必须声明置信边界。[E4]`);
   }
   return out;
 }
@@ -152,7 +157,7 @@ function topicEvidenceBoundary(vm: ReportViewModelV1, topicId: string): string {
   const topic = vm.topicReports.find((t) => t.topicId === topicId);
   if (!topic?.blockingReasons?.length) return "";
   return [
-    "> **证据边界**：本页仅展示 workflow 可审计证据组织结果；完整发布状态以 `topic_manifest.json` 和 final narrative gate 为准。",
+    "> **证据边界**：本页仅展示可审计证据组织结果；完整发布状态以站点清单和六维成稿质量为准。",
     ">",
     ...topic.blockingReasons.map((r) => `> - ${sanitizeInternalStatusText(r)}`),
     "",
@@ -178,7 +183,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
   return [
     `# ${name}（${vm.normalizedCode}）· 龟龟投资策略分析`,
     "",
-    `> **Position Recommendation**：${decisionZh(vm.phase3.decision)}；${verdictTone(vm)}。数值与判断来自同 run 的结构化证据，发布层按 Topic 门禁选择可展示版本。`,
+    `> **Position Recommendation**：${decisionZh(vm.phase3.decision)}；${verdictTone(vm)}。数值与判断来自同一次分析的结构化证据，并按 Topic 质量标准发布。`,
     "",
     "## Turtle KPI Snapshot",
     "",
@@ -196,7 +201,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
     "",
     "- 年报与市场包中的财务口径保持一致；缺失或低置信章节只作为降级证据使用。[E2][E4]",
     "- Phase3 规则结论优先作为投资纪律锚点，Topic 叙事不得重算策略公式。[E7]",
-    "- 商业质量页以 `business-analysis-finalize` 的 final narrative gate 为完整发布依据。",
+    "- 商业质量页以六维研报成稿状态作为完整发布依据。",
     "",
     "## 基本面速写 · 商业质量分析",
     "",
@@ -220,7 +225,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
     "| 模块 | 论点 | 当前状态 |",
     "|:-----|:-----|:---------|",
     `| 买入理由 | R/GG 与估值锚点形成正向支撑 | ${vm.phase3.decision === "buy" ? "成立" : "待观察"} |`,
-    `| 主要风险 | PDF gate、现金流质量、治理/监管证据不足会降低置信度 | ${vm.dataPackReport.pdfGateVerdict ?? "UNKNOWN"} |`,
+    `| 主要风险 | 年报抽取质量、现金流质量、治理/监管证据不足会降低置信度 | ${vm.dataPackReport.pdfGateVerdict ?? "UNKNOWN"} |`,
     `| 加仓条件 | 后续财报验证现金流、分红、盈利质量与估值安全边际 | 需跟踪 |`,
     "",
     "## 监控清单",
@@ -232,7 +237,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, _buffers: Re
     "## 风险提示",
     "",
     "- 本页由确定性管线生成，不构成投资建议。",
-    "- 若证据包缺失、PDF gate 降级或 Phase1B 未命中，相关结论保持降级披露。",
+    "- 若证据包缺失、年报抽取质量降级或外部证据未命中，相关结论保持降级披露。",
     "",
     "## 附录：证据索引",
     "",
@@ -251,7 +256,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     `# ${name}（${vm.normalizedCode}）· 商业质量评估`,
     "",
     topicEvidenceBoundary(vm, "topic:business-six-dimension"),
-    "> **Business Quality Verdict**：本页按 D1-D6 框架组织 workflow 证据，站点完整商业质量页以 `business-analysis-finalize` 通过门禁后的成稿为准。",
+    "> **Business Quality Verdict**：本页按 D1-D6 框架组织可审计证据，站点完整商业质量页以六维成稿质量为准。",
     "",
     "## Quality Snapshot",
     "",
@@ -266,7 +271,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## Executive Summary",
     "",
-    `**${name} 的商业质量评估以证据闭环为核心。** 当前 TS 管线提供市场包、年报 data_pack、Phase1B 外部证据和 Phase3 规则结论；D1-D6 章节按参考稿结构组织，并通过证据编号连接到本地材料。[E2][E3][E4]`,
+    `**${name} 的商业质量评估以证据闭环为核心。** 当前材料提供市场包、年报证据包、外部证据和策略规则结论；D1-D6 章节按参考稿结构组织，并通过证据编号连接到本地材料。[E2][E3][E4]`,
     "",
     "## 关键发现",
     "",
@@ -325,7 +330,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 深度总结",
     "",
-    "商业质量评估必须同时回答“这家公司如何赚钱”“优势能否维持”“风险是否被数字验证”三个问题；当 PDF gate 或外部证据不足时，结论应降低置信度并保留缺口。",
+    "商业质量评估必须同时回答“这家公司如何赚钱”“优势能否维持”“风险是否被数字验证”三个问题；当年报抽取质量或外部证据不足时，结论应降低置信度并保留缺口。",
     "",
     "## 未来1-3年关键观察变量",
     "",
@@ -336,7 +341,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "| 分红/回购/资本开支 | 影响股东回报与估值锚 | E4/E6 |",
     "| 监管与治理事件 | 影响风险折价 | E3/E4 |",
     "",
-    "## Phase1B 覆盖摘要（不直接作为终稿正文）",
+    "## 外部证据覆盖摘要",
     "",
     phase1bCoverage(buffers),
     "",
@@ -367,7 +372,7 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
     "## STEP 0 数据校验与口径锚定",
     "",
     `- 市场：${vm.market.market}；币种：${vm.market.currency ?? "—"}；价格=${fmtNum(vm.market.price)}；市值=${fmtNum(vm.market.marketCap)}。[E2]`,
-    `- PDF gate=${vm.dataPackReport.pdfGateVerdict ?? "UNKNOWN"}；市场包 warnings=${vm.market.warningsCount}。[E2][E4]`,
+    `- 年报抽取质量=${vm.dataPackReport.pdfGateVerdict ?? "UNKNOWN"}；市场包 warnings=${vm.market.warningsCount}。[E2][E4]`,
     "",
     "## STEP 1 Owner Earnings 计算",
     "",
@@ -412,7 +417,7 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
     "",
     "## STEP 11 交叉验证与可信度评级",
     "",
-    `外推可信度=${vm.phase3.factor3?.extrapolationTrust ?? "—"}；报告置信度=${vm.phase3.confidence}。若 PDF gate 降级或市场包 warnings 较多，终稿需降低语气强度。[E2][E4][E7]`,
+    `外推可信度=${vm.phase3.factor3?.extrapolationTrust ?? "—"}；报告置信度=${vm.phase3.confidence}。若年报抽取质量降级或市场包 warnings 较多，结论需降低语气强度。[E2][E4][E7]`,
     "",
     "## 汇总输出",
     "",
@@ -467,8 +472,8 @@ export function renderValuationTopicMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     "## 三、定性调整说明",
     "",
-    "- 商业质量未完成 final-narrative 时，估值中的护城河、治理、监管和现金流调整应保持保守。",
-    "- PDF gate 降级时，涉及年报附注的调整必须标注置信边界。",
+    "- 商业质量未达到完整六维成稿时，估值中的护城河、治理、监管和现金流调整应保持保守。",
+    "- 年报抽取质量降级时，涉及年报附注的调整必须标注置信边界。",
     "",
     "## 四、估值方法详情",
     "",

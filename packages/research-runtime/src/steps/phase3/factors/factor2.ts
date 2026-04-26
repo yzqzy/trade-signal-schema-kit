@@ -35,7 +35,7 @@ export function runFactor2(market: DataPackMarketParsed, factor1b: Factor1BResul
     return { passed: false, reason: "因子2-S2否决：FCF长期为负且借债上升", A, B, C, D, E, G, I, M, O, Q, R, II, rejectType: "S2" };
   }
 
-  if (R !== undefined && (R < rf || R < II * 0.5)) {
+  if (R !== undefined && R < II) {
     return { passed: false, reason: `因子2-S4否决：R=${R.toFixed(2)}% 低于阈值`, A, B, C, D, E, G, I, M, O, Q, R, II, rejectType: "S4" };
   }
 

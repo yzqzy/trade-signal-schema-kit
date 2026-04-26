@@ -204,11 +204,11 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
     const formulaSummary = [
       "- 穿透收益率口径：`R = I / 市值`。",
       "- 门槛口径：`II = max(3.5%, rf + 2%)`。",
-      "- S4 触发条件：`R < rf` 或 `R < II*0.5`。",
+      "- S4 触发条件：`R < II`。",
     ].join("\n");
     const humanReason =
       f2.R !== undefined && f2.II !== undefined
-        ? `这次不是程序异常，而是前置筛选结束。因为穿透收益率 R=${f2.R.toFixed(2)}% 明显低于门槛（II=${f2.II.toFixed(2)}%，且低于 Rf=${(ctx.marketPack.rf ?? 2.5).toFixed(2)}%），因此不再进入后续因子计算。`
+        ? `这次不是程序异常，而是前置筛选结束。因为穿透收益率 R=${f2.R.toFixed(2)}% 低于门槛（II=${f2.II.toFixed(2)}%，Rf=${(ctx.marketPack.rf ?? 2.5).toFixed(2)}%），因此不再进入后续因子计算。`
         : "这次不是程序异常，而是前置筛选结束。主因是穿透收益率不足，未满足策略最低门槛。";
     const report = buildRejectReport(
       ctx.marketPack.code,
@@ -280,6 +280,9 @@ export function runPhase3Strict(input: RunPhase3StrictInput): Phase3ExecutionRes
     price: ctx.marketPack.price,
     marketCap: ctx.marketPack.marketCap,
     totalShares: ctx.marketPack.totalShares,
+    peTtm: ctx.marketPack.peTtm,
+    debt: ctx.marketPack.financials[0]?.interestBearingDebt,
+    cash: ctx.marketPack.financials[0]?.cash,
     riskFreeRate: ctx.marketPack.rf,
     financials: ctx.marketPack.financials.map((f) => ({
       year: f.year,

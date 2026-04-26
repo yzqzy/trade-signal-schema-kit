@@ -87,6 +87,7 @@ export function parseDataPackMarket(markdown: string): DataPackMarketParsed {
   const price = toNumber(markdown.match(/(?:最新股价|收盘价)[^\d-]*(-?\d+(?:\.\d+)?)/)?.[1]);
   const marketCap = toNumber(markdown.match(/(?:最新市值|总市值)[^\d-]*(-?\d[\d,]*(?:\.\d+)?)/)?.[1]);
   const totalShares = toNumber(markdown.match(/(?:总股本|股本)[^\d-]*(-?\d[\d,]*(?:\.\d+)?)/)?.[1]);
+  const peTtm = toNumber(markdown.match(/(?:PE\s*TTM|当前\s*PE|市盈率\s*TTM)[^\d-]*(-?\d[\d,]*(?:\.\d+)?)/iu)?.[1]);
   const industry = markdown.match(/行业[:：]\s*(.+)/)?.[1]?.trim();
   const warnings = parseWarnings(markdown);
   const financials = parseFinancialRows(markdown);
@@ -101,6 +102,7 @@ export function parseDataPackMarket(markdown: string): DataPackMarketParsed {
     price,
     marketCap,
     totalShares,
+    peTtm,
     industry,
     warnings,
     financials,

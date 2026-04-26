@@ -313,8 +313,8 @@ export async function composeReportViewModel(input: ComposeReportViewModelInput)
       qualityStatus: businessStatus,
       blockingReasons:
         businessStatus === "blocked"
-          ? ["workflow report-polish 不是 Claude 六维终稿，且年报证据包缺失或 PDF gate=CRITICAL"]
-          : ["workflow report-polish 仅为结构化商业质量草稿；完整六维终稿需 business-analysis-finalize"],
+          ? ["商业六维页未达到完整发布条件，且年报证据包缺失或抽取质量为 CRITICAL"]
+          : ["商业六维页仍为结构化预览；完整发布需六维成稿质量达标"],
       evidenceRefs: topicEvidenceRefs,
     },
     {

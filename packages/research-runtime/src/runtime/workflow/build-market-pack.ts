@@ -26,6 +26,21 @@ function snapshotYearLabel(s: FinancialSnapshot): string {
   return yearFromPeriod(s.period);
 }
 
+function yearFromDate(value?: string): string | undefined {
+  return value?.match(/^(20\d{2})/)?.[1];
+}
+
+function latestHistoricalPe(dataPack: DataPackMarket): number | undefined {
+  const direct = dataPack.historicalPeSeries?.currentPe;
+  if (typeof direct === "number" && Number.isFinite(direct) && direct > 0) return direct;
+  const series = dataPack.historicalPeSeries?.peTtm ?? [];
+  for (let i = series.length - 1; i >= 0; i -= 1) {
+    const v = series[i];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  }
+  return undefined;
+}
+
 /**
  * 将 `financialHistory` 转为按年度降序、最多 5 年的列定义；不足时与 `financialSnapshot` 合并。
  */
@@ -213,13 +228,21 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     return totalSharesMm > 0 ? np / totalSharesMm : 0;
   };
 
-  const div0 = dataPack.corporateActions?.find((a) => a.cashDividendPerShare != null);
+  const dividendsByYear = new Map<string, number>();
+  for (const action of dataPack.corporateActions ?? []) {
+    if (action.actionType !== "dividend") continue;
+    const cash = safeNum(action.cashDividendPerShare, Number.NaN);
+    if (!Number.isFinite(cash) || cash <= 0) continue;
+    const y = yearFromDate(action.exDate) ?? yearFromDate(action.recordDate);
+    if (!y) continue;
+    if (!dividendsByYear.has(y)) dividendsByYear.set(y, cash);
+  }
   const dpsFor = (y: string) => {
     const s = byYear.get(y) ?? latest;
     if (s.dividendsPerShare !== undefined && s.dividendsPerShare !== null) {
       return safeNum(s.dividendsPerShare, 0);
     }
-    return safeNum(div0?.cashDividendPerShare, 0);
+    return safeNum(dividendsByYear.get(y), 0);
   };
 
   const rfEnv = process.env.PHASE1A_RF_RATE?.trim() || process.env.MARKET_PACK_RF_RATE?.trim();
@@ -289,6 +312,13 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
   const klines = dataPack.klines ?? [];
   const lastBar = klines.length > 0 ? klines[klines.length - 1] : undefined;
   const tradingDays = dataPack.tradingCalendar?.filter((d) => d.isTradingDay).length ?? 0;
+  const peTtm = latestHistoricalPe(dataPack);
+  const peStats = dataPack.historicalPeSeries;
+  if (klines.length === 0) {
+    warnLines.push(
+      "- [数据完整性|中|规则=kline_bars_count_0] K 线返回 0 根；可能是浏览器上下文不可用或直连 fallback 失败，请检查 feed /stock/kline diagnostics。",
+    );
+  }
 
   const industryLabel = instrument.industry?.trim() || "未知（待 feed 行业字段或 Phase1B 补充）";
 
@@ -357,6 +387,8 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     `- 最新股价：${safeNum(quote.price, 0).toFixed(4)}`,
     `- 最新市值：${fmt(marketCapResolved)} 百万元`,
     `- 总股本：${fmt(totalSharesMm)} 百万股`,
+    `- PE TTM：${peTtm !== undefined ? fmt(peTtm) : "缺失"}`,
+    `- 历史 PE 分位：${peStats?.percentile !== undefined ? `${fmt(peStats.percentile)}%` : "缺失"}`,
     `- 无风险利率：${rf.toFixed(2)}%${rfEnv ? "（来自环境变量）" : "（默认占位）"}`,
     "",
     "## §2 风险提示",

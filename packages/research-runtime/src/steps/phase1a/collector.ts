@@ -14,6 +14,7 @@ export interface CollectPhase1AInput {
   /** A股默认 true：尝试填充 `financialHistory` 供市场包多年列真实回填 */
   includeFinancialHistory?: boolean;
   includeCorporateActions?: boolean;
+  includeHistoricalPe?: boolean;
   includeTradingCalendar?: boolean;
   financialPeriod?: string;
   calendarMarket?: Market;
@@ -83,6 +84,7 @@ export async function collectPhase1ADataPack(
   const includeFinancialSnapshot = input.includeFinancialSnapshot ?? true;
   const includeFinancialHistory = input.includeFinancialHistory ?? instrument.market === "CN_A";
   const includeCorporateActions = input.includeCorporateActions ?? true;
+  const includeHistoricalPe = input.includeHistoricalPe ?? instrument.market === "CN_A";
   const includeTradingCalendar = input.includeTradingCalendar ?? true;
 
   const financialSnapshotPeriod = resolveFinancialSnapshotPeriod(input);
@@ -115,6 +117,11 @@ export async function collectPhase1ADataPack(
       () => provider.getGovernanceEvents!(input.code, { year: input.year, limit: 10, timeRange: "3y" }),
     ),
   ]);
+  const historicalPeSeries = await loadOptional(
+    includeHistoricalPe && typeof provider.getHistoricalPeSeries === "function",
+    optionalFailure,
+    () => provider.getHistoricalPeSeries!(input.code, 60),
+  );
 
   let financialHistory: DataPackMarket["financialHistory"];
   if (includeFinancialSnapshot && includeFinancialHistory && financialSnapshot) {
@@ -144,6 +151,7 @@ export async function collectPhase1ADataPack(
     financialSnapshot,
     financialHistory,
     corporateActions,
+    historicalPeSeries,
     tradingCalendar,
     industryCycleSnapshot,
     peerComparablePool,

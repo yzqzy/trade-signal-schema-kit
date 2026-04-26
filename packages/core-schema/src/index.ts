@@ -100,6 +100,23 @@ export interface CorporateAction {
   splitRatio?: number;
 }
 
+export interface HistoricalPeSeries {
+  code: string;
+  source?: string;
+  interval?: string | number;
+  dates: string[];
+  peTtm: number[];
+  prices?: number[];
+  currentPe?: number;
+  percentile?: number;
+  mean?: number;
+  median?: number;
+  min?: number;
+  minDate?: string;
+  max?: number;
+  maxDate?: string;
+}
+
 export interface TradingCalendar {
   market: Market;
   date: string;
@@ -132,6 +149,7 @@ export interface MarketDataProvider {
    */
   getFinancialHistory?(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]>;
   getCorporateActions(code: string, from?: string, to?: string): Promise<CorporateAction[]>;
+  getHistoricalPeSeries?(code: string, interval?: string | number): Promise<HistoricalPeSeries>;
   getTradingCalendar(market: Market, from: string, to: string): Promise<TradingCalendar[]>;
   /** P2：行业周期快照（feed 优先，可选能力） */
   getIndustryCycleSnapshot?(code: string, year?: string): Promise<IndustryCycleSnapshot>;
@@ -212,6 +230,7 @@ export interface DataPackMarket {
   financialHistory?: FinancialSnapshot[];
   tradingCalendar?: TradingCalendar[];
   corporateActions?: CorporateAction[];
+  historicalPeSeries?: HistoricalPeSeries;
   news?: NewsItem[];
   /** P2：行业周期快照（若 provider 支持） */
   industryCycleSnapshot?: IndustryCycleSnapshot;

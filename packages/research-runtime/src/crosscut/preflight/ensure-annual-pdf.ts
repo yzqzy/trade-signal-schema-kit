@@ -21,8 +21,8 @@ export interface EnsureAnnualPdfOnDiskParams {
   reportUrl?: string;
   discoverPolicy: AnnualPdfDiscoverPolicy;
   /**
-   * 未显式传 --year 时，strict/best-effort 自动发现可从默认年度向前回退。
-   * 典型场景：运行日已到 2026，但 2025 年报尚未披露，应自动落到 2024 年报并同步 Phase1A 财报锚点。
+   * 未显式传 --year 时，strict/best-effort 自动发现从运行日向前探测最新完整年报。
+   * 例如 2026-04-26 会先查 2025，再查 2024/2023；全部失败才回到传入 fiscalYear 规则。
    */
   allowFiscalYearFallback?: boolean;
   /** strict 发现失败时的错误文案前缀 */
@@ -76,10 +76,12 @@ export async function ensureAnnualPdfOnDisk(
     return {};
   }
 
-  const candidateYears = [requestedYear];
+  const candidateYears: string[] = [];
   if (params.allowFiscalYearFallback && /^\d{4}$/.test(requestedYear)) {
-    const y = Number(requestedYear);
-    candidateYears.push(String(y - 1), String(y - 2));
+    const currentYear = new Date().getFullYear();
+    candidateYears.push(String(currentYear - 1), String(currentYear - 2), String(currentYear - 3), requestedYear);
+  } else {
+    candidateYears.push(requestedYear);
   }
 
   let discoveredUrl: string | undefined;

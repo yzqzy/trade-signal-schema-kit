@@ -45,6 +45,7 @@ export interface DataPackMarketParsed {
   price?: number;
   marketCap?: number;
   totalShares?: number;
+  peTtm?: number;
   industry?: string;
   warnings: WarningEntry[];
   financials: FinancialYearData[];

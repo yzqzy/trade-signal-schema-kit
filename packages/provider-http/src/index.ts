@@ -3,6 +3,7 @@ import type {
   FinancialSnapshot,
   GovernanceEventCollection,
   GovernanceNegativeEvent,
+  HistoricalPeSeries,
   Instrument,
   IndustryCycleSnapshot,
   KlineBar,
@@ -99,6 +100,33 @@ type KlinePayload = {
   secucode?: string;
   klines?: KlineRecord[];
   data?: KlineRecord[];
+  diagnostics?: {
+    warnings?: string[];
+    source?: string;
+    browserError?: string;
+    directError?: string;
+  };
+};
+
+type HistoricalPePayload = {
+  code?: string;
+  source?: string;
+  interval?: string | number;
+  dates?: string[];
+  date?: string[];
+  peTtm?: number[];
+  pe_ttm?: number[];
+  prices?: number[];
+  price?: number[];
+  currentPe?: number;
+  percentile?: number;
+  mean?: number;
+  median?: number;
+  min?: number;
+  minDate?: string;
+  max?: number;
+  maxDate?: string;
+  stats?: Partial<HistoricalPeSeries>;
 };
 
 type FinancialPayload = {
@@ -511,6 +539,30 @@ export class FeedHttpProvider implements MarketDataProvider {
         close: record.close as number,
         volume: record.volume,
       }));
+  }
+
+  async getHistoricalPeSeries(code: string, interval: string | number = 60): Promise<HistoricalPeSeries> {
+    const payload = await this.request<HistoricalPePayload>("/stock/valuation/historical-pe", {
+      code,
+      interval: String(interval),
+    });
+    const stats = payload.stats ?? {};
+    return {
+      code: payload.code ?? code,
+      source: payload.source ?? "eniu",
+      interval: payload.interval ?? interval,
+      dates: payload.dates ?? payload.date ?? [],
+      peTtm: (payload.peTtm ?? payload.pe_ttm ?? []).map((v) => Number(v)).filter(Number.isFinite),
+      prices: (payload.prices ?? payload.price ?? []).map((v) => Number(v)).filter(Number.isFinite),
+      currentPe: asNumber(payload.currentPe ?? stats.currentPe),
+      percentile: asNumber(payload.percentile ?? stats.percentile),
+      mean: asNumber(payload.mean ?? stats.mean),
+      median: asNumber(payload.median ?? stats.median),
+      min: asNumber(payload.min ?? stats.min),
+      minDate: payload.minDate ?? stats.minDate,
+      max: asNumber(payload.max ?? stats.max),
+      maxDate: payload.maxDate ?? stats.maxDate,
+    };
   }
 
   async getFinancialSnapshot(code: string, period: string): Promise<FinancialSnapshot> {
