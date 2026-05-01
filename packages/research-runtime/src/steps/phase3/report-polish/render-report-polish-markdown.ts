@@ -119,6 +119,9 @@ function renderFinancialTrendAppendix(marketPackMarkdown: string): string {
     extractMarketPackSection(marketPackMarkdown, /^##\s+§4\s+资产负债表[^\n]*\n/mu),
     extractMarketPackSection(marketPackMarkdown, /^##\s+§5\s+现金流量表[^\n]*\n/mu),
     extractMarketPackSection(marketPackMarkdown, /^##\s+§17\s+衍生指标[^\n]*\n/mu),
+    extractMarketPackSection(marketPackMarkdown, /^##\s+§18\s+费用率趋势[^\n]*\n/mu),
+    extractMarketPackSection(marketPackMarkdown, /^##\s+§19\s+营运资本与现金转换周期[^\n]*\n/mu),
+    extractMarketPackSection(marketPackMarkdown, /^##\s+§21\s+治理与监管事件时间线[^\n]*\n/mu),
   ].filter((x): x is string => Boolean(x));
   return sections.length > 0
     ? sanitizeMarketPackAppendix(sections.join("\n\n"))
@@ -246,7 +249,10 @@ function cleanOperationSummary(line: string): string {
 }
 
 function companyOperationLines(buffers: ReportPolishComposeBuffers, category: string, keywords: string[], limit = 2): string[] {
-  const section = extractMarketPackSection(buffers.marketPackMarkdown, /^##\s+§9O\s+公司经营画像[^\n]*\n/mu) ?? "";
+  const section =
+    extractMarketPackSection(buffers.marketPackMarkdown, /^##\s+§20\s+主营业务画像[^\n]*\n/mu) ??
+    extractMarketPackSection(buffers.marketPackMarkdown, /^##\s+§9O\s+公司经营画像[^\n]*\n/mu) ??
+    "";
   const rows = section
     .split(/\r?\n/u)
     .map((line) => line.trim())
@@ -266,14 +272,39 @@ function renderCompanySpecificSignals(buffers: ReportPolishComposeBuffers): stri
   const revenue = extractTableRow(buffers.marketPackMarkdown, "营业收入");
   const profit = extractTableRow(buffers.marketPackMarkdown, "归母净利润");
   const fcf = extractTableRow(buffers.marketPackMarkdown, "FCF");
+  const grossMargin = extractTableRow(buffers.marketPackMarkdown, "毛利率(%)");
+  const ccc = extractTableRow(buffers.marketPackMarkdown, "CCC天数");
   const dps = extractTableRow(buffers.marketPackMarkdown, "每股分红DPS");
-  const metricHits = [revenue, profit, fcf].filter((x): x is string => Boolean(x));
+  const metricHits = [revenue, profit, fcf, grossMargin, ccc].filter((x): x is string => Boolean(x));
   const rows = [
     `| 主营结构 | ${businessHits.length ? businessHits.join("；") : "现有材料未形成可发布摘要，保留为后续核验项。"} |`,
     `| 经营指标 | ${metricHits.length ? metricHits.join("；") : "现有材料未形成可发布摘要，保留为后续核验项。"} |`,
     `| 股东回报 | ${dps ? `${dps}；分红连续性仍需结合利润质量验证。` : "现有材料未形成稳定股东回报证据，不作为核心回报来源。"} |`,
   ];
   return ["| 模块 | 年报/市场包信号 |", "|:-----|:-------------|", ...rows].join("\n");
+}
+
+function renderIndustryProfileKpiCard(vm: ReportViewModelV1): string {
+  const profile = vm.phase1a.industryProfile;
+  if (!profile) {
+    return "行业 Profile 未形成结构化结果；本页只使用通用财务、年报与经营画像证据。";
+  }
+  const header = `Profile=${profile.profileId}；行业=${profile.industryName ?? "—"}；置信度=${profile.confidence ?? "—"}；命中方式=${profile.matchedBy ?? "—"}。`;
+  if (profile.profileId === "generic") {
+    return `${header}\n\n> 当前使用通用 profile，行业专属 KPI 未启用；不展示无关行业字段。`;
+  }
+  const signalRows = profile.kpiSignals.slice(0, 8).map((s) =>
+    `| ${s.label} | ${String(s.summary ?? "—").replace(/\|/g, "/")} | ${s.source ?? "—"} | ${s.confidence ?? "—"} |`,
+  );
+  const missing = profile.missingKpis.slice(0, 8);
+  return [
+    header,
+    "",
+    ...(signalRows.length
+      ? ["| KPI | 证据摘要 | 来源 | 置信度 |", "|:----|:---------|:-----|:-------|", ...signalRows, ""]
+      : ["> 已识别行业 profile，但专属 KPI 未形成结构化结果；报告不补写行业字段。", ""]),
+    missing.length ? `未形成结构化结果：${missing.join("、")}。` : "关键 KPI 已形成结构化候选证据。",
+  ].join("\n");
 }
 
 function renderDcfSensitivity(v: ValuationJson): string {
@@ -336,14 +367,23 @@ function renderMethodSelection(v: ValuationJson, vm: ReportViewModelV1): string 
 
 function renderReverseValuation(v: ValuationJson, vm: ReportViewModelV1): string {
   const implied = v.impliedExpectations ?? {};
-  const entries = Object.entries(implied).filter(([, value]) => value !== undefined && value !== "");
-  if (entries.length === 0) {
+  const allRows: Array<[string, unknown, string]> = [
+    ["PE 隐含增长", implied.impliedGrowthFromPe, "与历史利润增速比较，判断当前 PE 是否透支成长"],
+    ["历史利润 CAGR", implied.historicalProfitCagr, "作为盈利增长的事实锚"],
+    ["FCF Yield", implied.fcfYield, "现金流对当前市值的覆盖度"],
+    ["模型 WACC", implied.modelWacc, "DCF 反向估值的贴现率锚"],
+    ["模型 Ke", implied.modelKe, "DDM 反向估值的权益成本锚"],
+    ["Beta", implied.beta, "权益成本敏感参数"],
+    ["ERP", implied.erp, "市场风险溢价假设"],
+  ];
+  const rows = allRows.filter(([, value]) => value !== undefined && value !== "");
+  if (rows.length === 0) {
     return `当前价格 ${fmtNum(vm.market.price)} 与综合估值 ${fmtNum(vm.valuation.weightedAverage)} 的差距可作为反向估值起点；JSON 未提供更细隐含增长字段时，不额外补造假设。`;
   }
   return [
-    "| 隐含变量 | 数值 |",
-    "|:---------|:-----|",
-    ...entries.map(([key, value]) => `| ${key} | ${typeof value === "number" ? fmtNum(value) : value} |`),
+    "| 隐含变量 | 数值 | 解读 |",
+    "|:---------|:-----|:-----|",
+    ...rows.map(([key, value, note]) => `| ${key} | ${typeof value === "number" ? fmtNum(value) : value} | ${note} |`),
   ].join("\n");
 }
 
@@ -366,6 +406,31 @@ function renderValuationExecutiveSummary(v: ValuationJson, vm: ReportViewModelV1
   return `**一句话结论**：${relation}。${methodText}；${dcfText}，${peText}。一致性为 ${vm.valuation.consistency ?? "—"}，因此估值应按区间和情景理解，而不是按单点目标价交易。[E4][E6]`;
 }
 
+function renderValuationClassification(vm: ReportViewModelV1): string {
+  return [
+    "| 项目 | 判断 | 估值含义 |",
+    "|:-----|:-----|:---------|",
+    `| 公司画像 | ${vm.valuation.companyType ?? "—"} | 成熟蓝筹更适合 DCF、DDM 与 PE Band 交叉验证 |`,
+    `| 价格位置 | ${fmtNum(vm.market.price)} | 与综合估值 ${fmtNum(vm.valuation.weightedAverage)} 比较，先看安全边际再看单点目标价 |`,
+    `| 历史 PE 分位 | ${fmtPct(vm.market.pePercentile)} | 分位越低，PE Band 的保护作用越强 |`,
+    `| 无风险利率 | ${fmtPct(vm.market.riskFreeRate)} | 若来自默认值，WACC/Ke 结论需保守使用 |`,
+  ].join("\n");
+}
+
+function renderWaccNarrative(v: ValuationJson, vm: ReportViewModelV1): string {
+  const implied = v.impliedExpectations ?? {};
+  return [
+    `WACC=${fmtPct(vm.valuation.wacc)}，Ke=${fmtPct(vm.valuation.ke)}。本页把它作为估值敏感性锚，而不是不可变真值；当利率、Beta 或风险溢价变化时，DCF/DDM 会同步移动。[E6]`,
+    "",
+    "| 参数 | 数值 | 解读 |",
+    "|:-----|:-----|:-----|",
+    `| 无风险利率 | ${fmtPct(vm.market.riskFreeRate)} | 当前为市场包解析值，若为默认值则保持保守 |`,
+    `| Beta | ${fmtNum(typeof implied.beta === "number" ? implied.beta : undefined)} | 成熟蓝筹通常低于高成长公司，但仍影响 Ke |`,
+    `| ERP | ${fmtPct(typeof implied.erp === "number" ? implied.erp : undefined)} | 权益风险溢价，每上调 1 pct 会明显压低 DCF/DDM |`,
+    `| 权益/债务权重 | ${fmtPct(typeof implied.eWeight === "number" ? implied.eWeight : undefined)} / ${fmtPct(typeof implied.dWeight === "number" ? implied.dWeight : undefined)} | 低杠杆公司估值主要受 Ke 与现金流影响 |`,
+  ].join("\n");
+}
+
 function renderValuationMethodCount(v: ValuationJson): string {
   const core = effectiveCoreMethods(v);
   const supporting = effectiveSupportingMethods(v);
@@ -382,6 +447,9 @@ function renderValuationDisagreement(v: ValuationJson, vm: ReportViewModelV1): s
   const ddm = methodByName(v, "DDM");
   if (isEffectiveMethod(dcf)) {
     rows.push(`| DCF | 现金流折现锚为 ${fmtNum(methodValue(dcf))} | 对 FCF、WACC、终值增长率敏感 |`);
+  }
+  if (isEffectiveMethod(ddm)) {
+    rows.push(`| DDM | 股利折现锚为 ${fmtNum(methodValue(ddm))} | 对 DPS、Ke 和长期分红增长率敏感 |`);
   }
   if (isEffectiveMethod(pe)) {
     rows.push(`| PE Band | 历史倍数中枢为 ${fmtNum(methodValue(pe))} | 对 EPS_norm 与历史 PE 分位敏感 |`);
@@ -405,6 +473,42 @@ function renderPenetrationDiscipline(vm: ReportViewModelV1): string {
       : `精算 GG=${fmtPct(gg)} 同样未达到门槛，现金回报需要继续修复。`
     : "精算 GG 缺失，不能作为放宽纪律的依据。";
   return `粗算 R=${fmtPct(r)} 低于门槛 II=${fmtPct(ii)}，本轮不满足策略底线。${ggText}`;
+}
+
+function renderPenetrationOwnerEarnings(vm: ReportViewModelV1): string {
+  const f2 = vm.phase3.factor2;
+  return [
+    "| 项目 | 数值 | 含义 |",
+    "|:-----|----:|:-----|",
+    `| A 归母净利润 | ${fmtNum(f2?.A)} | 报表利润起点 |`,
+    `| C 归母口径利润 | ${fmtNum(f2?.C)} | 剔除少数股东后的利润锚 |`,
+    `| D 可加回/调整项 | ${fmtNum(f2?.D)} | 策略口径中的现金化调整 |`,
+    `| I Owner Earnings | ${fmtNum(f2?.I)} | 用于穿透回报率的核心现金收益 |`,
+    `| R 穿透回报率 | ${fmtPct(f2?.R)} | 与门槛 II=${fmtPct(f2?.II)} 比较 |`,
+  ].join("\n");
+}
+
+function renderPenetrationSensitivity(vm: ReportViewModelV1): string {
+  const r = vm.phase3.factor2?.R;
+  const ii = vm.phase3.factor2?.II;
+  if (r === undefined || ii === undefined) return "_缺少 R 或 II，无法生成敏感性表。_";
+  const scenarios = [-10, -5, 0, 5, 10];
+  const rows = [
+    "| Owner Earnings 情景 | 调整后 R | vs 门槛 | 纪律含义 |",
+    "|:---------------------|---------:|:--------|:---------|",
+    ...scenarios.map((s) => {
+      const rr = r * (1 + s / 100);
+      const gap = rr - ii;
+      const label = s === 0 ? "基准" : `${s > 0 ? "+" : ""}${s}%`;
+      return `| ${label} | ${fmtPct(rr)} | ${rr >= ii ? "高于" : "低于"}门槛（${fmtNum(gap)} pct） | ${rr >= ii ? "可进入更积极验证" : "保持观察/回避纪律"} |`;
+    }),
+  ];
+  const needed = r > 0 ? (ii / r - 1) * 100 : undefined;
+  if (needed !== undefined && Number.isFinite(needed)) {
+    rows.push("");
+    rows.push(`基准 R 若要回到门槛，Owner Earnings 约需提升 ${fmtPct(Math.max(0, needed))}；若当前已高于门槛，则该值可理解为可承受下滑空间。`);
+  }
+  return rows.join("\n");
 }
 
 function sanitizeCalculationExcerpt(text: string): string {
@@ -443,14 +547,15 @@ function evidenceGapSection(vm: ReportViewModelV1): string[] {
   ];
 }
 
-function metricTable(vm: ReportViewModelV1): string {
+function metricTable(vm: ReportViewModelV1, valuationJson?: ValuationJson): string {
+  const methodCountText = valuationJson ? renderValuationMethodCount(valuationJson) : `${vm.valuation.methodCount} 个方法`;
   return [
     "| 指标 | 数值 | 解读 |",
     "|:-----|:-----|:-----|",
     `| 规则结论 | ${decisionZh(vm.phase3.decision)} | 置信度 ${vm.phase3.confidence} |`,
     `| 粗算穿透回报率 R | ${fmtPct(vm.phase3.factor2?.R)} | 门槛 II=${fmtPct(vm.phase3.factor2?.II)} |`,
     `| 精算穿透回报率 GG | ${fmtPct(vm.phase3.factor3?.GG)} | 外推可信度 ${vm.phase3.factor3?.extrapolationTrust ?? "—"} |`,
-    `| 估值合成 | ${fmtNum(vm.valuation.weightedAverage)} | 方法数 ${vm.valuation.methodCount}；CV=${fmtNum(vm.valuation.coefficientOfVariation)} |`,
+    `| 估值合成 | ${fmtNum(vm.valuation.weightedAverage)} | ${methodCountText}；CV=${fmtNum(vm.valuation.coefficientOfVariation)} |`,
     `| 价值陷阱 | ${vm.phase3.factor4?.trapRisk ?? "—"} | 仓位建议：${vm.phase3.factor4?.position ?? "—"} |`,
   ].join("\n");
 }
@@ -517,6 +622,7 @@ function phase1bCoverage(buffers: ReportPolishComposeBuffers): string {
 
 export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, buffers: ReportPolishComposeBuffers): string {
   const name = vm.displayCompanyName ?? vm.market.name ?? vm.normalizedCode;
+  const valuationJson = parseValuationJson(buffers.valuationRawJson);
   return [
     `# ${name}（${vm.normalizedCode}）· 龟龟投资策略分析`,
     "",
@@ -524,7 +630,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     "## Turtle KPI Snapshot",
     "",
-    metricTable(vm),
+    metricTable(vm, valuationJson),
     "",
     "## Executive Summary",
     "",
@@ -554,6 +660,10 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     renderCompanySpecificSignals(buffers),
     "",
+    "## 行业关键变量",
+    "",
+    renderIndustryProfileKpiCard(vm),
+    "",
     "## 关键假设",
     "",
     "- 年报与市场包中的财务口径保持一致；缺失或低置信章节只作为降级证据使用。[E2][E4]",
@@ -575,7 +685,7 @@ export function renderTurtleOverviewMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     "## 估值与定价",
     "",
-    `估值方法数 ${vm.valuation.methodCount}，综合估值 ${fmtNum(vm.valuation.weightedAverage)}，一致性 ${vm.valuation.consistency ?? "—"}。完整方法与敏感性见本站“估值分析”Topic。`,
+    `${renderValuationMethodCount(valuationJson)}，综合估值 ${fmtNum(vm.valuation.weightedAverage)}，一致性 ${vm.valuation.consistency ?? "—"}。完整方法与敏感性见本站“估值分析”Topic。`,
     "",
     "## 投资论点卡（Thesis Card）",
     "",
@@ -711,6 +821,7 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
   const name = vm.displayCompanyName ?? vm.market.name ?? vm.normalizedCode;
   const f2 = extractBetweenHeadings(buffers.analysisReportMarkdown, /^##\s*四[、.]\s*因子2/im, /^##\s*[五六七八九十]/m);
   const f3 = extractBetweenHeadings(buffers.analysisReportMarkdown, /^##\s*五[、.]\s*因子3/im, /^##\s*[六七八九十]/m);
+  const valuationJson = parseValuationJson(buffers.valuationRawJson);
   return [
     `# ${name}（${vm.normalizedCode}）· 穿透回报率定量分析`,
     "",
@@ -722,7 +833,7 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
     "",
     "## 核心指标速览",
     "",
-    metricTable(vm),
+    metricTable(vm, valuationJson),
     "",
     "## STEP 0 数据校验与口径锚定",
     "",
@@ -731,7 +842,9 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
     "",
     "## STEP 1 Owner Earnings 计算",
     "",
-    `Owner Earnings 以策略计算口径锚定：A=${fmtNum(vm.phase3.factor2?.A)}，C=${fmtNum(vm.phase3.factor2?.C)}，D=${fmtNum(vm.phase3.factor2?.D)}，I=${fmtNum(vm.phase3.factor2?.I)}。[E7]`,
+    renderPenetrationOwnerEarnings(vm),
+    "",
+    "Owner Earnings 是本页的核心桥梁：它把报表利润、少数股东影响、现金化调整和分配能力放到同一张表里，避免只用净利润或股息率判断真实回报。[E7]",
     "",
     "## STEP 2 分配能力评估",
     "",
@@ -769,6 +882,10 @@ export function renderPenetrationReturnMarkdown(vm: ReportViewModelV1, buffers: 
     "",
     `- 分配意愿：结合历史分红、回购和资本配置记录，在商业质量 D4/D5 中完成叙事验证。[E3][E4]`,
     `- 穿透回报率：R=${fmtPct(vm.phase3.factor2?.R)}；安全边际=${vm.phase3.factor2?.R !== undefined && vm.phase3.factor2?.II !== undefined ? `${fmtNum(vm.phase3.factor2.R - vm.phase3.factor2.II)} pct` : "—"}。[E7]`,
+    "",
+    "### 10c Owner Earnings 敏感性",
+    "",
+    renderPenetrationSensitivity(vm),
     "",
     "## STEP 11 交叉验证与可信度评级",
     "",
@@ -820,11 +937,11 @@ export function renderValuationTopicMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     "## 一、公司分类",
     "",
-    `公司画像：${vm.valuation.companyType ?? "—"}；风险自由利率解析值=${fmtNum(vm.market.riskFreeRate)}。[E2][E6]`,
+    renderValuationClassification(vm),
     "",
     "## 二、WACC 计算",
     "",
-    `WACC=${fmtNum(vm.valuation.wacc)}，Ke=${fmtNum(vm.valuation.ke)}。若资本结构、Beta 或 ERP 缺证据，需在终稿中说明假设来源。[E6]`,
+    renderWaccNarrative(valuationJson, vm),
     "",
     "## 三、方法选择",
     "",
@@ -849,16 +966,18 @@ export function renderValuationTopicMarkdown(vm: ReportViewModelV1, buffers: Rep
     "",
     renderPeBandSection(valuationJson),
     "",
-    "## 八、DDM / PEG 未采用原因",
+    "## 八、DDM / PEG 适用性说明",
     "",
-    "| 方法 | 当前处理 | 原因 |",
+    "| 方法 | 当前处理 | 说明 |",
     "|:-----|:---------|:-----|",
-    `| DDM | ${isEffectiveMethod(methodByName(valuationJson, "DDM")) ? "已采用" : "未采用"} | ${methodByName(valuationJson, "DDM")?.note ?? (isEffectiveMethod(methodByName(valuationJson, "DDM")) ? "分红口径可用" : "分红连续性或贴现率证据不足")} |`,
-    `| PEG | ${isEffectiveMethod(methodByName(valuationJson, "PEG")) ? "已采用" : "未采用"} | ${methodByName(valuationJson, "PEG")?.note ?? (isEffectiveMethod(methodByName(valuationJson, "PEG")) ? "盈利增长口径可用" : "盈利增长口径不足")} |`,
+    `| DDM | ${isEffectiveMethod(methodByName(valuationJson, "DDM")) ? "核心方法，已采用" : "未采用"} | ${methodByName(valuationJson, "DDM")?.note ?? (isEffectiveMethod(methodByName(valuationJson, "DDM")) ? "分红口径可用，适合成熟高分红公司；长期增长率采用稳态约束。" : "分红连续性或贴现率证据不足")} |`,
+    `| PEG | ${isEffectiveMethod(methodByName(valuationJson, "PEG")) ? "辅助观察，已计算" : "未采用"} | ${methodByName(valuationJson, "PEG")?.note ?? (isEffectiveMethod(methodByName(valuationJson, "PEG")) ? "盈利增长口径可用，但不作为成熟蓝筹的核心估值锚。" : "盈利增长口径不足")} |`,
     "",
     "## 九、方法分歧解释",
     "",
     renderValuationDisagreement(valuationJson, vm),
+    "",
+    "当 DCF/DDM 明显高于 PE Band 时，通常意味着现金流和分红模型对长期稳定性更乐观，而市场历史倍数仍按偏防御资产定价。此时更适合使用估值区间：PE Band 是保守锚，DCF/DDM 是现金流兑现后的上沿。[E4][E6]",
     "",
     "## 十、反向估值：当前价格隐含了什么？",
     "",

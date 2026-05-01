@@ -177,6 +177,16 @@ function zoneAdjustment(
     if (zone && prefs && prefs.avoid.includes(zone)) return -14;
     return pageNo < annexStartPage ? 16 : -10;
   }
+  if (sectionId === "OPERATING") {
+    if (zone === "MDA_ZONE") return 30;
+    if (pageNo >= annexStartPage) return -38;
+    return 10;
+  }
+  if (sectionId === "BUSINESS") {
+    if (zone === "MDA_ZONE") return 28;
+    if (pageNo >= annexStartPage) return -22;
+    return 8;
+  }
   if (!zone && totalPages > 0 && pageNo / totalPages > 0.32) return 4;
   return 0;
 }
@@ -220,6 +230,10 @@ function confidenceFromScores(top: number, runnerUp: number | undefined): Phase2
   if (runnerUp === undefined || top - runnerUp >= 12) return "high";
   if (top - runnerUp >= 6) return "medium";
   return "low";
+}
+
+function nonLocalRunnerUp(best: PageCandidate, ranked: PageCandidate[]): PageCandidate | undefined {
+  return ranked.find((candidate) => candidate.page !== best.page && Math.abs(candidate.page - best.page) > 2);
 }
 
 function buildSectionBoundaryMatchers(sectionId: Phase2ASectionId): RegExp[] {
@@ -362,6 +376,11 @@ function writeSection(
   if (sectionId === "P13") target.P13 = value;
   if (sectionId === "MDA") target.MDA = value;
   if (sectionId === "SUB") target.SUB = value;
+  if (sectionId === "BUSINESS") target.BUSINESS = value;
+  if (sectionId === "SEGMENT") target.SEGMENT = value;
+  if (sectionId === "OPERATING") target.OPERATING = value;
+  if (sectionId === "CAPEX") target.CAPEX = value;
+  if (sectionId === "DIVIDEND") target.DIVIDEND = value;
 }
 
 function readSection(sections: PdfSections, sectionId: Phase2ASectionId): PdfSectionBlock | undefined {
@@ -372,6 +391,11 @@ function readSection(sections: PdfSections, sectionId: Phase2ASectionId): PdfSec
   if (sectionId === "P13") return sections.P13;
   if (sectionId === "MDA") return sections.MDA;
   if (sectionId === "SUB") return sections.SUB;
+  if (sectionId === "BUSINESS") return sections.BUSINESS;
+  if (sectionId === "SEGMENT") return sections.SEGMENT;
+  if (sectionId === "OPERATING") return sections.OPERATING;
+  if (sectionId === "CAPEX") return sections.CAPEX;
+  if (sectionId === "DIVIDEND") return sections.DIVIDEND;
   return undefined;
 }
 
@@ -389,7 +413,8 @@ function diagnosticEntry(
   textBackend: "pdf-parse" | "pdfjs-dist",
 ): { entry: PdfSectionDiagnosticEntry; scoreTieApplied: boolean } {
   const scoreTie = Boolean(runnerUp && runnerUp.score === best.score);
-  const runnerScoreForConfidence = scoreTie ? runnerUp!.score - 8 : runnerUp?.score;
+  const confidenceRunner = nonLocalRunnerUp(best, ranked) ?? runnerUp;
+  const runnerScoreForConfidence = scoreTie && confidenceRunner ? confidenceRunner.score - 8 : confidenceRunner?.score;
   const rawConfidence = confidenceFromScores(best.score, runnerUp?.score);
   const confidence = confidenceFromScores(best.score, runnerScoreForConfidence);
   const scoreTieApplied = scoreTie && rawConfidence === "low" && confidence !== rawConfidence;
@@ -414,7 +439,7 @@ function recountSectionsFound(sections: PdfSections): void {
   sections.metadata.sectionsFound = n;
 }
 
-const PDFJS_FALLBACK_SECTIONS: Phase2ASectionId[] = ["P3", "P13"];
+const PDFJS_FALLBACK_SECTIONS: Phase2ASectionId[] = ["P2", "P13"];
 
 function shouldAttemptPdfjsFallback(sections: PdfSections): boolean {
   for (const id of PDFJS_FALLBACK_SECTIONS) {

@@ -391,6 +391,7 @@ export async function nodeStageB(state: WorkflowRunState): Promise<Partial<Workf
     to,
     period: "day",
     year: effectiveYear,
+    industryProfileId: input.industryProfileId,
   });
   const phase1aJsonPath = path.join(outputDir, "phase1a_data_pack.json");
   await writeText(phase1aJsonPath, JSON.stringify(phase1a, null, 2));

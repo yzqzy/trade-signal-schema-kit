@@ -36,6 +36,22 @@ export type PeerComparableSummaryV1 = {
   marketCap4Q?: number;
 };
 
+export type IndustryProfileSummaryV1 = {
+  profileId: string;
+  industryName?: string;
+  confidence?: string;
+  matchedBy?: string;
+  kpiSignals: Array<{
+    key: string;
+    label: string;
+    summary: string;
+    source?: string;
+    confidence?: string;
+  }>;
+  missingKpis: string[];
+  sourceRefs: string[];
+};
+
 export type Phase1aSummaryV1 = {
   instrument?: Phase1aInstrumentSummary;
   peerComparablePool?: {
@@ -46,6 +62,7 @@ export type Phase1aSummaryV1 = {
     peers: PeerComparableSummaryV1[];
     note?: string;
   };
+  industryProfile?: IndustryProfileSummaryV1;
   /** 其它数值型摘要可逐步扩展；未知保持空 */
   notes?: string[];
 };

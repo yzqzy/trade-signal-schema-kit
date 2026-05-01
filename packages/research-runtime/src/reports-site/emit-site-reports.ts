@@ -325,6 +325,20 @@ function flattenPhase1BItems(phase1b: Phase1BQualitativeSupplement | undefined):
   return [...(phase1b.section7 ?? []), ...(phase1b.section8 ?? [])];
 }
 
+function isOfficialNoHit(item: Phase1BItem): boolean {
+  const diagnostics = item.retrievalDiagnostics;
+  if (
+    diagnostics?.feedFallbackUsed &&
+    diagnostics.feedEvidenceCount === 0 &&
+    /(?:^|_)feed_empty$/u.test(diagnostics.evidenceRetrievalStatus ?? "")
+  ) {
+    return true;
+  }
+  return /官方源.*(?:无命中|未形成|未检索到)|交易所\/巨潮.*(?:无命中|未形成)|官方.*零命中/u.test(
+    `${item.item}\n${item.content}`,
+  );
+}
+
 function summarizeEvidenceRetrieval(phase1b: Phase1BQualitativeSupplement | undefined): EvidenceRetrievalSummary {
   const critical = /违规|处罚|诉讼|仲裁|监管|问询|关注函|警示函|立案|纪律处分|公开谴责/u;
   const confirmedCritical =
@@ -333,7 +347,7 @@ function summarizeEvidenceRetrieval(phase1b: Phase1BQualitativeSupplement | unde
   const missing = items.filter((it) => it.evidences.length === 0);
   const limited = items.filter((it) => isRateLimited(it.retrievalDiagnostics?.webSearchFailureReason));
   return {
-    hasCriticalGap: missing.some((it) => critical.test(it.item)),
+    hasCriticalGap: missing.some((it) => critical.test(it.item) && !isOfficialNoHit(it)),
     hasConfirmedCriticalEvent: items.some(
       (it) =>
         critical.test(it.item) &&
@@ -356,7 +370,7 @@ function deriveBusinessAnalysisConfidence(input: {
   if (input.finalNarrativeStatus !== "complete" || input.status === "degraded") return "low";
   if (input.pdfQuality.gateVerdict === "CRITICAL") return "low";
   if (input.pdfQuality.gateVerdict === "DEGRADED") return "medium";
-  if (input.evidence.hasCriticalGap || input.evidence.hasConfirmedCriticalEvent || input.evidence.webSearchLimited) {
+  if (input.evidence.hasCriticalGap || input.evidence.hasConfirmedCriticalEvent) {
     return "medium";
   }
   return "high";
@@ -422,7 +436,11 @@ function sanitizeTechnicalEvidenceText(markdown: string): string {
     .replace(/Phase1B\s*还捕捉到/gu, "外部证据还捕捉到")
     .replace(/检索过程受到\s*外部检索受限\s*影响/gu, "外部检索受限")
     .replace(/且外部搜索存在限流失败/gu, "且外部检索受限")
-    .replace(/、Phase1B\s*监管\/处罚检索缺口，以及\s*P13\s*低置信导致非经常性损益判断需降级/gu, "，以及外部证据与 PDF 抽取质量边界");
+    .replace(/、Phase1B\s*监管\/处罚检索缺口，以及\s*P13\s*低置信导致非经常性损益判断需降级/gu, "，以及外部证据与 PDF 抽取质量边界")
+    .replace(
+      /\|\s*股东回报 F10 信号为空\s*\|\s*分红仍可从企业行动与财务数据判断，但缺少文字政策摘录\s*\|\s*后续从公告或年报分红政策段补充\s*\[M:§3\]\s*\|/gu,
+      "| 分红政策文字摘录未进入经营画像信号桶 | 不影响 DPS、DDM 与股东回报判断；分红已由企业行动和年报财务数据支持 | 后续可把年报分红政策段纳入经营画像摘要 [M:§3] |",
+    );
 }
 
 function moveEvidenceGapsBeforeAppendix(markdown: string): string {
@@ -477,13 +495,25 @@ function renderEvidenceQualitySection(input: {
   const gate = input.pdfQuality.gateVerdict ?? "UNKNOWN";
   const low = input.pdfQuality.lowConfidenceCritical?.length ? input.pdfQuality.lowConfidenceCritical.join("、") : "无";
   const missingPdf = input.pdfQuality.missingCritical?.length ? input.pdfQuality.missingCritical.join("、") : "无";
-  rows.push(`| 年报抽取 | 质量=${gate}；低置信关键块=${low}；缺失关键块=${missingPdf} |`);
+  rows.push(`| 年报抽取 | ${gate}；低置信关键块：${low}；缺失关键块：${missingPdf} |`);
   rows.push(`| 人工复核优先级 | ${input.pdfQuality.humanReviewPriority?.length ? input.pdfQuality.humanReviewPriority.join("、") : "无"} |`);
-  rows.push(`| 外部证据检索 | ${evidenceStatusLabel(input.evidence)} |`);
-  rows.push(`| 开放信息补充 | ${input.evidence.webSearchUsed ? (input.evidence.webSearchLimited ? "未形成关键反证；不作为监管事件主证据" : "已形成补充线索；不作为监管事件主证据") : "未启用或未触发"} |`);
-  const missingEvidence = input.evidence.missingItems.length ? input.evidence.missingItems.join("、") : "无";
-  rows.push(`| 未形成确认事项 | ${missingEvidence} |`);
-  rows.push("| 结论边界 | 未形成确认事项不等于事实不存在；若用于法律/合规尽调，应补充交易所、证监会、市场监管、司法与食品安全专用源。 |");
+  rows.push(
+    `| 公司监管事件 | ${
+      input.evidence.hasConfirmedCriticalEvent
+        ? "已形成需跟踪的确认事件。"
+        : input.evidence.hasCriticalGap
+          ? "关键事项仍需补充核验。"
+          : "交易所/巨潮官方源未形成确认事件。"
+    } |`,
+  );
+  rows.push(
+    `| 开放信息 | ${
+      input.evidence.webSearchUsed
+        ? "仅作为背景补充；不作为监管、估值或财务核心证据。"
+        : "未启用或未触发。"
+    } |`,
+  );
+  rows.push("| 结论边界 | “未形成确认事件”不是法律尽调结论；若用于合规尽调，应另接专源核验。 |");
   return rows.join("\n");
 }
 

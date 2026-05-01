@@ -1,82 +1,64 @@
-import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import type { PageText } from "./zones.js";
 
-type PdfTextItem = { str?: string; transform?: number[] };
+type PdfjsWorkerResult = { ok: true; pages: PageText[] } | { ok: false; error: string };
 
-let pdfjsWorkerConfigured = false;
-
-async function ensurePdfjsWorker(): Promise<void> {
-  if (pdfjsWorkerConfigured) return;
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const nodeRequire = createRequire(import.meta.url);
-  pdfjs.GlobalWorkerOptions.workerSrc = nodeRequire.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  pdfjsWorkerConfigured = true;
+function workerPath(): string {
+  return fileURLToPath(new URL("./pdf-text-pdfjs-worker.js", import.meta.url));
 }
 
-function textFromPageItems(items: readonly PdfTextItem[]): string {
-  type Part = { x: number; y: number; str: string };
-  const parts: Part[] = [];
-  for (const item of items) {
-    if (!("str" in item) || typeof item.str !== "string" || !item.str.trim()) continue;
-    const t = item.transform;
-    if (!t || t.length < 6) continue;
-    const x = t[4];
-    const y = t[5];
-    parts.push({ x, y, str: item.str });
+function parseWorkerResult(stdout: string): PageText[] {
+  const parsed = JSON.parse(stdout) as PdfjsWorkerResult;
+  if (!parsed.ok) {
+    throw new Error(parsed.error || "pdfjs worker failed");
   }
-  if (parts.length === 0) return "";
-
-  const yTolerance = 2.5;
-  const rows: { y: number; parts: Part[] }[] = [];
-  for (const p of parts) {
-    let row = rows.find((r) => Math.abs(r.y - p.y) < yTolerance);
-    if (!row) {
-      row = { y: p.y, parts: [] };
-      rows.push(row);
-    }
-    row.parts.push(p);
-  }
-  rows.sort((a, b) => b.y - a.y);
-  return rows
-    .map((row) =>
-      row.parts
-        .sort((a, b) => a.x - b.x)
-        .map((p) => p.str)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-    .filter(Boolean)
-    .join("\n");
+  return parsed.pages;
 }
 
 /**
- * 使用 pdf.js legacy 构建抽取每页文本（Node 20+）。
+ * 使用独立 Node 子进程运行 pdf.js legacy 构建抽取每页文本。
+ *
+ * `pdf-parse` 自带 pdfjs-dist@5，而本包直接依赖 pdfjs-dist@4；把 fallback 放进
+ * 独立进程可避免两个 pdfjs 版本在同一进程内共享 worker/global 状态导致偶发失败。
  * 作为 `pdf-parse` 的条件回退，改善表格密集页排序。
  */
 export async function extractPageTextsPdfjs(pdfPath: string): Promise<PageText[]> {
-  await ensurePdfjsWorker();
-  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const raw = await readFile(pdfPath);
-  const loadingTask = getDocument({
-    data: new Uint8Array(raw),
-    useSystemFonts: true,
-    useWorkerFetch: false,
-    verbosity: 0,
+  const child = spawn(process.execPath, [workerPath(), pdfPath], {
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, NODE_OPTIONS: "" },
   });
-  const doc = await loadingTask.promise;
+
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
+  child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+
+  const timeoutMs = 60_000;
+  const exitCode = await new Promise<number | null>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`pdfjs worker timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    child.once("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      resolve(code);
+    });
+  });
+
+  const stdout = Buffer.concat(stdoutChunks).toString("utf-8").trim();
+  const stderr = Buffer.concat(stderrChunks).toString("utf-8").trim();
+  if (exitCode !== 0) {
+    throw new Error(`pdfjs worker exited with code ${exitCode}${stderr ? `: ${stderr}` : ""}`);
+  }
   try {
-    const out: PageText[] = [];
-    for (let i = 1; i <= doc.numPages; i += 1) {
-      const page = await doc.getPage(i);
-      const textContent = await page.getTextContent();
-      const text = textFromPageItems(textContent.items as readonly PdfTextItem[]);
-      out.push({ page: i, text });
-    }
-    return out;
-  } finally {
-    await doc.destroy();
+    return parseWorkerResult(stdout);
+  } catch (err) {
+    throw new Error(`pdfjs worker returned invalid output${stderr ? `; stderr=${stderr}` : ""}: ${String(err)}`);
   }
 }

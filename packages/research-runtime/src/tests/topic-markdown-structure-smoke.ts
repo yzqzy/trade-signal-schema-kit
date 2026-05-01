@@ -143,7 +143,7 @@ function assertTopicStructures(): void {
   assert.doesNotMatch(rendered.penetrationReturnMarkdown, /结论：通过|通过门槛/);
   assert.match(rendered.valuationMarkdown, /## 五、DCF 敏感性矩阵/);
   assert.match(rendered.valuationMarkdown, /## 七、PE Band 历史分位区间/);
-  assert.match(rendered.valuationMarkdown, /## 八、DDM \/ PEG 未采用原因/);
+  assert.match(rendered.valuationMarkdown, /## 八、DDM \/ PEG 适用性说明/);
   assert.match(rendered.valuationMarkdown, /## 附录：结构化估值明细/);
   assert.ok(rendered.valuationMarkdown.indexOf("## 附录：结构化估值明细") > rendered.valuationMarkdown.indexOf("## 十一、估值结论"));
   assert.match(rendered.valuationMarkdown, /## 十、反向估值：当前价格隐含了什么？/);

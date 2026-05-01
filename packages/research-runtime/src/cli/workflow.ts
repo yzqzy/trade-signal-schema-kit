@@ -3,6 +3,7 @@
 import { initCliEnv } from "../lib/init-cli-env.js";
 import { createDefaultWorkflowOrchestratorAdapter } from "../runtime/workflow/orchestrator-adapter.js";
 import type { WorkflowMode } from "../contracts/workflow-run-types.js";
+import type { IndustryProfileId } from "@trade-signal/schema-core";
 import { emitSiteReportsFromRun } from "../reports-site/emit-site-reports.js";
 
 type ResumeFromStage = "B" | "D";
@@ -25,6 +26,7 @@ type CliArgs = {
   interimReportMdPath?: string;
   interimPdfPath?: string;
   refreshMarket?: boolean;
+  industryProfileId?: IndustryProfileId;
   preflightRemedyPass?: number;
   /** 从 checkpoint 续跑；必须与 `--output-dir` 指向 run 根目录同用 */
   resumeFromStage?: ResumeFromStage;
@@ -96,6 +98,23 @@ function parseArgs(argv: string[]): CliArgs {
   }
 
   const reportsSiteDir = values["reports-site-dir"]?.trim();
+  const profileRaw = values["industry-profile"]?.trim() as IndustryProfileId | undefined;
+  const allowedProfiles = new Set<IndustryProfileId>([
+    "generic",
+    "telecom",
+    "dairy_food",
+    "bank",
+    "insurance",
+    "manufacturing",
+    "real_estate",
+    "pharma_healthcare",
+    "energy_utility",
+  ]);
+  if (profileRaw && !allowedProfiles.has(profileRaw)) {
+    throw new Error(
+      `Invalid --industry-profile: ${profileRaw} (expected ${[...allowedProfiles].join("|")})`,
+    );
+  }
 
   return {
     code: values.code,
@@ -114,6 +133,7 @@ function parseArgs(argv: string[]): CliArgs {
     interimReportMdPath: values["interim-report-md"],
     interimPdfPath: values["interim-pdf"],
     refreshMarket: flags.has("refresh-market"),
+    industryProfileId: profileRaw || undefined,
     preflightRemedyPass,
     resumeFromStage,
     runId: runId || undefined,
@@ -144,6 +164,7 @@ async function main(): Promise<void> {
     interimReportMdPath: args.interimReportMdPath,
     interimPdfPath: args.interimPdfPath,
     refreshMarket: args.refreshMarket,
+    industryProfileId: args.industryProfileId,
     preflightRemedyPass: args.preflightRemedyPass,
     resumeFromStage: args.resumeFromStage,
     runId: args.runId,

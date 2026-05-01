@@ -1,4 +1,9 @@
-import type { DataPackMarket, FinancialSnapshot } from "@trade-signal/schema-core";
+import type {
+  DataPackMarket,
+  FinancialQualityTrend,
+  FinancialSnapshot,
+  IndustryProfileSnapshot,
+} from "@trade-signal/schema-core";
 
 import { normalizeCodeForFeed } from "../../crosscut/normalization/normalize-stock-code.js";
 
@@ -24,6 +29,10 @@ function fmt(n: number, digits = 2): string {
 
 function fmtMaybe(n: number | undefined, digits = 2): string {
   return typeof n === "number" && Number.isFinite(n) ? fmt(n, digits) : "—";
+}
+
+function fmtDays(n: number | undefined): string {
+  return typeof n === "number" && Number.isFinite(n) ? fmt(n, 1) : "—";
 }
 
 function snapshotYearLabel(s: FinancialSnapshot): string {
@@ -131,6 +140,205 @@ function buildSection17Derived(
   }
   rows.push("");
   return rows;
+}
+
+function buildSection18ExpenseRatio(trends: FinancialQualityTrend[] | undefined): string[] {
+  const rows = (trends ?? []).slice(0, 5);
+  if (!rows.length) {
+    return [
+      "## §18 费用率趋势",
+      "",
+      "> 费用率趋势未形成结构化结果；商业质量 D1/D5 需回退利润表和年报 MD&A。",
+      "",
+    ];
+  }
+  return [
+    "## §18 费用率趋势",
+    "",
+    "| 年度 | 毛利率(%) | 销售费用率(%) | 管理费用率(%) | 研发费用率(%) | 财务费用率(%) |",
+    "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ...rows.map((r) =>
+      `| ${r.year} | ${fmtMaybe(r.grossMarginPct)} | ${fmtMaybe(r.salesExpenseRatioPct)} | ${fmtMaybe(r.adminExpenseRatioPct)} | ${fmtMaybe(r.rdExpenseRatioPct)} | ${fmtMaybe(r.financialExpenseRatioPct)} |`,
+    ),
+    "",
+  ];
+}
+
+function buildSection19WorkingCapital(trends: FinancialQualityTrend[] | undefined): string[] {
+  const rows = (trends ?? []).slice(0, 5);
+  if (!rows.length) {
+    return [
+      "## §19 营运资本与现金转换周期",
+      "",
+      "> 营运资本趋势未形成结构化结果；应收、存货、应付和现金转换周期需从三表或年报附注补齐。",
+      "",
+    ];
+  }
+  return [
+    "## §19 营运资本与现金转换周期",
+    "",
+    "| 年度 | 应收账款 | 存货 | 应付账款 | 应收天数 | 存货天数 | 应付天数 | CCC天数 | OCF/净利润 | FCF Margin(%) | 减值损失 |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...rows.map((r) =>
+      `| ${r.year} | ${fmtMaybe(r.accountsReceivable)} | ${fmtMaybe(r.inventory)} | ${fmtMaybe(r.accountsPayable)} | ${fmtDays(r.accountsReceivableDays)} | ${fmtDays(r.inventoryDays)} | ${fmtDays(r.accountsPayableDays)} | ${fmtDays(r.cashConversionCycleDays)} | ${fmtMaybe(r.ocfToNetProfit)} | ${fmtMaybe(r.fcfMarginPct)} | ${fmtMaybe(r.impairmentLoss)} |`,
+    ),
+    "",
+  ];
+}
+
+function buildSection20BusinessProfile(dataPack: DataPackMarket): string[] {
+  const companyOps = dataPack.companyOperationsSnapshot;
+  const opGroups = companyOps?.signalGroups;
+  const lines = [
+    "## §20 主营业务画像",
+    "",
+    companyOps
+      ? `- 来源：${companyOps.source}；状态：${companyOps.status}；缺口：${companyOps.missingFields.join("、") || "无"}`
+      : "> 公司经营画像未形成结构化结果；成稿应回退年报摘录与外部证据。",
+    "",
+    "| 模块 | 信号数 | 研报用途 |",
+    "| --- | ---: | --- |",
+    `| 主营结构 | ${opGroups?.businessStructure?.length ?? 0} | D1 赚钱逻辑、收入结构、业务拆分 |`,
+    `| 经营指标 | ${opGroups?.operatingMetrics?.length ?? 0} | D1/D5 用户、量价、资本开支等变量 |`,
+    `| 股东回报 | ${opGroups?.shareholderReturns?.length ?? 0} | D4/D5 分红、派息、回购政策验证 |`,
+    `| 核心题材 | ${opGroups?.themes?.length ?? 0} | D2/D3 行业趋势与业务转型线索 |`,
+    "",
+  ];
+  if (companyOps?.signals?.length) {
+    lines.push(
+      "| 类别 | 标签 | 摘要 |",
+      "| --- | --- | --- |",
+      ...companyOps.signals
+        .slice(0, 16)
+        .map((s) => `| ${s.category} | ${s.label} | ${String(s.summary ?? "—").replace(/\|/g, "/")} |`),
+      "",
+    );
+  }
+  return lines;
+}
+
+function buildSection21RiskTimeline(dataPack: DataPackMarket): string[] {
+  const regEvents = dataPack.regulatoryEventCollection?.events ?? [];
+  const govEvents = dataPack.governanceEventCollection?.events ?? [];
+  const lines = [
+    "## §21 治理与监管事件时间线",
+    "",
+    `- 官方监管事件：${regEvents.length} 条；治理负面事件：${govEvents.length} 条。`,
+    "",
+  ];
+  if (!regEvents.length && !govEvents.length) {
+    lines.push("> 未形成结构化监管/治理事件，不等于事实不存在；高敏事项仍需结合交易所、巨潮、证监会和司法/市监专源核验。", "");
+    return lines;
+  }
+  lines.push("| 日期 | 类型 | 严重度 | 来源 | 标题/摘要 |", "| --- | --- | --- | --- | --- |");
+  for (const e of regEvents.slice(0, 12)) {
+    lines.push(
+      `| ${e.eventDate ?? "—"} | ${e.rawType ?? e.eventType} | ${e.severity} | ${e.sourceOrg} | ${String(e.title).replace(/\|/g, "/")} |`,
+    );
+  }
+  for (const e of govEvents.slice(0, Math.max(0, 12 - regEvents.length))) {
+    lines.push(
+      `| ${e.happenedAt ?? "—"} | ${e.category} | ${e.severity} | ${e.sourceLabel ?? "—"} | ${String(e.summary).replace(/\|/g, "/")} |`,
+    );
+  }
+  lines.push("");
+  return lines;
+}
+
+const INDUSTRY_KPI_LABELS: Record<string, string> = {
+  mobile_customers: "移动客户",
+  five_g_customers: "5G 客户",
+  broadband_customers: "宽带客户",
+  arpu: "ARPU",
+  dict_enterprise: "政企/DICT",
+  cloud_compute: "算力/云收入",
+  capex: "资本开支",
+  product_mix: "产品分部",
+  channel_region: "渠道/区域",
+  dealer: "经销商",
+  inventory: "库存",
+  raw_material: "原料/包材",
+  food_safety: "食品安全",
+  nim: "净息差",
+  npl: "不良率",
+  provision_coverage: "拨备覆盖率",
+  loan_deposit_mix: "贷款/存款结构",
+  capital_adequacy: "资本充足率",
+  nbv: "新业务价值",
+  premium_mix: "保费结构",
+  combined_ratio: "综合成本率",
+  solvency: "偿付能力",
+  investment_yield: "投资收益率",
+  capacity: "产能",
+  sales_volume: "销量",
+  orders: "订单",
+  price: "单价",
+  contract_sales: "销售额",
+  land_bank: "土储",
+  delivery: "竣工交付",
+  financing_cost: "融资成本",
+  advance_receipts: "预收款",
+  guarantee: "担保",
+  pipeline: "研发管线",
+  approval: "注册批件",
+  vbp: "集采",
+  medical_insurance: "医保",
+  device_registration: "器械注册",
+  installed_capacity: "装机",
+  power_generation: "发电量",
+  utilization_hours: "利用小时",
+  tariff: "上网电价",
+  fuel_price: "煤价/气价",
+};
+
+function buildSection22IndustryProfile(snapshot: IndustryProfileSnapshot | undefined): string[] {
+  if (!snapshot) {
+    return [
+      "## §22 行业 Profile KPI",
+      "",
+      "> 行业 Profile 未形成结构化结果；报告只使用通用财务、年报与经营画像证据，不编造行业专属 KPI。",
+      "",
+    ];
+  }
+  const lines = [
+    "## §22 行业 Profile KPI",
+    "",
+    `- Profile：${snapshot.profileId}；行业：${snapshot.industryName ?? "未识别"}；置信度：${snapshot.confidence}；命中方式：${snapshot.matchedBy}`,
+    `- 来源：${snapshot.sourceRefs.join("、") || "无结构化来源"}`,
+    "",
+  ];
+  if (snapshot.profileId === "generic") {
+    lines.push(
+      "> 当前使用通用 profile；行业专属 KPI 未启用。商业质量页应只写通用经营质量，不展示无关行业指标。",
+      "",
+    );
+    return lines;
+  }
+  if (snapshot.kpiSignals.length > 0) {
+    lines.push(
+      "| KPI | 摘要 | 来源 | 置信度 |",
+      "| --- | --- | --- | --- |",
+      ...snapshot.kpiSignals.map(
+        (s) =>
+          `| ${s.label} | ${String(s.summary ?? "—").replace(/\|/g, "/")} | ${s.source} | ${s.confidence} |`,
+      ),
+      "",
+    );
+  } else {
+    lines.push("> 当前 profile 已识别，但 KPI 未形成结构化结果；报告只能写缺口，不补行业字段。", "");
+  }
+  if (snapshot.missingKpis.length > 0) {
+    lines.push(
+      "| 未形成结构化 KPI | 后续证据方向 |",
+      "| --- | --- |",
+      ...snapshot.missingKpis.map(
+        (key) =>
+          `| ${INDUSTRY_KPI_LABELS[key] ?? key} | 年报经营指标、公司公告、行业专源或 F10 经营画像 |`,
+      ),
+      "",
+    );
+  }
+  return lines;
 }
 
 /**
@@ -325,8 +533,12 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     );
   }
 
-  const industryLabel = instrument.industry?.trim() || "未知（待 feed 行业字段或 Phase1B 补充）";
   const peerPool = dataPack.peerComparablePool;
+  const industryLabel =
+    instrument.industry?.trim() ||
+    peerPool?.industryName?.trim() ||
+    dataPack.industryCycleSnapshot?.industryName?.trim() ||
+    "未知（待 feed 行业字段或 Phase1B 补充）";
   const peerRows = peerPool?.peers ?? [];
   const peerSection =
     peerRows.length > 0
@@ -361,7 +573,7 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     "| 模块 | 候选信号数 | 用途 |",
     "| --- | ---: | --- |",
     `| 主营结构 | ${opGroups?.businessStructure?.length ?? 0} | D1 赚钱逻辑、收入结构、业务拆分 |`,
-    `| 经营指标 | ${opGroups?.operatingMetrics?.length ?? 0} | D1/D5 ARPU、用户、资本开支等经营变量 |`,
+    `| 经营指标 | ${opGroups?.operatingMetrics?.length ?? 0} | D1/D5 行业经营变量、资本开支和量价信号 |`,
     `| 股东回报 | ${opGroups?.shareholderReturns?.length ?? 0} | D4/D5 分红、派息、回购政策验证 |`,
     `| 核心题材 | ${opGroups?.themes?.length ?? 0} | D2/D3 行业趋势与业务转型线索 |`,
     "",
@@ -429,7 +641,19 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     warnLines.push(`- [数据完整性|中] §4P 母公司资产负债表缺失：feed 未提供母公司资产负债字段。`);
   }
 
-  const section17 = buildSection17Derived(years, byYear);
+  const byYearWithDps = new Map(
+    [...byYear.entries()].map(([year, snapshot]) => [
+      year,
+      {
+        ...snapshot,
+        dividendsPerShare:
+          snapshot.dividendsPerShare !== undefined && snapshot.dividendsPerShare !== null
+            ? snapshot.dividendsPerShare
+            : dpsFor(year),
+      },
+    ] as const),
+  );
+  const section17 = buildSection17Derived(years, byYearWithDps);
 
   return [
     `# ${instrument.name}（${norm}）`,
@@ -493,6 +717,11 @@ export function buildMarketPackMarkdown(code: string, dataPack: DataPackMarket):
     "",
     ...peerSection,
     ...companyOpsSection,
+    ...buildSection18ExpenseRatio(dataPack.financialQualityTrends),
+    ...buildSection19WorkingCapital(dataPack.financialQualityTrends),
+    ...buildSection20BusinessProfile(dataPack),
+    ...buildSection21RiskTimeline(dataPack),
+    ...buildSection22IndustryProfile(dataPack.industryProfileSnapshot),
     "## §10 分红融资与资本运作",
     `- 采样期内企业行动条数：${dataPack.corporateActions?.length ?? 0}`,
     "",

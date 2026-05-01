@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { renderQualitativeD1D6Scaffold } from "../runtime/business-analysis/d1-d6-scaffold.js";
 import { evaluatePhase3Preflight } from "../crosscut/preflight/phase3-preflight.js";
 import { projectEvidenceToC2 } from "../steps/phase1b/collector.js";
+import { resolveIndustryProfileSnapshot } from "../steps/phase1a/industry-profile.js";
 import { renderPhase2BDataPackReport } from "../steps/phase2b/renderer.js";
 import { buildMarketPackMarkdown } from "../runtime/workflow/build-market-pack.js";
 import { refreshMarketPackMarkdown } from "../runtime/workflow/refresh-market-pack.js";
@@ -21,6 +22,16 @@ function main(): void {
   assert.match(md, /## §13 Warnings/);
   assert.match(md, /\| 指标 \| 2024 \| 2023 \|/);
   assert.match(md, /## §17 衍生指标/);
+  assert.match(md, /## §18 费用率趋势/);
+  assert.match(md, /销售费用率/);
+  assert.match(md, /## §19 营运资本与现金转换周期/);
+  assert.match(md, /CCC天数/);
+  assert.match(md, /## §20 主营业务画像/);
+  assert.match(md, /## §21 治理与监管事件时间线/);
+  assert.match(md, /## §22 行业 Profile KPI/);
+  assert.match(md, /Profile：dairy_food/);
+  assert.doesNotMatch(md, /ARPU/);
+  assert.match(md, /年报问询函/);
   assert.match(md, /## §3P 母公司利润表/);
   assert.match(md, /母公司营业收入/);
   const refreshed = refreshMarketPackMarkdown("600887", md, {
@@ -50,6 +61,9 @@ function main(): void {
     reportKind: "interim",
   });
   assert.match(interimRep, /# data_pack_report_interim/);
+  assert.match(report, /## 行业 KPI 候选证据摘要/);
+  assert.match(report, /BUSINESS 主营业务与业务模式/);
+  assert.match(report, /OPERATING 经营指标 \| 已定位/);
 
   const reportNoMda = renderPhase2BDataPackReport({ sections: samplePdfSections(), includeMda: false });
   assert.ok(!reportNoMda.includes("## MDA "));
@@ -130,6 +144,38 @@ function main(): void {
   assert.equal(c2.section8.length, 1);
   assert.equal(c2.section10.length, 1);
   assert.match(c2.section8[0]?.content ?? "", /未搜索到相关信息/);
+
+  const telecomProfile = resolveIndustryProfileSnapshot({
+    instrumentIndustry: "电信运营",
+    companyOperationsSnapshot: {
+      source: "fixture",
+      status: "pass",
+      missingFields: [],
+      degradeReasons: [],
+      signals: [
+        {
+          category: "operating_metric",
+          label: "5G客户",
+          summary: "5G套餐客户数持续增长，移动 ARPU 保持稳定。",
+          source: "fixture",
+          confidence: "medium",
+        },
+        {
+          category: "operating_metric",
+          label: "资本开支",
+          summary: "资本开支聚焦 5G 与算力网络。",
+          source: "fixture",
+          confidence: "medium",
+        },
+      ],
+    },
+  });
+  assert.equal(telecomProfile.profileId, "telecom");
+  assert.equal(telecomProfile.matchedBy, "instrument");
+  assert.ok(telecomProfile.kpiSignals.some((s) => s.key === "five_g_customers"));
+
+  const genericProfile = resolveIndustryProfileSnapshot({ instrumentIndustry: "未知行业" });
+  assert.equal(genericProfile.profileId, "generic");
 
   console.log("[test:linkage] ok");
 }

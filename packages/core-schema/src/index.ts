@@ -120,6 +120,34 @@ export interface HistoricalPeSeries {
   maxDate?: string;
 }
 
+export interface FinancialQualityTrend {
+  year: string;
+  reportDate?: string;
+  source?: string;
+  revenue?: number;
+  operatingCost?: number;
+  netProfit?: number;
+  operatingCashFlow?: number;
+  capitalExpenditure?: number;
+  freeCashFlow?: number;
+  grossMarginPct?: number;
+  salesExpenseRatioPct?: number;
+  adminExpenseRatioPct?: number;
+  rdExpenseRatioPct?: number;
+  financialExpenseRatioPct?: number;
+  accountsReceivable?: number;
+  inventory?: number;
+  accountsPayable?: number;
+  impairmentLoss?: number;
+  accountsReceivableDays?: number;
+  inventoryDays?: number;
+  accountsPayableDays?: number;
+  cashConversionCycleDays?: number;
+  ocfToNetProfit?: number;
+  fcfMarginPct?: number;
+  warnings?: string[];
+}
+
 export interface TradingCalendar {
   market: Market;
   date: string;
@@ -153,6 +181,11 @@ export interface MarketDataProvider {
   getFinancialHistory?(code: string, fiscalYears: string[]): Promise<FinancialSnapshot[]>;
   getCorporateActions(code: string, from?: string, to?: string): Promise<CorporateAction[]>;
   getHistoricalPeSeries?(code: string, interval?: string | number): Promise<HistoricalPeSeries>;
+  /** 多年经营质量趋势：费用率、营运资本周转、现金转换周期等（可选能力） */
+  getFinancialQualityTrends?(
+    code: string,
+    input?: { years?: number; reportType?: "annual" | "quarter" },
+  ): Promise<FinancialQualityTrend[]>;
   getTradingCalendar(market: Market, from: string, to: string): Promise<TradingCalendar[]>;
   /** P2：行业周期快照（feed 优先，可选能力） */
   getIndustryCycleSnapshot?(code: string, year?: string): Promise<IndustryCycleSnapshot>;
@@ -239,6 +272,8 @@ export interface DataPackMarket {
   tradingCalendar?: TradingCalendar[];
   corporateActions?: CorporateAction[];
   historicalPeSeries?: HistoricalPeSeries;
+  /** 多年经营质量趋势：费用率、营运资本周转、现金转换周期等 */
+  financialQualityTrends?: FinancialQualityTrend[];
   news?: NewsItem[];
   /** P2：行业周期快照（若 provider 支持） */
   industryCycleSnapshot?: IndustryCycleSnapshot;
@@ -246,10 +281,14 @@ export interface DataPackMarket {
   peerComparablePool?: PeerComparableCollection;
   /** P4：治理负面事件（若 provider 支持） */
   governanceEventCollection?: GovernanceEventCollection;
+  /** P4：官方监管/问询/处分事件聚合（若 provider 支持） */
+  regulatoryEventCollection?: RegulatoryEventCollection;
   /** P2-Lite：运营与管理洞察聚合（若 provider 支持） */
   operationsInsightSnapshot?: OperationsInsightSnapshot;
   /** 公司经营画像（若 provider 支持） */
   companyOperationsSnapshot?: CompanyOperationsSnapshot;
+  /** 行业分层 KPI 画像：先识别行业 profile，再消费对应 KPI */
+  industryProfileSnapshot?: IndustryProfileSnapshot;
 }
 
 export type Phase2SectionConfidence = "high" | "medium" | "low";
@@ -327,6 +366,16 @@ export interface PdfSections {
   P13?: PdfSectionBlock;
   MDA?: PdfSectionBlock;
   SUB?: PdfSectionBlock;
+  /** 主营业务/业务模式/收入结构 */
+  BUSINESS?: PdfSectionBlock;
+  /** 分部收入、产品/地区/渠道构成 */
+  SEGMENT?: PdfSectionBlock;
+  /** 行业专属经营指标，如客户数、ARPU、产销量、渠道等 */
+  OPERATING?: PdfSectionBlock;
+  /** 资本开支、在建工程、重大投资项目 */
+  CAPEX?: PdfSectionBlock;
+  /** 分红政策、利润分配、派息率承诺 */
+  DIVIDEND?: PdfSectionBlock;
 }
 
 export interface QualitativeReport {
@@ -529,4 +578,45 @@ export interface CompanyOperationsSnapshot {
     themes?: CompanyOperationSignal[];
     industry?: CompanyOperationSignal[];
   };
+}
+
+export type IndustryProfileId =
+  | "generic"
+  | "telecom"
+  | "dairy_food"
+  | "bank"
+  | "insurance"
+  | "manufacturing"
+  | "real_estate"
+  | "pharma_healthcare"
+  | "energy_utility";
+
+export type IndustryProfileConfidence = "high" | "medium" | "low";
+
+export type IndustryProfileMatchedBy =
+  | "explicit"
+  | "instrument"
+  | "peer_pool"
+  | "industry_cycle"
+  | "company_operations"
+  | "annual_report"
+  | "fallback";
+
+export interface IndustryKpiSignal {
+  key: string;
+  label: string;
+  summary: string;
+  source: string;
+  confidence: IndustryProfileConfidence;
+  evidenceRef?: string;
+}
+
+export interface IndustryProfileSnapshot {
+  profileId: IndustryProfileId;
+  industryName?: string;
+  confidence: IndustryProfileConfidence;
+  matchedBy: IndustryProfileMatchedBy;
+  kpiSignals: IndustryKpiSignal[];
+  missingKpis: string[];
+  sourceRefs: string[];
 }

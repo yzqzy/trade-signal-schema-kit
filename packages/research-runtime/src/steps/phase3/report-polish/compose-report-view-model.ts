@@ -94,7 +94,11 @@ function readPhase1aSummary(raw: string): ReportViewModelV1["phase1a"] {
     const j = JSON.parse(raw) as Record<string, unknown>;
     const inst = j.instrument as Record<string, unknown> | undefined;
     const peerPool = j.peerComparablePool as Record<string, unknown> | undefined;
+    const industryProfile = j.industryProfileSnapshot as Record<string, unknown> | undefined;
     const peersRaw = Array.isArray(peerPool?.peers) ? (peerPool.peers as Array<Record<string, unknown>>) : [];
+    const kpiSignalsRaw = Array.isArray(industryProfile?.kpiSignals)
+      ? (industryProfile.kpiSignals as Array<Record<string, unknown>>)
+      : [];
     if (!inst) return { notes: ["TODO：phase1a_data_pack.json 缺少 instrument 节点。"] };
     return {
       instrument: {
@@ -125,6 +129,34 @@ function readPhase1aSummary(raw: string): ReportViewModelV1["phase1a"] {
                 marketCap4Q: typeof p.marketCap4Q === "number" ? p.marketCap4Q : undefined,
               })),
             note: typeof peerPool.note === "string" ? peerPool.note : undefined,
+          }
+        : undefined,
+      industryProfile: industryProfile
+        ? {
+            profileId:
+              typeof industryProfile.profileId === "string" ? industryProfile.profileId : "generic",
+            industryName:
+              typeof industryProfile.industryName === "string" ? industryProfile.industryName : undefined,
+            confidence:
+              typeof industryProfile.confidence === "string" ? industryProfile.confidence : undefined,
+            matchedBy:
+              typeof industryProfile.matchedBy === "string" ? industryProfile.matchedBy : undefined,
+            kpiSignals: kpiSignalsRaw
+              .filter((s) => typeof s.key === "string" && typeof s.label === "string")
+              .slice(0, 10)
+              .map((s) => ({
+                key: s.key as string,
+                label: s.label as string,
+                summary: typeof s.summary === "string" ? s.summary : "",
+                source: typeof s.source === "string" ? s.source : undefined,
+                confidence: typeof s.confidence === "string" ? s.confidence : undefined,
+              })),
+            missingKpis: Array.isArray(industryProfile.missingKpis)
+              ? industryProfile.missingKpis.filter((x): x is string => typeof x === "string")
+              : [],
+            sourceRefs: Array.isArray(industryProfile.sourceRefs)
+              ? industryProfile.sourceRefs.filter((x): x is string => typeof x === "string")
+              : [],
           }
         : undefined,
     };

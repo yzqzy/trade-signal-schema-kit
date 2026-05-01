@@ -1,6 +1,17 @@
-import type { DataPackMarket, KlinePeriod, Market, MarketDataProvider } from "@trade-signal/schema-core";
+import type {
+  CompanyOperationSignal,
+  CompanyOperationsSnapshot,
+  CorporateAction,
+  DataPackMarket,
+  FinancialSnapshot,
+  IndustryProfileId,
+  KlinePeriod,
+  Market,
+  MarketDataProvider,
+} from "@trade-signal/schema-core";
 
 import { loadFinancialHistory, normalizeFinancialHistory } from "./financial-history.js";
+import { resolveIndustryProfileForDataPack } from "./industry-profile.js";
 
 export interface CollectPhase1AInput {
   code: string;
@@ -15,10 +26,13 @@ export interface CollectPhase1AInput {
   includeFinancialHistory?: boolean;
   includeCorporateActions?: boolean;
   includeHistoricalPe?: boolean;
+  includeFinancialQualityTrends?: boolean;
   includeTradingCalendar?: boolean;
   financialPeriod?: string;
   calendarMarket?: Market;
   optionalFailure?: "ignore" | "throw";
+  /** 显式行业 profile 覆盖；默认按 instrument / 同业池 / F10 经营画像识别 */
+  industryProfileId?: IndustryProfileId;
 }
 
 const DEFAULT_PERIOD: KlinePeriod = "day";
@@ -49,6 +63,124 @@ function resolveCorporateActionsFrom(input: CollectPhase1AInput, fallbackFrom: s
   const y = input.year?.match(/^20\d{2}$/)?.[0] ?? input.financialPeriod?.match(/20\d{2}/)?.[0];
   if (!y) return fallbackFrom;
   return `${Number(y) - 4}-01-01`;
+}
+
+function safeNum(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function yearFromDate(value?: string): string | undefined {
+  return value?.match(/^(20\d{2})/)?.[1];
+}
+
+function extractDividendPolicyText(snapshot: CompanyOperationsSnapshot | undefined): string | undefined {
+  const rawItems = [
+    ...(snapshot?.businessHighlights ?? []),
+    ...(snapshot?.themeSignals ?? []),
+  ];
+  for (const item of rawItems) {
+    const record = item as Record<string, unknown>;
+    const text = String(record.mainPointContent ?? record.summary ?? record.content ?? "").trim();
+    const keyword = String(record.keyword ?? record.label ?? record.keyClassif ?? "");
+    if (!text) continue;
+    if (/分红|派息|股利|股息|利润分配|现金方式分配/u.test(`${keyword}\n${text}`)) {
+      return text.replace(/\s+/gu, " ").slice(0, 220);
+    }
+  }
+  return undefined;
+}
+
+function summarizeRecentDividends(actions: CorporateAction[] | undefined, limit = 4): string | undefined {
+  const byYear = new Map<string, number>();
+  for (const action of actions ?? []) {
+    if (action.actionType !== "dividend") continue;
+    const cash = safeNum(action.cashDividendPerShare);
+    if (!cash || cash <= 0) continue;
+    const year = yearFromDate(action.exDate) ?? yearFromDate(action.recordDate);
+    if (!year) continue;
+    byYear.set(year, (byYear.get(year) ?? 0) + cash);
+  }
+  const rows = [...byYear.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, limit)
+    .map(([year, cash]) => `${year}年DPS约${cash.toFixed(4)}`);
+  return rows.length ? rows.join("；") : undefined;
+}
+
+function summarizePayoutRatio(history: FinancialSnapshot[] | undefined): string | undefined {
+  const rows = (history ?? [])
+    .map((row) => {
+      const year = row.period?.match(/20\d{2}/)?.[0];
+      const eps = safeNum(row.earningsPerShare);
+      const dps = safeNum(row.dividendsPerShare);
+      if (!year || !eps || !dps || eps <= 0 || dps <= 0) return undefined;
+      return `${year}年DPS/EPS约${((dps / eps) * 100).toFixed(1)}%`;
+    })
+    .filter((x): x is string => Boolean(x))
+    .slice(0, 3);
+  return rows.length ? rows.join("；") : undefined;
+}
+
+function buildDividendPolicySignals(input: {
+  snapshot?: CompanyOperationsSnapshot;
+  corporateActions?: CorporateAction[];
+  financialHistory?: FinancialSnapshot[];
+}): CompanyOperationSignal[] {
+  const signals: CompanyOperationSignal[] = [];
+  const policy = extractDividendPolicyText(input.snapshot);
+  if (policy) {
+    signals.push({
+      label: "分红政策",
+      category: "shareholder_return",
+      summary: policy,
+      source: "company_operations_business_highlights",
+      confidence: "medium",
+    });
+  }
+  const dividends = summarizeRecentDividends(input.corporateActions);
+  if (dividends) {
+    signals.push({
+      label: "历史分红",
+      category: "shareholder_return",
+      summary: dividends,
+      source: "corporate_actions",
+      confidence: "high",
+    });
+  }
+  const payout = summarizePayoutRatio(input.financialHistory);
+  if (payout) {
+    signals.push({
+      label: "派息率",
+      category: "shareholder_return",
+      summary: payout,
+      source: "financial_history",
+      confidence: "high",
+    });
+  }
+  return signals;
+}
+
+function mergeCompanyOperationSignals(
+  snapshot: CompanyOperationsSnapshot | undefined,
+  signals: CompanyOperationSignal[],
+): CompanyOperationsSnapshot | undefined {
+  if (!snapshot || signals.length === 0) return snapshot;
+  const existingSignals = snapshot.signals ?? [];
+  const existingReturnSignals = snapshot.signalGroups?.shareholderReturns ?? [];
+  const hasSame = (candidate: CompanyOperationSignal) =>
+    [...existingSignals, ...existingReturnSignals].some(
+      (s) => s.category === candidate.category && s.label === candidate.label && s.summary === candidate.summary,
+    );
+  const additions = signals.filter((s) => !hasSame(s));
+  if (additions.length === 0) return snapshot;
+  return {
+    ...snapshot,
+    signals: [...existingSignals, ...additions],
+    signalGroups: {
+      ...snapshot.signalGroups,
+      shareholderReturns: [...existingReturnSignals, ...additions],
+    },
+  };
 }
 
 async function loadOptional<T>(
@@ -91,6 +223,7 @@ export async function collectPhase1ADataPack(
   const includeFinancialHistory = input.includeFinancialHistory ?? instrument.market === "CN_A";
   const includeCorporateActions = input.includeCorporateActions ?? true;
   const includeHistoricalPe = input.includeHistoricalPe ?? instrument.market === "CN_A";
+  const includeFinancialQualityTrends = input.includeFinancialQualityTrends ?? instrument.market === "CN_A";
   const includeTradingCalendar = input.includeTradingCalendar ?? true;
 
   const financialSnapshotPeriod = resolveFinancialSnapshotPeriod(input);
@@ -107,7 +240,7 @@ export async function collectPhase1ADataPack(
       provider.getTradingCalendar(input.calendarMarket ?? instrument.market, from, to),
     ),
   ]);
-  const [industryCycleSnapshot, peerComparablePool, governanceEventCollection, companyOperationsSnapshot] = await Promise.all([
+  const [industryCycleSnapshot, peerComparablePool, governanceEventCollection, regulatoryEventCollection, companyOperationsSnapshot] = await Promise.all([
     loadOptional(
       typeof provider.getIndustryCycleSnapshot === "function",
       optionalFailure,
@@ -124,6 +257,17 @@ export async function collectPhase1ADataPack(
       () => provider.getGovernanceEvents!(input.code, { year: input.year, limit: 10, timeRange: "3y" }),
     ),
     loadOptional(
+      typeof provider.getRegulatoryEvents === "function",
+      optionalFailure,
+      () =>
+        provider.getRegulatoryEvents!(input.code, {
+          source: "aggregate",
+          exchange: "auto",
+          eventKinds: "inquiry,regulatory_measure,discipline",
+          limit: 20,
+        }),
+    ),
+    loadOptional(
       typeof provider.getCompanyOperations === "function",
       optionalFailure,
       () => provider.getCompanyOperations!(input.code, { year: input.year, topN: 10 }),
@@ -133,6 +277,11 @@ export async function collectPhase1ADataPack(
     includeHistoricalPe && typeof provider.getHistoricalPeSeries === "function",
     optionalFailure,
     () => provider.getHistoricalPeSeries!(input.code, 60),
+  );
+  const financialQualityTrends = await loadOptional(
+    includeFinancialQualityTrends && typeof provider.getFinancialQualityTrends === "function",
+    optionalFailure,
+    () => provider.getFinancialQualityTrends!(input.code, { years: 5, reportType: "annual" }),
   );
 
   let financialHistory: DataPackMarket["financialHistory"];
@@ -156,6 +305,22 @@ export async function collectPhase1ADataPack(
     }
   }
 
+  const enrichedCompanyOperationsSnapshot = mergeCompanyOperationSignals(
+    companyOperationsSnapshot,
+    buildDividendPolicySignals({
+      snapshot: companyOperationsSnapshot,
+      corporateActions,
+      financialHistory,
+    }),
+  );
+  const industryProfileBase = {
+    instrument,
+    peerComparablePool,
+    industryCycleSnapshot,
+    companyOperationsSnapshot: enrichedCompanyOperationsSnapshot,
+  };
+  const industryProfileSnapshot = resolveIndustryProfileForDataPack(industryProfileBase, input.industryProfileId);
+
   return {
     instrument,
     quote,
@@ -164,10 +329,13 @@ export async function collectPhase1ADataPack(
     financialHistory,
     corporateActions,
     historicalPeSeries,
+    financialQualityTrends,
     tradingCalendar,
     industryCycleSnapshot,
     peerComparablePool,
     governanceEventCollection,
-    companyOperationsSnapshot,
+    regulatoryEventCollection,
+    companyOperationsSnapshot: enrichedCompanyOperationsSnapshot,
+    industryProfileSnapshot,
   };
 }

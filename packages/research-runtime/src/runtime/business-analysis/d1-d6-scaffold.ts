@@ -26,6 +26,12 @@ function phase1bRoughSummary(p: Phase1BQualitativeSupplement): string {
   return first;
 }
 
+function clipStructuredSection(text: string | undefined, max = 1400): string {
+  if (!text?.trim()) return "（缺口）未形成结构化结果。";
+  const t = text.trim();
+  return t.length <= max ? t : `${t.slice(0, max).trim()}\n\n> …… 已截断，完整内容见 data_pack_market.md。`;
+}
+
 /**
  * PDF-first / 单 Agent 六维（D1~D6）契约：输出固定骨架，便于与 Turtle qualitative_assessment_v2 语义对齐。
  * 工程层写入可版本化 Markdown；正文在 Claude Code 工作区会话中按门槛补全。
@@ -141,6 +147,14 @@ export function renderQualitativeD1D6Scaffold(input: {
                   `| ${e.severity} | ${e.summary.replaceAll("|", "\\|")} | ${e.happenedAt ?? "—"} | ${e.evidenceUrl ?? "—"} |`,
               )
             : ["| （缺口） | 未命中治理负面事件 | — | — |"]),
+          "",
+          "### P5 经营质量趋势",
+          "",
+          clipStructuredSection(structuredMarketSnapshot.financialQuality.expenseRatioSection),
+          "",
+          clipStructuredSection(structuredMarketSnapshot.financialQuality.workingCapitalSection),
+          "",
+          clipStructuredSection(structuredMarketSnapshot.financialQuality.governanceTimelineSection),
           "",
         ]
       : ["- （未提供 market markdown，跳过结构化快照）", ""]),

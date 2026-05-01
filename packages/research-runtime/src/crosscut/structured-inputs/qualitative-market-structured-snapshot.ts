@@ -13,6 +13,11 @@ export interface QualitativeMarketStructuredSnapshot {
   cycle: IndustryCycleSnapshot;
   peers: PeerComparableCollection;
   governance: GovernanceEventCollection;
+  financialQuality: {
+    expenseRatioSection?: string;
+    workingCapitalSection?: string;
+    governanceTimelineSection?: string;
+  };
   provenance: "feed" | "hybrid" | "fallback_text";
 }
 
@@ -32,6 +37,15 @@ const GOVERNANCE_NEGATIVE_KEYWORDS = [
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+function extractMarketSection(md: string, headingRe: RegExp): string | undefined {
+  const m = md.match(headingRe);
+  if (!m || m.index === undefined) return undefined;
+  const rest = md.slice(m.index);
+  const next = rest.slice(m[0].length).search(/^##\s+/mu);
+  const body = (next >= 0 ? rest.slice(0, m[0].length + next) : rest).trim();
+  return body || undefined;
 }
 
 function inferCyclePositionFromText(text: string): IndustryCycleSnapshot["position"] {
@@ -250,6 +264,11 @@ export function buildQualitativeMarketStructuredSnapshot(input: {
     cycle,
     peers,
     governance,
+    financialQuality: {
+      expenseRatioSection: extractMarketSection(input.marketMarkdown, /^##\s+§18\s+费用率趋势[^\n]*\n/mu),
+      workingCapitalSection: extractMarketSection(input.marketMarkdown, /^##\s+§19\s+营运资本与现金转换周期[^\n]*\n/mu),
+      governanceTimelineSection: extractMarketSection(input.marketMarkdown, /^##\s+§21\s+治理与监管事件时间线[^\n]*\n/mu),
+    },
     provenance,
   };
 }

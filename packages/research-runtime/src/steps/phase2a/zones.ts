@@ -26,6 +26,11 @@ export const PHASE2A_SECTION_ZONE_PREFERENCES: Record<
   P13: { prefer: ["SUPPLEMENT_ZONE", "NOTES_ZONE"], avoid: ["POLICY_ZONE"] },
   MDA: { prefer: ["MDA_ZONE"], avoid: ["NOTES_ZONE", "FIN_ZONE", "POLICY_ZONE", "SUPPLEMENT_ZONE"] },
   SUB: { prefer: ["NOTES_ZONE"], avoid: ["POLICY_ZONE"] },
+  BUSINESS: { prefer: ["MDA_ZONE"], avoid: ["NOTES_ZONE", "POLICY_ZONE", "SUPPLEMENT_ZONE"] },
+  SEGMENT: { prefer: ["MDA_ZONE", "NOTES_ZONE"], avoid: ["POLICY_ZONE", "SUPPLEMENT_ZONE"] },
+  OPERATING: { prefer: ["MDA_ZONE"], avoid: ["POLICY_ZONE", "SUPPLEMENT_ZONE"] },
+  CAPEX: { prefer: ["MDA_ZONE", "NOTES_ZONE"], avoid: ["POLICY_ZONE", "SUPPLEMENT_ZONE"] },
+  DIVIDEND: { prefer: ["INTRO_ZONE", "MDA_ZONE"], avoid: ["POLICY_ZONE", "SUPPLEMENT_ZONE"] },
 };
 
 export type PageText = { page: number; text: string };

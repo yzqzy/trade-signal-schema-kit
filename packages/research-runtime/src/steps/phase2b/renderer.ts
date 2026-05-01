@@ -8,9 +8,34 @@ import type {
 import { runPhase2AExtractPdfSections } from "../phase2a/extractor.js";
 import { computePdfExtractQuality } from "../phase2a/extract-quality.js";
 
-type Phase2BSectionId = "P2" | "P3" | "P4" | "P6" | "P13" | "MDA" | "SUB";
+type Phase2BSectionId =
+  | "P2"
+  | "P3"
+  | "P4"
+  | "P6"
+  | "P13"
+  | "MDA"
+  | "SUB"
+  | "BUSINESS"
+  | "SEGMENT"
+  | "OPERATING"
+  | "CAPEX"
+  | "DIVIDEND";
 
-const PHASE2B_ORDER_FULL: Phase2BSectionId[] = ["P2", "P3", "P4", "P6", "P13", "MDA", "SUB"];
+const PHASE2B_ORDER_FULL: Phase2BSectionId[] = [
+  "P2",
+  "P3",
+  "P4",
+  "P6",
+  "P13",
+  "MDA",
+  "SUB",
+  "BUSINESS",
+  "SEGMENT",
+  "OPERATING",
+  "CAPEX",
+  "DIVIDEND",
+];
 
 const PHASE2B_ORDER_NO_MDA: Phase2BSectionId[] = ["P2", "P3", "P4", "P6", "P13", "SUB"];
 
@@ -22,6 +47,11 @@ const PHASE2B_TITLES: Record<Phase2BSectionId, string> = {
   P13: "非经常性损益",
   MDA: "管理层讨论与分析（MD&A）",
   SUB: "主要控股参股公司",
+  BUSINESS: "主营业务与业务模式",
+  SEGMENT: "分部收入与业务构成",
+  OPERATING: "经营指标",
+  CAPEX: "资本开支与重大投资",
+  DIVIDEND: "分红政策与利润分配",
 };
 
 export type Phase2BReportKind = "annual" | "interim";
@@ -95,6 +125,44 @@ function renderPdfExtractQualityMachineComment(q: PdfExtractQualitySummary): str
     aiVerifierNote: q.aiVerifierNote ?? null,
   });
   return `<!-- PDF_EXTRACT_QUALITY:${payload} -->`;
+}
+
+function renderIndustryKpiCandidateSummary(
+  sections: PdfSections,
+  diag: PdfSections["metadata"]["sectionDiagnostics"],
+): string {
+  const ids: Phase2BSectionId[] = ["BUSINESS", "SEGMENT", "OPERATING", "CAPEX", "DIVIDEND"];
+  const usage: Record<Phase2BSectionId, string> = {
+    P2: "",
+    P3: "",
+    P4: "",
+    P6: "",
+    P13: "",
+    MDA: "",
+    SUB: "",
+    BUSINESS: "通用业务模式、行业 profile 识别、D1 赚钱逻辑",
+    SEGMENT: "主营构成、分部收入、产品/客户结构",
+    OPERATING: "行业 profile 专属 KPI 候选文本",
+    CAPEX: "资本开支周期、现金流与估值假设",
+    DIVIDEND: "分红政策、股东回报与 DDM 假设",
+  };
+  return [
+    "## 行业 KPI 候选证据摘要",
+    "",
+    "> 本节只说明年报块是否形成候选证据；字段级解析由 IndustryProfile 根据行业选择，不跨行业硬填 KPI。",
+    "",
+    "| 年报块 | 状态 | 页码 | 置信度 | 研报用途 |",
+    "| --- | --- | --- | --- | --- |",
+    ...ids.map((id) => {
+      const section = sections[id];
+      const d = diag?.[id];
+      const status = section ? "已定位" : "未定位";
+      const page = section ? `${section.pageFrom}-${section.pageTo}` : d ? `候选 p.${d.bestPage}` : "—";
+      const confidence = section?.confidence ?? d?.confidence ?? "—";
+      return `| ${id} ${PHASE2B_TITLES[id]} | ${status} | ${page} | ${confidence} | ${usage[id]} |`;
+    }),
+    "",
+  ].join("\n");
 }
 
 function missingSectionDiagnosticsLines(id: Phase2BSectionId, diag?: PdfSectionDiagnosticEntry): string[] {
@@ -206,6 +274,7 @@ export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
     `- **allowsFinalNarrativeComplete**: \`${String(extractQ.allowsFinalNarrativeComplete ?? (extractQ.gateVerdict !== "CRITICAL"))}\``,
     "",
     defectLines,
+    renderIndustryKpiCandidateSummary(input.sections, diag),
     ...(extractQ.humanReviewPriority && extractQ.humanReviewPriority.length > 0
       ? [
           "## 人工复核优先级（建议顺序）",
@@ -239,6 +308,11 @@ export function renderPhase2BDataPackReport(input: Phase2BRenderInput): string {
     P13: input.sections.P13,
     MDA: input.sections.MDA,
     SUB: input.sections.SUB,
+    BUSINESS: input.sections.BUSINESS,
+    SEGMENT: input.sections.SEGMENT,
+    OPERATING: input.sections.OPERATING,
+    CAPEX: input.sections.CAPEX,
+    DIVIDEND: input.sections.DIVIDEND,
   };
   const body = order.map((id) => renderOneSection(id, sectionMap[id], diag?.[id])).join("\n\n");
   return `${header}${body}\n`;

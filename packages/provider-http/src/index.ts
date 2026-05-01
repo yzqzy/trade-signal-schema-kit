@@ -1,6 +1,7 @@
 import type {
   CorporateAction,
   CompanyOperationsSnapshot,
+  FinancialQualityTrend,
   FinancialSnapshot,
   GovernanceEventCollection,
   GovernanceNegativeEvent,
@@ -272,6 +273,25 @@ type FeedCompanyOperationsPayload = CompanyOperationsSnapshot & {
   secuCode?: string;
 };
 
+type FeedFinancialStatementsPayload = {
+  code?: string;
+  years?: number;
+  balance?: Array<{ reportDate?: string; camel?: Record<string, unknown>; raw?: Record<string, unknown> }>;
+  income?: Array<{ reportDate?: string; camel?: Record<string, unknown>; raw?: Record<string, unknown> }>;
+  cashflow?: Array<{ reportDate?: string; camel?: Record<string, unknown>; raw?: Record<string, unknown> }>;
+};
+
+type FeedFinancialRatioPayload = {
+  code?: string;
+  years?: number;
+  items?: Array<{
+    reportDate?: string;
+    absolute?: Record<string, unknown>;
+    percentOfRevenue?: Record<string, unknown>;
+  }>;
+};
+type FeedFinancialRatioItem = NonNullable<FeedFinancialRatioPayload["items"]>[number];
+
 const PERIOD_TO_FQT: Record<"none" | "forward" | "backward", "none" | "pre" | "after"> = {
   none: "none",
   forward: "pre",
@@ -342,6 +362,47 @@ const toGovSeverity = (value: unknown): GovernanceNegativeEvent["severity"] => {
   if (v === "medium") return "medium";
   return "low";
 };
+
+function firstNumber(row: Record<string, unknown> | undefined, keys: string[]): number | undefined {
+  if (!row) return undefined;
+  for (const key of keys) {
+    const value = asNumber(row[key]);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function divide(numerator: number | undefined, denominator: number | undefined): number | undefined {
+  if (numerator === undefined || denominator === undefined || denominator === 0) return undefined;
+  const value = numerator / denominator;
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function ratioPct(
+  numerator: number | undefined,
+  denominator: number | undefined,
+): number | undefined {
+  const v = divide(numerator, denominator);
+  return v === undefined ? undefined : v * 100;
+}
+
+function expenseRatioPct(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : Math.abs(value);
+}
+
+function avg(a: number | undefined, b: number | undefined): number | undefined {
+  if (a !== undefined && b !== undefined) return (a + b) / 2;
+  return a ?? b;
+}
+
+function yuanToBaiWanMaybe(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  return Math.abs(value) > 10_000_000 ? value / 1_000_000 : value;
+}
+
+function yearFromReportDate(value: string | undefined): string | undefined {
+  return value?.match(/^(20\d{2})/)?.[1];
+}
 
 function fiscalYearToken(input: string): string {
   const m = input.match(/(20\d{2})/);
@@ -643,6 +704,156 @@ export class FeedHttpProvider implements MarketDataProvider {
       if (r.status === "fulfilled") out.push(r.value);
     }
     return out;
+  }
+
+  async getFinancialQualityTrends(
+    code: string,
+    input?: { years?: number; reportType?: "annual" | "quarter" },
+  ): Promise<FinancialQualityTrend[]> {
+    const years = Math.min(15, Math.max(1, input?.years ?? 5));
+    const reportType = input?.reportType ?? "annual";
+    const [historyPayload, statementsPayload, ratioPayload] = await Promise.all([
+      this.request<{ items?: FinancialPayload[] }>(
+        `/stock/financial/history/${encodeURIComponent(code)}`,
+        { reportType, years: String(years) },
+      ).catch(() => undefined),
+      this.request<FeedFinancialStatementsPayload>(
+        `/stock/financial/statements/${encodeURIComponent(code)}`,
+        { reportType, years: String(years) },
+      ).catch(() => undefined),
+      this.request<FeedFinancialRatioPayload>(
+        `/stock/financial/ratio/${encodeURIComponent(code)}`,
+        { reportType, years: String(years) },
+      ).catch(() => undefined),
+    ]);
+
+    const historyRows = Array.isArray(historyPayload?.items) ? historyPayload.items : [];
+    const snapshots = historyRows.map((row) => {
+      const y =
+        (typeof row.period === "string" && row.period.match(/^(\d{4})/)?.[1]) ||
+        (typeof row.reportDate === "string" && row.reportDate.match(/^(\d{4})/)?.[1]) ||
+        fiscalYearToken(String(row.reportDate ?? row.period ?? ""));
+      return mapFinancialPayload(row, code, y);
+    });
+    const snapshotByYear = new Map<string, FinancialSnapshot>();
+    for (const snapshot of snapshots) {
+      const y = fiscalYearToken(snapshot.period);
+      if (y) snapshotByYear.set(y, snapshot);
+    }
+
+    const incomeByYear = new Map<string, Record<string, unknown>>();
+    const balanceByYear = new Map<string, Record<string, unknown>>();
+    for (const row of statementsPayload?.income ?? []) {
+      const y = yearFromReportDate(row.reportDate);
+      if (y) incomeByYear.set(y, { ...(row.camel ?? {}), ...(row.raw ?? {}) });
+    }
+    for (const row of statementsPayload?.balance ?? []) {
+      const y = yearFromReportDate(row.reportDate);
+      if (y) balanceByYear.set(y, { ...(row.camel ?? {}), ...(row.raw ?? {}) });
+    }
+
+    const ratioByYear = new Map<string, FeedFinancialRatioItem>();
+    for (const item of ratioPayload?.items ?? []) {
+      const y = yearFromReportDate(item.reportDate);
+      if (y) ratioByYear.set(y, item);
+    }
+
+    const yearSet = new Set<string>([
+      ...snapshotByYear.keys(),
+      ...incomeByYear.keys(),
+      ...balanceByYear.keys(),
+      ...ratioByYear.keys(),
+    ]);
+    const sortedYears = [...yearSet].filter((y) => /^20\d{2}$/.test(y)).sort((a, b) => b.localeCompare(a)).slice(0, years);
+
+    const trends: FinancialQualityTrend[] = [];
+    for (let i = 0; i < sortedYears.length; i += 1) {
+      const y = sortedYears[i] as string;
+      const prevY = sortedYears[i + 1];
+      const s = snapshotByYear.get(y);
+      const prev = prevY ? snapshotByYear.get(prevY) : undefined;
+      const income = incomeByYear.get(y);
+      const balance = balanceByYear.get(y);
+      const prevBalance = prevY ? balanceByYear.get(prevY) : undefined;
+      const ratio = ratioByYear.get(y);
+      const ratioPctRow = ratio?.percentOfRevenue;
+      const ratioAbs = ratio?.absolute;
+
+      const revenue = s?.revenue ?? yuanToBaiWanMaybe(firstNumber(income, ["totalOperateIncome", "TOTAL_OPERATE_INCOME", "totalRevenue"]));
+      const operatingCost = yuanToBaiWanMaybe(firstNumber(income, ["operateCost", "operatingCost", "totalOperateCost", "OPERATE_COST", "TOTAL_OPERATE_COST"]));
+      const netProfit = s?.netProfit ?? yuanToBaiWanMaybe(firstNumber(income, ["netprofit", "netProfit", "NETPROFIT"]));
+      const ocf = s?.operatingCashFlow;
+      const capex = s?.capitalExpenditure;
+      const freeCashFlow = ocf !== undefined && capex !== undefined ? ocf - Math.abs(capex) : undefined;
+      const ar = s?.accountsReceivable ?? yuanToBaiWanMaybe(firstNumber(balance, ["accountsRece", "accountsReceivable", "ACCOUNTS_RECE", "ACCOUNTS_RECEIVABLE"]));
+      const inventory = yuanToBaiWanMaybe(firstNumber(balance, ["inventory", "inventories", "INVENTORY"]));
+      const ap = yuanToBaiWanMaybe(firstNumber(balance, ["accountsPayable", "ACCOUNTS_PAYABLE", "acctPayable"]));
+      const prevAr = prev?.accountsReceivable;
+      const prevInventory = yuanToBaiWanMaybe(firstNumber(prevBalance, ["inventory", "inventories", "INVENTORY"]));
+      const prevAp = yuanToBaiWanMaybe(firstNumber(prevBalance, ["accountsPayable", "ACCOUNTS_PAYABLE", "acctPayable"]));
+      const avgAr = avg(ar, prevAr);
+      const avgInv = avg(inventory, prevInventory);
+      const avgAp = avg(ap, prevAp);
+      const warnings: string[] = [];
+
+      const salesExpenseRatioPct = expenseRatioPct(
+        firstNumber(ratioPctRow, ["saleExpense", "salesExpense", "SELL_EXPENSE", "SALE_EXPENSE"]) ??
+          ratioPct(
+            yuanToBaiWanMaybe(firstNumber(income, ["saleExpense", "salesExpense", "SELL_EXPENSE", "SALE_EXPENSE"])),
+            revenue,
+          ),
+      );
+      const adminExpenseRatioPct = expenseRatioPct(
+        firstNumber(ratioPctRow, ["manageExpense", "adminExpense", "MANAGE_EXPENSE"]) ??
+          ratioPct(yuanToBaiWanMaybe(firstNumber(income, ["manageExpense", "adminExpense", "MANAGE_EXPENSE"])), revenue),
+      );
+      const rdExpenseRatioPct = expenseRatioPct(
+        firstNumber(ratioPctRow, ["researchExpense", "rdExpense", "RESEARCH_EXPENSE"]) ??
+          ratioPct(yuanToBaiWanMaybe(firstNumber(income, ["researchExpense", "rdExpense", "RESEARCH_EXPENSE"])), revenue),
+      );
+      const financialExpenseRatioPct =
+        firstNumber(ratioPctRow, ["financeExpense", "financialExpense", "FINANCE_EXPENSE"]) ??
+        ratioPct(yuanToBaiWanMaybe(firstNumber(income, ["financeExpense", "financialExpense", "FINANCE_EXPENSE"])), revenue);
+
+      if (salesExpenseRatioPct === undefined && adminExpenseRatioPct === undefined) warnings.push("expense_ratio_unavailable");
+      if (inventory === undefined) warnings.push("inventory_unavailable");
+      if (ap === undefined) warnings.push("accounts_payable_unavailable");
+
+      trends.push({
+        year: y,
+        reportDate: ratio?.reportDate ?? `${y}-12-31`,
+        source: "feed_financial_history+statements+ratio",
+        revenue,
+        operatingCost,
+        netProfit,
+        operatingCashFlow: ocf,
+        capitalExpenditure: capex,
+        freeCashFlow,
+        grossMarginPct: s?.grossMarginPct ?? firstNumber(ratioPctRow, ["grossMargin", "saleGpr", "XSMLL"]),
+        salesExpenseRatioPct,
+        adminExpenseRatioPct,
+        rdExpenseRatioPct,
+        financialExpenseRatioPct,
+        accountsReceivable: ar,
+        inventory,
+        accountsPayable: ap,
+        impairmentLoss:
+          s?.creditImpairmentLoss ??
+          yuanToBaiWanMaybe(firstNumber(ratioAbs, ["creditImpairmentLoss", "assetImpairmentLoss", "CREDIT_IMPAIRMENT_LOSS", "ASSET_IMPAIRMENT_LOSS"])),
+        accountsReceivableDays: revenue && avgAr !== undefined ? (avgAr / revenue) * 365 : undefined,
+        inventoryDays: operatingCost && avgInv !== undefined ? (avgInv / operatingCost) * 365 : undefined,
+        accountsPayableDays: operatingCost && avgAp !== undefined ? (avgAp / operatingCost) * 365 : undefined,
+        cashConversionCycleDays:
+          revenue && operatingCost && avgAr !== undefined && avgInv !== undefined && avgAp !== undefined
+            ? (avgAr / revenue) * 365 + (avgInv / operatingCost) * 365 - (avgAp / operatingCost) * 365
+            : undefined,
+        ocfToNetProfit: divide(ocf, netProfit),
+        fcfMarginPct: ratioPct(freeCashFlow, revenue),
+        warnings,
+      });
+    }
+
+    return trends;
   }
 
   async getCorporateActions(
