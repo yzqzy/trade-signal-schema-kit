@@ -49,6 +49,8 @@ pnpm --filter @trade-signal/research-runtime run run:reports-site-sync -- \
   --target-dir /path/to/any/public/reports
 ```
 
+根脚本 `reports-site:emit` / `sync:reports-to-app` 只会构建 `@trade-signal/research-runtime` 后执行发布 CLI，不会触发 `apps/research-hub` 的 Next build；如需完整站点构建，另行执行 `pnpm run app:build`。同一工作区内避免并发执行多个会写入 `.next` 的站点构建命令。
+
 `workflow:run` / `business-analysis:run` 可选 **`--reports-site-dir output/site/reports`**：跑完后追加写入同一聚合目录。
 
 ## 架构 V2：`topic_manifest.json` / `publish_only`

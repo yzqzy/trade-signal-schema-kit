@@ -296,15 +296,37 @@ function renderIndustryProfileKpiCard(vm: ReportViewModelV1): string {
   const signalRows = profile.kpiSignals.slice(0, 8).map((s) =>
     `| ${s.label} | ${String(s.summary ?? "—").replace(/\|/g, "/")} | ${s.source ?? "—"} | ${s.confidence ?? "—"} |`,
   );
-  const missing = profile.missingKpis.slice(0, 8);
+  const labelByKey = new Map(profile.kpiSignals.map((s) => [s.key, s.label]));
+  const missing = profile.missingKpis
+    .slice(0, 8)
+    .map((key) => labelByKey.get(key) ?? industryKpiLabel(key));
   return [
     header,
     "",
     ...(signalRows.length
       ? ["| KPI | 证据摘要 | 来源 | 置信度 |", "|:----|:---------|:-----|:-------|", ...signalRows, ""]
       : ["> 已识别行业 profile，但专属 KPI 未形成结构化结果；报告不补写行业字段。", ""]),
-    missing.length ? `未形成结构化结果：${missing.join("、")}。` : "关键 KPI 已形成结构化候选证据。",
+    missing.length ? `暂未取得结构化字段：${missing.join("、")}。` : "关键 KPI 已形成结构化候选证据。",
   ].join("\n");
+}
+
+function industryKpiLabel(key: string): string {
+  const labels: Record<string, string> = {
+    mobile_customers: "移动客户",
+    five_g_customers: "5G 客户",
+    broadband_customers: "宽带客户",
+    arpu: "ARPU",
+    dict_enterprise: "政企/DICT",
+    cloud_compute: "算力/云收入",
+    capex: "资本开支",
+    product_mix: "产品分部",
+    channel_region: "渠道/区域",
+    dealer: "经销商",
+    inventory: "库存",
+    raw_material: "原料/包材",
+    food_safety: "食品安全",
+  };
+  return labels[key] ?? key;
 }
 
 function renderDcfSensitivity(v: ValuationJson): string {
@@ -748,7 +770,7 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "| 子项 | 证据锚点 | 分析口径 |",
     "|:-----|:-------------|:-------------|",
     "| 商业模式 | 市场包与年报包 | 客户、产品、收费方式、成本结构 |",
-    "| 收入质量 | 财务历史与 Phase1B | 增长来源、一次性与可持续收入区分 |",
+    "| 收入质量 | 财务历史与外部证据 | 增长来源、一次性与可持续收入区分 |",
     "| 利润质量 | Phase3 利润锚点 | 扣非、非经、毛利和费用变化 |",
     "| 资本消耗 | Capex、折旧、营运资本 | 轻/重资产属性与维护性投入 |",
     "| 现金收款 | OCF、应收、合同负债 | 利润与现金流匹配度 |",
@@ -773,9 +795,9 @@ export function renderBusinessQualityMarkdown(vm: ReportViewModelV1, buffers: Re
     "",
     "## 监管与合规要点",
     "",
-    "- 处罚 / 监管措施：若 Phase1B 为未命中，终稿必须写入证据缺口，不得写成“无处罚”。[E3]",
+    "- 处罚 / 监管措施：若外部证据为未命中，需写入证据边界，不得写成“无处罚”。[E3]",
     "- 重大诉讼 / 仲裁：优先引用年报 data_pack；若缺章节则降级。[E4]",
-    "- 审计意见 / 内控：优先引用年报财报章节与 Phase1B 公告。[E3][E4]",
+    "- 审计意见 / 内控：优先引用年报财报章节与外部公告证据。[E3][E4]",
     "- 关联交易与治理变化：需列出交易规模、审批口径和风险含义。[E3][E4]",
     "",
     "## 维度五：MD&A 解读",

@@ -49,7 +49,7 @@ function sampleVm(): ReportViewModelV1 {
       warningsCount: 1,
     },
     dataPackReport: { present: true, pdfGateVerdict: "DEGRADED", charCount: 1000 },
-    phase1b: { present: true, charCount: 1000, leadLine: "# Phase1B" },
+    phase1b: { present: true, charCount: 1000, leadLine: "# 外部证据" },
     phase3: {
       decision: "buy",
       confidence: "high",
@@ -128,6 +128,13 @@ function assertTopicStructures(): void {
     "F10 主链路",
     "结构化接口",
     "gateVerdict",
+    "PDF gate",
+    "gate=OK",
+    "本报告可完成终稿",
+    "结论应表述为",
+    "终稿置信度",
+    "本 run",
+    "Phase1B",
   ]) {
     assert.doesNotMatch(allMarkdown, new RegExp(forbidden, "u"));
   }
@@ -211,11 +218,26 @@ async function assertPublishedQualityGate(): Promise<void> {
   ]);
   assert.deepEqual(findPublishedMarkdownQualityViolations("## 缺口与 TODO\n\n_本 run 无显式 TODO 缺口项。_"), [
     "内部流程词：缺口与 TODO",
+    "内部流程词：本 run",
   ]);
   assert.deepEqual(findPublishedMarkdownQualityViolations("## 估值结果（valuation_computed）\n原始 JSON 仅作为发布链路。"), [
     "内部流程词：估值结果 valuation_computed",
     "内部流程词：原始 JSON",
     "内部流程词：发布链路",
+  ]);
+  assert.deepEqual(
+    findPublishedMarkdownQualityViolations(
+      "本报告可完成终稿，因为年报抽取 gate=OK，结论应表述为“已确认事件”，而不是提前定性。",
+    ),
+    [
+      "内部流程词：本报告可完成终稿",
+      "内部流程词：PDF gate",
+      "内部流程词：结论应表述为",
+    ],
+  );
+  assert.deepEqual(findPublishedMarkdownQualityViolations("| 终稿置信度 | high | PDF gate=OK |"), [
+    "内部流程词：PDF gate",
+    "内部流程词：终稿置信度",
   ]);
   assert.deepEqual(findPublishedMarkdownQualityViolations("gateVerdict=OK，F10 主链路可用，仍需补充结构化接口。"), [
     "内部流程词：F10 主链路",

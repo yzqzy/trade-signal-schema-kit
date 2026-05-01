@@ -151,6 +151,9 @@ function parseConfidenceFromReportMd(md: string): ConfidenceState {
   const yaml = normalizeConfidenceToken(md.match(/^\s*-\s*confidence:\s*(\S+)/im)?.[1]);
   if (yaml) return yaml;
 
+  const metadataBlock = normalizeConfidenceToken(md.match(/^\s*confidence:\s*(\S+)/im)?.[1]);
+  if (metadataBlock) return metadataBlock;
+
   const tableCell = md.match(/\|\s*分析置信度\s*\|\s*([^|\n]+?)\s*\|/imu)?.[1];
   const fromTable = normalizeConfidenceToken(tableCell);
   if (fromTable) return fromTable;
@@ -225,30 +228,37 @@ async function writeEntry(params: {
 }
 
 export function findPublishedMarkdownQualityViolations(markdown: string): string[] {
-  const checks: Array<[string, RegExp]> = [
-    ["文件名包装标题", /^##\s+qualitative_(?:report|d1_d6)\.md\s*$/imu],
-    ["内部状态词：草稿", /草稿/u],
-    ["内部状态词：待 Claude", /待\s*Claude(?:\s*Code)?/iu],
-    ["内部状态词：尚未完成", /尚未完成/u],
-    ["内部状态词：成稿要求", /成稿要求/u],
-    ["内部状态词：初始状态", /初始状态/u],
-    ["内部流程词：机械锚点", /机械锚点/u],
-    ["内部流程词：候选片段", /候选片段/u],
-    ["内部流程词：供六维成稿引用", /供六维成稿引用/u],
-    ["内部流程词：站点只展示", /站点只展示/u],
-    ["内部流程词：完整发布依据", /完整发布依据/u],
-    ["内部流程词：审计用", /审计用/u],
-    ["内部流程词：缺口与 TODO", /缺口与\s*TODO|本 run 无显式 TODO/u],
-    ["内部流程词：valuation_computed.json 为准", /valuation_computed\.json\s*为准/u],
-    ["内部流程词：估值结果 valuation_computed", /估值结果（valuation_computed）/u],
-    ["内部流程词：原始 JSON", /原始\s*JSON/u],
-    ["内部流程词：发布链路", /发布链路/u],
-    ["内部流程词：F10 主链路", /F10\s*主链路/u],
-    ["内部流程词：结构化接口", /结构化接口/u],
-    ["内部流程词：gateVerdict", /gateVerdict/u],
-  ];
-  return checks.filter(([, re]) => re.test(markdown)).map(([name]) => name);
+  return PUBLISHED_MARKDOWN_FORBIDDEN.filter(([, re]) => re.test(markdown)).map(([name]) => name);
 }
+
+const PUBLISHED_MARKDOWN_FORBIDDEN: Array<[string, RegExp]> = [
+  ["文件名包装标题", /^##\s+qualitative_(?:report|d1_d6)\.md\s*$/imu],
+  ["内部状态词：草稿", /草稿/u],
+  ["内部状态词：待 Claude", /待\s*Claude(?:\s*Code)?/iu],
+  ["内部状态词：尚未完成", /尚未完成/u],
+  ["内部状态词：成稿要求", /成稿要求/u],
+  ["内部状态词：初始状态", /初始状态/u],
+  ["内部流程词：机械锚点", /机械锚点/u],
+  ["内部流程词：候选片段", /候选片段/u],
+  ["内部流程词：供六维成稿引用", /供六维成稿引用/u],
+  ["内部流程词：站点只展示", /站点只展示/u],
+  ["内部流程词：完整发布依据", /完整发布依据/u],
+  ["内部流程词：审计用", /审计用/u],
+  ["内部流程词：缺口与 TODO", /缺口与\s*TODO|本 run 无显式 TODO/u],
+  ["内部流程词：valuation_computed.json 为准", /valuation_computed\.json\s*为准/u],
+  ["内部流程词：估值结果 valuation_computed", /估值结果（valuation_computed）/u],
+  ["内部流程词：原始 JSON", /原始\s*JSON/u],
+  ["内部流程词：发布链路", /发布链路/u],
+  ["内部流程词：F10 主链路", /F10\s*主链路/u],
+  ["内部流程词：结构化接口", /结构化接口/u],
+  ["内部流程词：gateVerdict", /gateVerdict/u],
+  ["内部流程词：本报告可完成终稿", /本报告可完成终稿/u],
+  ["内部流程词：PDF gate", /PDF\s*gate|gate\s*=\s*(?:OK|DEGRADED|CRITICAL)/iu],
+  ["内部流程词：终稿置信度", /终稿置信度/u],
+  ["内部流程词：结论应表述为", /结论应表述为|而不是提前定性/u],
+  ["内部流程词：本 run", /本\s*run/iu],
+  ["内部流程词：Phase1B", /\bPhase1B\b/u],
+];
 
 function statusRank(s: RequiredFieldsStatus): number {
   if (s === "complete") return 3;
@@ -423,28 +433,62 @@ function compactPdfLead(markdown: string, pdfQuality: PdfQualitySummary): string
     .trim();
 }
 
-function sanitizeTechnicalEvidenceText(markdown: string): string {
+const PUBLISH_DROP_LINE_PATTERNS: RegExp[] = [
+  /本报告可完成终稿/u,
+  /结论应表述为|而不是提前定性/u,
+];
+
+const PUBLISH_TEXT_REWRITES: Array<[RegExp, string]> = [
+  [
+    /\|\s*股东回报 F10 信号为空\s*\|\s*分红仍可从企业行动与财务数据判断，但缺少文字政策摘录\s*\|\s*后续从公告或年报分红政策段补充\s*\[M:§3\]\s*\|/gu,
+    "| 分红政策文字摘录未进入经营画像信号桶 | 不影响 DPS、DDM 与股东回报判断；分红已由企业行动和年报财务数据支持 | 后续可把年报分红政策段纳入经营画像摘要 [M:§3] |",
+  ],
+  [/WebSearch rate limit|WebSearch\s+rate_limit|rate_limit_exceeded|Volc WebSearch API 错误 \[[^\]]+\]/giu, "外部检索受限"],
+  [/、Phase1B\s*监管\/处罚检索缺口，以及\s*P13\s*低置信导致非经常性损益判断需降级/gu, "，以及外部证据与 PDF 抽取质量边界"],
+  [/Phase1B\s*还捕捉到/gu, "外部证据还捕捉到"],
+  [/Phase1B/gu, "外部证据"],
+  [/PDF\s*gate\s*=\s*OK[，,、]?\s*关键(?:年报)?块(?:无缺失|未缺失|可用于终稿)/giu, "年报关键章节已完成定位"],
+  [/PDF\s*gate\s*=\s*OK/giu, "年报抽取质量正常"],
+  [/gate\s*=\s*OK/giu, "年报抽取质量正常"],
+  [/gateVerdict\s*`?\s*(OK|DEGRADED|CRITICAL)\s*`?/giu, "年报抽取质量：$1"],
+  [/gateVerdict\s*=\s*(OK|DEGRADED|CRITICAL)/giu, "年报抽取质量：$1"],
+  [/12\/12\s*章节定位完成/giu, "主要章节已定位"],
+  [/年报抽取\s*OK/giu, "年报抽取质量正常"],
+  [/可用于终稿/gu, "可供分析引用"],
+  [/终稿置信度/gu, "分析置信度"],
+  [/本\s*run/giu, "本次证据包"],
+  [/F10\s*主链路/giu, "公开资料与经营画像"],
+  [/结构化接口/gu, "结构化数据"],
+  [/Feed\s*Top\s*10/giu, "自动 Top10"],
+  [/Feed\s*同业池/giu, "自动同业池"],
+  [/由\s*Feed\s*结构化返回/giu, "由结构化数据返回"],
+  [/检索过程受到\s*外部检索受限\s*影响/gu, "外部检索受限"],
+  [/且外部搜索存在限流失败/gu, "且外部检索受限"],
+  [/本次证据包\s+结论/gu, "证据包结论"],
+  [/本次证据包\s+(未|官方|显示|可见)/gu, "本次证据包$1"],
+  [/外部证据\s+(显示|可见|还捕捉到)/gu, "外部证据$1"],
+];
+
+function stripPublishInternalLines(markdown: string): string {
   return markdown
-    .replace(/WebSearch rate limit|WebSearch\s+rate_limit|rate_limit_exceeded|Volc WebSearch API 错误 \[[^\]]+\]/giu, "外部检索受限")
-    .replace(/gateVerdict\s*=\s*(OK|DEGRADED|CRITICAL)/giu, "年报抽取质量：$1")
-    .replace(/gateVerdict\s*`?\s*(OK|DEGRADED|CRITICAL)\s*`?/giu, "年报抽取质量：$1")
-    .replace(/F10\s*主链路/giu, "公开资料与经营画像")
-    .replace(/结构化接口/gu, "结构化数据")
-    .replace(/Feed\s*Top\s*10/giu, "自动 Top10")
-    .replace(/Feed\s*同业池/giu, "自动同业池")
-    .replace(/由\s*Feed\s*结构化返回/giu, "由结构化数据返回")
-    .replace(/Phase1B\s*还捕捉到/gu, "外部证据还捕捉到")
-    .replace(/检索过程受到\s*外部检索受限\s*影响/gu, "外部检索受限")
-    .replace(/且外部搜索存在限流失败/gu, "且外部检索受限")
-    .replace(/、Phase1B\s*监管\/处罚检索缺口，以及\s*P13\s*低置信导致非经常性损益判断需降级/gu, "，以及外部证据与 PDF 抽取质量边界")
-    .replace(
-      /\|\s*股东回报 F10 信号为空\s*\|\s*分红仍可从企业行动与财务数据判断，但缺少文字政策摘录\s*\|\s*后续从公告或年报分红政策段补充\s*\[M:§3\]\s*\|/gu,
-      "| 分红政策文字摘录未进入经营画像信号桶 | 不影响 DPS、DDM 与股东回报判断；分红已由企业行动和年报财务数据支持 | 后续可把年报分红政策段纳入经营画像摘要 [M:§3] |",
-    );
+    .split(/\r?\n/u)
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed || !PUBLISH_DROP_LINE_PATTERNS.some((re) => re.test(trimmed));
+    })
+    .join("\n");
+}
+
+function normalizePublishedMarkdownProse(markdown: string): string {
+  let next = stripPublishInternalLines(markdown);
+  for (const [pattern, replacement] of PUBLISH_TEXT_REWRITES) {
+    next = next.replace(pattern, replacement);
+  }
+  return next.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function moveEvidenceGapsBeforeAppendix(markdown: string): string {
-  const gapRe = /^##\s+证据缺口清单（Phase1B）\s*[\s\S]*?(?=^##\s+附录：证据索引\s*$|(?![\s\S]))/imu;
+  const gapRe = /^##\s+证据缺口清单(?:（(?:Phase1B|外部证据)）)?\s*[\s\S]*?(?=^##\s+附录：证据索引\s*$|(?![\s\S]))/imu;
   const m = markdown.match(gapRe);
   if (!m?.[0]) return markdown;
   const without = markdown.replace(gapRe, "").replace(/\n{3,}/g, "\n\n").trim();
@@ -538,10 +582,10 @@ function renderBusinessAnalysisPublishedMarkdown(input: {
 }): string {
   const q = moveEvidenceGapsBeforeAppendix(
     normalizeRegulatorySection(
-      sanitizeTechnicalEvidenceText(compactPdfLead(stripFinalStatusLine(input.qualitativeReportMarkdown), input.pdfQuality)),
+      normalizePublishedMarkdownProse(compactPdfLead(stripFinalStatusLine(input.qualitativeReportMarkdown), input.pdfQuality)),
     ),
   );
-  const d = stripFinalStatusLine(input.qualitativeD1D6Markdown);
+  const d = normalizePublishedMarkdownProse(compactPdfLead(stripFinalStatusLine(input.qualitativeD1D6Markdown), input.pdfQuality));
   const qSplit = splitEvidenceAppendix(stripExistingEvidenceQualitySection(q));
   const dSplit = splitEvidenceAppendix(d);
   const qBody = hasQualitySnapshot(qSplit.body)
@@ -557,12 +601,11 @@ function renderBusinessAnalysisPublishedMarkdown(input: {
   } else if (dSplit.appendix) {
     sections.push(dSplit.appendix);
   }
-  return sections
+  const markdown = sections
     .map((s) => s.trim())
     .filter(Boolean)
-    .join("\n\n")
-    .replace(/外部搜索有\s*rate\s+limit\s*失败/giu, "外部检索受限")
-    .replace(/rate\s+limit/giu, "外部检索受限");
+    .join("\n\n");
+  return normalizePublishedMarkdownProse(markdown);
 }
 
 type WorkflowManifest = {

@@ -219,7 +219,7 @@ export async function composeReportViewModel(input: ComposeReportViewModelInput)
   if (!phase1bMeta.present) {
     todos.push({
       id: "phase1b-empty",
-      message: "TODO：Phase1B 稿件为空，商业质量页仅能降级展示。",
+      message: "外部证据稿件为空，商业质量页仅能降级展示。",
       suggestedSource: "phase1b_qualitative.md",
     });
   }
@@ -238,7 +238,7 @@ export async function composeReportViewModel(input: ComposeReportViewModelInput)
   } else {
     todos.push({
       id: "data-pack-report-missing",
-      message: "TODO：本 run 未挂载 `data_pack_report.md`（phase2bMarkdownPath）。",
+      message: "年报证据包未挂载，相关结论需要降级处理。",
       suggestedSource: "data_pack_report.md",
     });
   }
@@ -350,7 +350,7 @@ export async function composeReportViewModel(input: ComposeReportViewModelInput)
   const topicEvidenceRefs: SourceRef[] = [
     fileRef(outputDir, input.phase1aJsonPath, "Phase1A 数据包"),
     fileRef(outputDir, input.marketPackPath, "市场数据包"),
-    fileRef(outputDir, input.phase1bMarkdownPath, "Phase1B 外部证据补充"),
+    fileRef(outputDir, input.phase1bMarkdownPath, "外部证据补充"),
     fileRef(outputDir, input.valuationPath, "估值 JSON"),
     fileRef(outputDir, input.reportMarkdownPath, "Phase3 规则报告"),
   ];

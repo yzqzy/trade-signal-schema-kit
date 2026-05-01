@@ -34,13 +34,13 @@ export const INDUSTRY_PROFILE_DEFINITIONS: Record<IndustryProfileId, ProfileDefi
     label: "电信运营",
     industryKeywords: /电信|通信服务|通信运营|运营商|移动通信|宽带|IDC|云计算|算力|DICT/u,
     kpis: [
-      { key: "mobile_customers", label: "移动客户", keywords: /移动客户|移动用户|手机客户|客户总数/u },
+      { key: "mobile_customers", label: "移动客户", keywords: /移动客户|移动用户|手机客户/u },
       { key: "five_g_customers", label: "5G 客户", keywords: /5G|第五代移动通信/u },
-      { key: "broadband_customers", label: "宽带客户", keywords: /宽带|家庭客户|有线宽带/u },
+      { key: "broadband_customers", label: "宽带客户", keywords: /宽带客户|宽带用户|有线宽带|覆盖住户/u },
       { key: "arpu", label: "ARPU", keywords: /ARPU|每用户平均收入/u },
-      { key: "dict_enterprise", label: "政企/DICT", keywords: /DICT|政企|产业数字化|信息化收入/u },
+      { key: "dict_enterprise", label: "政企/DICT", keywords: /DICT|政企|产业数字化|信息化收入|行业数智服务/u },
       { key: "cloud_compute", label: "算力/云收入", keywords: /算力|云收入|移动云|云业务|IDC/u },
-      { key: "capex", label: "资本开支", keywords: /资本开支|CAPEX|投资规模|算力网络投资/u },
+      { key: "capex", label: "资本开支", keywords: /资本开支|CAPEX|投资规模|网络投资|投资共计|算力网络投资/u },
     ],
   },
   dairy_food: {
@@ -142,8 +142,13 @@ export interface ResolveIndustryProfileInput {
   annualReportHints?: string[];
 }
 
-function sanitizeSnippet(text: string, max = 120): string {
-  return text.replace(/\s+/gu, " ").replace(/\|/gu, "/").trim().slice(0, max);
+function sanitizeSnippet(text: string, max = 120, pattern?: RegExp): string {
+  const clean = text.replace(/\s+/gu, " ").replace(/\|/gu, "/").trim();
+  if (!pattern) return clean.slice(0, max);
+  const matched = clean.match(pattern);
+  if (matched?.index == null) return clean.slice(0, max);
+  const start = Math.max(0, matched.index - Math.floor(max * 0.35));
+  return clean.slice(start, start + max);
 }
 
 function gatherOperationSignals(snapshot?: CompanyOperationsSnapshot): CompanyOperationSignal[] {
@@ -155,7 +160,33 @@ function gatherOperationSignals(snapshot?: CompanyOperationsSnapshot): CompanyOp
     ...(groups?.themes ?? []),
     ...(groups?.industry ?? []),
   ];
-  const all = [...(snapshot?.signals ?? []), ...grouped];
+  const rawSignals: CompanyOperationSignal[] = [
+    ...(snapshot?.businessHighlights ?? []),
+    ...(snapshot?.themeSignals ?? []),
+  ]
+    .map((item): CompanyOperationSignal | undefined => {
+      const record = item as Record<string, unknown>;
+      const summary = String(
+        record.mainPointContent ?? record.selectedReason ?? record.summary ?? record.content ?? "",
+      ).trim();
+      if (!summary) return undefined;
+      const label = String(record.keyword ?? record.boardName ?? record.label ?? "经营线索");
+      return {
+        label,
+        category: /分红|股利|派息|利润分配/u.test(`${label}\n${summary}`)
+          ? "shareholder_return"
+          : /概念|算力|数据中心|5G|6G|云|DICT/u.test(`${label}\n${summary}`)
+            ? "theme"
+            : /行业|定位/u.test(label)
+              ? "industry"
+              : "operating_metric",
+        summary,
+        source: snapshot?.source ?? "company_operations",
+        confidence: "medium",
+      };
+    })
+    .filter((signal): signal is CompanyOperationSignal => Boolean(signal));
+  const all = [...(snapshot?.signals ?? []), ...grouped, ...rawSignals];
   const seen = new Set<string>();
   return all.filter((signal) => {
     const key = `${signal.category}:${signal.label}:${signal.summary}`;
@@ -231,8 +262,36 @@ function resolveProfileId(input: ResolveIndustryProfileInput): {
 function operationSourceRefs(snapshot?: CompanyOperationsSnapshot): string[] {
   const refs = new Set<string>();
   if (snapshot?.source) refs.add(snapshot.source);
-  for (const signal of gatherOperationSignals(snapshot)) refs.add(signal.source);
+  for (const signal of gatherOperationSignals(snapshot)) {
+    if (typeof signal.source === "string" && signal.source.trim()) refs.add(signal.source);
+  }
   return [...refs].slice(0, 8);
+}
+
+function signalSource(signal: CompanyOperationSignal, snapshot?: CompanyOperationsSnapshot): string {
+  if (typeof signal.source === "string" && signal.source.trim()) return signal.source;
+  if (snapshot?.source) return snapshot.source;
+  return "company_operations";
+}
+
+function scoreSignalForKpi(signal: CompanyOperationSignal, kpi: ProfileKpiDefinition): number {
+  const haystack = `${signal.label}\n${signal.summary}`;
+  if (!kpi.keywords.test(haystack)) return -1;
+  let score = 0;
+  if (kpi.keywords.test(signal.label)) score += 6;
+  if (signal.category === "operating_metric") score += 4;
+  if (signal.category === "theme") score += 3;
+  if (signal.category === "business_structure") score += 1;
+  if (/\d/u.test(signal.summary)) score += 3;
+  if (signal.summary.length <= 180) score += 1;
+  return score;
+}
+
+function bestSignalForKpi(ops: CompanyOperationSignal[], kpi: ProfileKpiDefinition): CompanyOperationSignal | undefined {
+  return ops
+    .map((signal) => ({ signal, score: scoreSignalForKpi(signal, kpi) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score)[0]?.signal;
 }
 
 function buildKpiSignals(
@@ -245,13 +304,13 @@ function buildKpiSignals(
   const signals: IndustryKpiSignal[] = [];
   const missing: string[] = [];
   for (const kpi of def.kpis) {
-    const matched = ops.find((signal) => kpi.keywords.test(`${signal.label}\n${signal.summary}`));
+    const matched = bestSignalForKpi(ops, kpi);
     if (matched) {
       signals.push({
         key: kpi.key,
         label: kpi.label,
-        summary: sanitizeSnippet(matched.summary),
-        source: matched.source,
+        summary: sanitizeSnippet(matched.summary, 120, kpi.keywords),
+        source: signalSource(matched, snapshot),
         confidence: matched.confidence,
       });
     } else {
