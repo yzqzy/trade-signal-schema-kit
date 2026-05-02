@@ -16,6 +16,7 @@ import type {
   Quote,
   RegulatoryEvent,
   RegulatoryEventCollection,
+  SwIndustryClassification,
   TradingCalendar,
 } from "@trade-signal/schema-core";
 
@@ -61,6 +62,8 @@ type StockDetailPayload = {
   sector?: string;
   hybk?: string;
 };
+
+type SwIndustryClassificationPayload = SwIndustryClassification;
 
 type StockQuotePayload = {
   code?: string;
@@ -927,6 +930,28 @@ export class FeedHttpProvider implements MarketDataProvider {
           summary: String(payload.metrics?.parentNiAllYearYoY ?? "—"),
         },
       ],
+    };
+  }
+
+  async getSwIndustryClassification(code: string): Promise<SwIndustryClassification> {
+    const payload = await this.request<SwIndustryClassificationPayload>(
+      `/stock/industry/sw-classification/${encodeURIComponent(code)}`,
+    );
+    return {
+      code: payload.code ?? code,
+      name: payload.name,
+      provider: "sw",
+      version: "2021",
+      asOfDate: payload.asOfDate,
+      source: payload.source,
+      confidence: payload.confidence,
+      industryCode: payload.industryCode,
+      level1Code: payload.level1Code,
+      level1Name: payload.level1Name,
+      level2Code: payload.level2Code,
+      level2Name: payload.level2Name,
+      level3Code: payload.level3Code,
+      level3Name: payload.level3Name,
     };
   }
 

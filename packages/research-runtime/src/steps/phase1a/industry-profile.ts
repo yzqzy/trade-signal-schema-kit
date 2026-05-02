@@ -7,6 +7,7 @@ import type {
   IndustryProfileId,
   IndustryProfileMatchedBy,
   IndustryProfileSnapshot,
+  SwIndustryClassification,
 } from "@trade-signal/schema-core";
 
 type ProfileKpiDefinition = {
@@ -21,6 +22,46 @@ type ProfileDefinition = {
   industryKeywords: RegExp;
   kpis: ProfileKpiDefinition[];
 };
+
+type SwProfileRule = {
+  level1: string;
+  profileId: IndustryProfileId;
+  level2Hint?: RegExp;
+};
+
+const SW_L1_PROFILE_RULES: SwProfileRule[] = [
+  { level1: "银行", profileId: "bank" },
+  { level1: "通信", profileId: "telecom" },
+  { level1: "食品饮料", profileId: "consumer_food" },
+  { level1: "公用事业", profileId: "energy_utility" },
+  { level1: "煤炭", profileId: "energy_utility" },
+  { level1: "石油石化", profileId: "energy_utility" },
+  { level1: "医药生物", profileId: "pharma_healthcare" },
+  { level1: "房地产", profileId: "real_estate" },
+  { level1: "机械设备", profileId: "manufacturing" },
+  { level1: "电子", profileId: "manufacturing" },
+  { level1: "汽车", profileId: "manufacturing" },
+  { level1: "基础化工", profileId: "manufacturing" },
+  { level1: "有色金属", profileId: "manufacturing" },
+  { level1: "钢铁", profileId: "manufacturing" },
+  { level1: "国防军工", profileId: "manufacturing" },
+  { level1: "建筑材料", profileId: "manufacturing" },
+  { level1: "建筑装饰", profileId: "manufacturing" },
+  { level1: "轻工制造", profileId: "manufacturing" },
+  { level1: "家用电器", profileId: "manufacturing" },
+  { level1: "纺织服饰", profileId: "manufacturing" },
+  { level1: "非银金融", profileId: "insurance", level2Hint: /保险/u },
+  { level1: "商贸零售", profileId: "consumer_food", level2Hint: /食品|超市|电商|零售/u },
+  { level1: "农林牧渔", profileId: "consumer_food", level2Hint: /食品加工|农产品加工|乳品|肉制品|预制菜/u },
+  { level1: "电力设备", profileId: "energy_utility", level2Hint: /电池|电网|能源|风电|光伏/u },
+  { level1: "电力设备", profileId: "manufacturing" },
+  { level1: "交通运输", profileId: "transportation_logistics" },
+  { level1: "计算机", profileId: "software_it" },
+  { level1: "传媒", profileId: "media_entertainment" },
+  { level1: "环保", profileId: "environmental_services" },
+  { level1: "美容护理", profileId: "beauty_personalcare" },
+  { level1: "社会服务", profileId: "consumer_services" },
+];
 
 export const INDUSTRY_PROFILE_DEFINITIONS: Record<IndustryProfileId, ProfileDefinition> = {
   generic: {
@@ -43,9 +84,9 @@ export const INDUSTRY_PROFILE_DEFINITIONS: Record<IndustryProfileId, ProfileDefi
       { key: "capex", label: "资本开支", keywords: /资本开支|CAPEX|投资规模|网络投资|投资共计|算力网络投资/u },
     ],
   },
-  dairy_food: {
-    id: "dairy_food",
-    label: "乳品与食品饮料",
+  consumer_food: {
+    id: "consumer_food",
+    label: "消费食品与食品饮料",
     industryKeywords: /乳品|乳制品|奶|食品|饮料|白酒|调味品|预制菜|农副食品|消费品/u,
     kpis: [
       { key: "product_mix", label: "产品分部", keywords: /产品结构|分部收入|主营构成|液态奶|奶粉|冷饮|食品|饮料/u },
@@ -131,10 +172,95 @@ export const INDUSTRY_PROFILE_DEFINITIONS: Record<IndustryProfileId, ProfileDefi
       { key: "capex", label: "资本开支", keywords: /资本开支|投资/u },
     ],
   },
+  transportation_logistics: {
+    id: "transportation_logistics",
+    label: "交通运输与物流",
+    industryKeywords: /交通运输|物流|快递|港口|航空|机场|铁路|公路|航运|客运|货运/u,
+    kpis: [
+      { key: "freight_passenger_volume", label: "货运/客运量", keywords: /货运量|客运量|旅客吞吐量|货邮吞吐量|运输量/u },
+      { key: "freight_rate", label: "运价", keywords: /运价|票价|单价|费率|航线收入/u },
+      { key: "turnover_volume", label: "周转量", keywords: /周转量|货物周转|旅客周转/u },
+      { key: "unit_cost", label: "单位成本", keywords: /单位成本|单公里成本|单位运输成本/u },
+      { key: "fuel_cost", label: "燃油成本", keywords: /燃油|油价|航油|燃料成本/u },
+      { key: "capex", label: "资本开支", keywords: /资本开支|固定资产投资|运力投放|机队|船队/u },
+      { key: "throughput", label: "吞吐量", keywords: /吞吐量|集装箱|TEU|货邮/u },
+    ],
+  },
+  software_it: {
+    id: "software_it",
+    label: "软件与信息技术",
+    industryKeywords: /计算机|软件|信息技术|云服务|SaaS|系统集成|信创|数据服务/u,
+    kpis: [
+      { key: "software_service_revenue", label: "软件/服务收入", keywords: /软件收入|服务收入|云服务|技术服务|系统集成/u },
+      { key: "project_delivery", label: "项目交付", keywords: /项目交付|验收|实施|交付周期/u },
+      { key: "arr_subscription", label: "ARR/订阅", keywords: /ARR|订阅|续费|SaaS|经常性收入/u },
+      { key: "rd_investment", label: "研发投入", keywords: /研发投入|研发费用|研发人员/u },
+      { key: "revenue_per_employee", label: "人均产出", keywords: /人均产出|人均收入|员工人数/u },
+      { key: "receivables_contract_liabilities", label: "应收与合同负债", keywords: /应收账款|合同负债|回款|账期/u },
+      { key: "customer_concentration", label: "政府/大客户依赖", keywords: /政府客户|大客户|客户集中|前五大客户/u },
+    ],
+  },
+  media_entertainment: {
+    id: "media_entertainment",
+    label: "传媒与内容娱乐",
+    industryKeywords: /传媒|广告|游戏|影视|出版|院线|内容|版权|IP/u,
+    kpis: [
+      { key: "advertising_revenue", label: "广告收入", keywords: /广告收入|营销服务|广告业务/u },
+      { key: "content_cost", label: "内容/版权成本", keywords: /内容成本|版权|采购成本|制作成本/u },
+      { key: "traffic_users", label: "用户/流量", keywords: /用户数|活跃用户|MAU|DAU|流量/u },
+      { key: "game_gross_billing", label: "游戏流水", keywords: /游戏流水|充值流水|流水/u },
+      { key: "box_office", label: "院线/票房", keywords: /票房|观影人次|影院|银幕/u },
+      { key: "ip_pipeline", label: "IP 储备", keywords: /IP|版权储备|内容储备|片单/u },
+      { key: "regulatory_approval", label: "监管版号", keywords: /版号|审批|监管|许可证/u },
+    ],
+  },
+  environmental_services: {
+    id: "environmental_services",
+    label: "环保运营与服务",
+    industryKeywords: /环保|污水|固废|危废|垃圾焚烧|环卫|水处理|生态修复/u,
+    kpis: [
+      { key: "treatment_volume", label: "处理量", keywords: /处理量|处置量|焚烧量|污水处理/u },
+      { key: "operating_scale", label: "项目运营规模", keywords: /运营项目|运营规模|在运|投运/u },
+      { key: "tariff_subsidy", label: "补贴/电价/处置费", keywords: /补贴|上网电价|处置费|服务费|垃圾处理费/u },
+      { key: "receivable_collection", label: "应收回款", keywords: /应收账款|回款|账龄|坏账/u },
+      { key: "bot_ppp", label: "BOT/PPP 项目", keywords: /BOT|PPP|特许经营| concession/u },
+      { key: "capex", label: "资本开支", keywords: /资本开支|在建工程|项目投资/u },
+      { key: "environmental_penalty", label: "环保处罚", keywords: /环保处罚|行政处罚|排污|超标/u },
+    ],
+  },
+  beauty_personalcare: {
+    id: "beauty_personalcare",
+    label: "美容护理与个护消费",
+    industryKeywords: /美容护理|化妆品|个护|护肤|医美|品牌消费/u,
+    kpis: [
+      { key: "brand_matrix", label: "品牌矩阵", keywords: /品牌矩阵|核心品牌|品牌收入/u },
+      { key: "channel_mix", label: "渠道结构", keywords: /渠道|经销|直营|线上|线下|电商/u },
+      { key: "online_ratio", label: "线上占比", keywords: /线上占比|电商收入|线上渠道/u },
+      { key: "repurchase_membership", label: "复购/会员", keywords: /复购|会员|私域|用户留存/u },
+      { key: "gross_margin", label: "毛利率", keywords: /毛利率|高毛利|产品结构/u },
+      { key: "marketing_ratio", label: "营销费用率", keywords: /销售费用率|营销费用|推广费|投放/u },
+      { key: "product_quality", label: "监管/产品质量", keywords: /产品质量|抽检|处罚|备案|注册/u },
+    ],
+  },
+  consumer_services: {
+    id: "consumer_services",
+    label: "社会服务与线下消费",
+    industryKeywords: /社会服务|酒店|餐饮|旅游|景区|教育|免税|人力资源|会展/u,
+    kpis: [
+      { key: "store_hotel_scenic_count", label: "门店/酒店/景区", keywords: /门店|酒店|景区|网点|校区/u },
+      { key: "traffic", label: "客流", keywords: /客流|游客|接待人次|到店/u },
+      { key: "customer_spend", label: "客单价", keywords: /客单价|人均消费|平均消费/u },
+      { key: "revpar_occupancy", label: "RevPAR/入住率", keywords: /RevPAR|入住率|平均房价|ADR/u },
+      { key: "franchise_direct", label: "加盟直营", keywords: /加盟|直营|特许经营/u },
+      { key: "rent_labor_cost", label: "租金人工成本", keywords: /租金|人工成本|员工薪酬|门店成本/u },
+      { key: "membership_repurchase", label: "会员/复购", keywords: /会员|复购|留存|活跃用户/u },
+    ],
+  },
 };
 
 export interface ResolveIndustryProfileInput {
   explicitProfileId?: IndustryProfileId;
+  swIndustryClassification?: SwIndustryClassification;
   instrumentIndustry?: string;
   peerIndustryName?: string;
   industryCycleName?: string;
@@ -226,6 +352,18 @@ function matchProfileFromText(text: string): IndustryProfileId {
   return "generic";
 }
 
+function profileFromSwLevel1(sw?: SwIndustryClassification): IndustryProfileId {
+  const l1 = sw?.level1Name?.trim();
+  const l2 = sw?.level2Name?.trim() ?? "";
+  if (!l1) return "generic";
+  for (const rule of SW_L1_PROFILE_RULES) {
+    if (rule.level1 !== l1) continue;
+    if (rule.level2Hint && !rule.level2Hint.test(l2)) continue;
+    return rule.profileId;
+  }
+  return "generic";
+}
+
 function resolveProfileId(input: ResolveIndustryProfileInput): {
   profileId: IndustryProfileId;
   matchedBy: IndustryProfileMatchedBy;
@@ -233,6 +371,14 @@ function resolveProfileId(input: ResolveIndustryProfileInput): {
 } {
   if (input.explicitProfileId) {
     return { profileId: input.explicitProfileId, matchedBy: "explicit", industryName: input.instrumentIndustry };
+  }
+  if (input.swIndustryClassification) {
+    const swProfile = profileFromSwLevel1(input.swIndustryClassification);
+    return {
+      profileId: swProfile,
+      matchedBy: "sw_l1",
+      industryName: input.swIndustryClassification?.level1Name,
+    };
   }
   const sources: Array<{ text?: string; matchedBy: IndustryProfileMatchedBy }> = [
     { text: input.instrumentIndustry, matchedBy: "instrument" },
@@ -339,6 +485,9 @@ export function resolveIndustryProfileSnapshot(input: ResolveIndustryProfileInpu
   const totalKpis = INDUSTRY_PROFILE_DEFINITIONS[resolved.profileId]?.kpis.length ?? 0;
   const sourceRefs = new Set<string>(operationSourceRefs(input.companyOperationsSnapshot));
   if (input.instrumentIndustry) sourceRefs.add("instrument.industry");
+  if (input.swIndustryClassification?.level1Name) sourceRefs.add("swIndustryClassification.level1");
+  if (input.swIndustryClassification?.level2Name) sourceRefs.add("swIndustryClassification.level2");
+  if (input.swIndustryClassification?.level3Name) sourceRefs.add("swIndustryClassification.level3");
   if (input.peerIndustryName) sourceRefs.add("peerComparablePool.industryName");
   if (input.industryCycleName) sourceRefs.add("industryCycleSnapshot.industryName");
   if (input.annualReportHints?.length) sourceRefs.add("annual_report_hints");
@@ -352,6 +501,10 @@ export function resolveIndustryProfileSnapshot(input: ResolveIndustryProfileInpu
       signalsCount: signals.length,
     }),
     matchedBy: resolved.matchedBy,
+    classificationProvider: input.swIndustryClassification ? "sw" : undefined,
+    swLevel1Name: input.swIndustryClassification?.level1Name,
+    swLevel2Name: input.swIndustryClassification?.level2Name,
+    swLevel3Name: input.swIndustryClassification?.level3Name,
     kpiSignals: signals,
     missingKpis: missing,
     sourceRefs: [...sourceRefs],
@@ -361,12 +514,17 @@ export function resolveIndustryProfileSnapshot(input: ResolveIndustryProfileInpu
 export function resolveIndustryProfileForDataPack(
   dataPack: Pick<
     DataPackMarket,
-    "instrument" | "peerComparablePool" | "industryCycleSnapshot" | "companyOperationsSnapshot"
+    | "instrument"
+    | "swIndustryClassification"
+    | "peerComparablePool"
+    | "industryCycleSnapshot"
+    | "companyOperationsSnapshot"
   >,
   explicitProfileId?: IndustryProfileId,
 ): IndustryProfileSnapshot {
   return resolveIndustryProfileSnapshot({
     explicitProfileId,
+    swIndustryClassification: dataPack.swIndustryClassification,
     instrumentIndustry: dataPack.instrument.industry,
     peerIndustryName: dataPack.peerComparablePool?.industryName,
     industryCycleName: dataPack.industryCycleSnapshot?.industryName,

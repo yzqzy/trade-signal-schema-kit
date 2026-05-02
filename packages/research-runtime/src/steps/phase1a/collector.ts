@@ -240,11 +240,16 @@ export async function collectPhase1ADataPack(
       provider.getTradingCalendar(input.calendarMarket ?? instrument.market, from, to),
     ),
   ]);
-  const [industryCycleSnapshot, peerComparablePool, governanceEventCollection, regulatoryEventCollection, companyOperationsSnapshot] = await Promise.all([
+  const [industryCycleSnapshot, swIndustryClassification, peerComparablePool, governanceEventCollection, regulatoryEventCollection, companyOperationsSnapshot] = await Promise.all([
     loadOptional(
       typeof provider.getIndustryCycleSnapshot === "function",
       optionalFailure,
       () => provider.getIndustryCycleSnapshot!(input.code, input.year),
+    ),
+    loadOptional(
+      typeof provider.getSwIndustryClassification === "function",
+      optionalFailure,
+      () => provider.getSwIndustryClassification!(input.code),
     ),
     loadOptional(
       typeof provider.getPeerComparablePool === "function",
@@ -315,6 +320,7 @@ export async function collectPhase1ADataPack(
   );
   const industryProfileBase = {
     instrument,
+    swIndustryClassification,
     peerComparablePool,
     industryCycleSnapshot,
     companyOperationsSnapshot: enrichedCompanyOperationsSnapshot,
@@ -332,6 +338,7 @@ export async function collectPhase1ADataPack(
     financialQualityTrends,
     tradingCalendar,
     industryCycleSnapshot,
+    swIndustryClassification,
     peerComparablePool,
     governanceEventCollection,
     regulatoryEventCollection,

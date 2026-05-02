@@ -20,6 +20,23 @@ export interface Instrument {
   industry?: string;
 }
 
+export interface SwIndustryClassification {
+  code: string;
+  name?: string;
+  provider: "sw";
+  version: "2021";
+  asOfDate?: string;
+  source?: string;
+  confidence?: "high" | "medium" | "low";
+  industryCode: string;
+  level1Code?: string;
+  level1Name?: string;
+  level2Code?: string;
+  level2Name?: string;
+  level3Code?: string;
+  level3Name?: string;
+}
+
 export interface Quote {
   code: string;
   price: number;
@@ -189,6 +206,8 @@ export interface MarketDataProvider {
   getTradingCalendar(market: Market, from: string, to: string): Promise<TradingCalendar[]>;
   /** P2：行业周期快照（feed 优先，可选能力） */
   getIndustryCycleSnapshot?(code: string, year?: string): Promise<IndustryCycleSnapshot>;
+  /** 申万行业分类（feed 优先，可选能力；完整 L1/L2/L3，报告映射第一阶段使用 L1） */
+  getSwIndustryClassification?(code: string): Promise<SwIndustryClassification>;
   /** P3：同业可比池（feed 优先，可选能力） */
   getPeerComparablePool?(
     code: string,
@@ -277,6 +296,8 @@ export interface DataPackMarket {
   news?: NewsItem[];
   /** P2：行业周期快照（若 provider 支持） */
   industryCycleSnapshot?: IndustryCycleSnapshot;
+  /** 申万行业分类（完整 L1/L2/L3；报告映射第一阶段使用 L1） */
+  swIndustryClassification?: SwIndustryClassification;
   /** P3：同业可比池（若 provider 支持） */
   peerComparablePool?: PeerComparableCollection;
   /** P4：治理负面事件（若 provider 支持） */
@@ -583,18 +604,25 @@ export interface CompanyOperationsSnapshot {
 export type IndustryProfileId =
   | "generic"
   | "telecom"
-  | "dairy_food"
+  | "consumer_food"
   | "bank"
   | "insurance"
   | "manufacturing"
   | "real_estate"
   | "pharma_healthcare"
-  | "energy_utility";
+  | "energy_utility"
+  | "transportation_logistics"
+  | "software_it"
+  | "media_entertainment"
+  | "environmental_services"
+  | "beauty_personalcare"
+  | "consumer_services";
 
 export type IndustryProfileConfidence = "high" | "medium" | "low";
 
 export type IndustryProfileMatchedBy =
   | "explicit"
+  | "sw_l1"
   | "instrument"
   | "peer_pool"
   | "industry_cycle"
@@ -616,6 +644,10 @@ export interface IndustryProfileSnapshot {
   industryName?: string;
   confidence: IndustryProfileConfidence;
   matchedBy: IndustryProfileMatchedBy;
+  classificationProvider?: "sw" | string;
+  swLevel1Name?: string;
+  swLevel2Name?: string;
+  swLevel3Name?: string;
   kpiSignals: IndustryKpiSignal[];
   missingKpis: string[];
   sourceRefs: string[];

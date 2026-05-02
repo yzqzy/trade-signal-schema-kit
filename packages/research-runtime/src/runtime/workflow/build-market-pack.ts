@@ -289,6 +289,46 @@ const INDUSTRY_KPI_LABELS: Record<string, string> = {
   utilization_hours: "利用小时",
   tariff: "上网电价",
   fuel_price: "煤价/气价",
+  freight_passenger_volume: "货运/客运量",
+  freight_rate: "运价",
+  turnover_volume: "周转量",
+  unit_cost: "单位成本",
+  fuel_cost: "燃油成本",
+  throughput: "吞吐量",
+  software_service_revenue: "软件/服务收入",
+  project_delivery: "项目交付",
+  arr_subscription: "ARR/订阅",
+  rd_investment: "研发投入",
+  revenue_per_employee: "人均产出",
+  receivables_contract_liabilities: "应收与合同负债",
+  customer_concentration: "政府/大客户依赖",
+  advertising_revenue: "广告收入",
+  content_cost: "内容/版权成本",
+  traffic_users: "用户/流量",
+  game_gross_billing: "游戏流水",
+  box_office: "院线/票房",
+  ip_pipeline: "IP 储备",
+  regulatory_approval: "监管版号",
+  treatment_volume: "处理量",
+  operating_scale: "项目运营规模",
+  tariff_subsidy: "补贴/电价/处置费",
+  receivable_collection: "应收回款",
+  bot_ppp: "BOT/PPP 项目",
+  environmental_penalty: "环保处罚",
+  brand_matrix: "品牌矩阵",
+  channel_mix: "渠道结构",
+  online_ratio: "线上占比",
+  repurchase_membership: "复购/会员",
+  gross_margin: "毛利率",
+  marketing_ratio: "营销费用率",
+  product_quality: "监管/产品质量",
+  store_hotel_scenic_count: "门店/酒店/景区",
+  traffic: "客流",
+  customer_spend: "客单价",
+  revpar_occupancy: "RevPAR/入住率",
+  franchise_direct: "加盟直营",
+  rent_labor_cost: "租金人工成本",
+  membership_repurchase: "会员/复购",
 };
 
 function buildSection22IndustryProfile(snapshot: IndustryProfileSnapshot | undefined): string[] {
@@ -307,6 +347,14 @@ function buildSection22IndustryProfile(snapshot: IndustryProfileSnapshot | undef
     `- 来源：${snapshot.sourceRefs.join("、") || "无结构化来源"}`,
     "",
   ];
+  if (snapshot.classificationProvider === "sw") {
+    lines.splice(
+      3,
+      0,
+      `- 申万行业：一级=${snapshot.swLevel1Name ?? "—"}；二级=${snapshot.swLevel2Name ?? "—"}；三级=${snapshot.swLevel3Name ?? "—"}`,
+      `- Profile 映射依据：${snapshot.matchedBy}`,
+    );
+  }
   if (snapshot.profileId === "generic") {
     lines.push(
       "> 当前使用通用 profile；行业专属 KPI 未启用。商业质量页应只写通用经营质量，不展示无关行业指标。",

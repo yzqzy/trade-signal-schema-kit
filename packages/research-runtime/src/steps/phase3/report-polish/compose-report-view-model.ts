@@ -141,6 +141,16 @@ function readPhase1aSummary(raw: string): ReportViewModelV1["phase1a"] {
               typeof industryProfile.confidence === "string" ? industryProfile.confidence : undefined,
             matchedBy:
               typeof industryProfile.matchedBy === "string" ? industryProfile.matchedBy : undefined,
+            classificationProvider:
+              typeof industryProfile.classificationProvider === "string"
+                ? industryProfile.classificationProvider
+                : undefined,
+            swLevel1Name:
+              typeof industryProfile.swLevel1Name === "string" ? industryProfile.swLevel1Name : undefined,
+            swLevel2Name:
+              typeof industryProfile.swLevel2Name === "string" ? industryProfile.swLevel2Name : undefined,
+            swLevel3Name:
+              typeof industryProfile.swLevel3Name === "string" ? industryProfile.swLevel3Name : undefined,
             kpiSignals: kpiSignalsRaw
               .filter((s) => typeof s.key === "string" && typeof s.label === "string")
               .slice(0, 10)

@@ -41,6 +41,10 @@ export type IndustryProfileSummaryV1 = {
   industryName?: string;
   confidence?: string;
   matchedBy?: string;
+  classificationProvider?: string;
+  swLevel1Name?: string;
+  swLevel2Name?: string;
+  swLevel3Name?: string;
   kpiSignals: Array<{
     key: string;
     label: string;

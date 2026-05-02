@@ -5,7 +5,7 @@ import { computePdfExtractQuality } from "../../steps/phase2a/extract-quality.js
 /** A 股黄金样例（与 linkage-smoke 一致，供契约/回归/插件烟测复用） */
 export function sampleCnADataPack(): DataPackMarket {
   return {
-    instrument: { code: "600887", market: "CN_A", name: "伊利股份", currency: "CNY", industry: "乳品与食品饮料" },
+    instrument: { code: "600887", market: "CN_A", name: "伊利股份", currency: "CNY", industry: "食品饮料" },
     quote: { code: "600887", price: 28.5, timestamp: new Date().toISOString() },
     klines: [
       {
@@ -84,13 +84,28 @@ export function sampleCnADataPack(): DataPackMarket {
     ],
     peerComparablePool: {
       source: "fixture",
-      industryName: "乳品与食品饮料",
+      industryName: "食品饮料",
       sortColumn: "revenueAllYear",
       peerCodes: ["600597", "600872"],
       peers: [
-        { code: "600597", name: "光明乳业", industryName: "乳品与食品饮料", year: "2024", revenueAllYear: 26_000 },
+        { code: "600597", name: "光明乳业", industryName: "食品饮料", year: "2024", revenueAllYear: 26_000 },
         { code: "600872", name: "中炬高新", industryName: "食品饮料", year: "2024", revenueAllYear: 5200 },
       ],
+    },
+    swIndustryClassification: {
+      provider: "sw",
+      version: "2021",
+      code: "600887",
+      name: "伊利股份",
+      source: "local_sw_snapshot",
+      confidence: "high",
+      industryCode: "340401",
+      level1Code: "340000",
+      level1Name: "食品饮料",
+      level2Code: "340400",
+      level2Name: "饮料乳品",
+      level3Code: "340401",
+      level3Name: "乳品",
     },
     companyOperationsSnapshot: {
       source: "fixture",
@@ -135,10 +150,14 @@ export function sampleCnADataPack(): DataPackMarket {
       },
     },
     industryProfileSnapshot: {
-      profileId: "dairy_food",
-      industryName: "乳品与食品饮料",
+      profileId: "consumer_food",
+      industryName: "食品饮料",
       confidence: "medium",
-      matchedBy: "instrument",
+      matchedBy: "sw_l1",
+      classificationProvider: "sw",
+      swLevel1Name: "食品饮料",
+      swLevel2Name: "饮料乳品",
+      swLevel3Name: "乳品",
       kpiSignals: [
         {
           key: "product_mix",
@@ -156,7 +175,7 @@ export function sampleCnADataPack(): DataPackMarket {
         },
       ],
       missingKpis: ["channel_region", "dealer", "raw_material", "food_safety"],
-      sourceRefs: ["instrument.industry", "fixture_f10"],
+      sourceRefs: ["swIndustryClassification.level1", "swIndustryClassification.level2", "fixture_f10"],
     },
     regulatoryEventCollection: {
       source: "fixture",

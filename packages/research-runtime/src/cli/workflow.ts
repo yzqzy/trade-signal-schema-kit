@@ -102,13 +102,19 @@ function parseArgs(argv: string[]): CliArgs {
   const allowedProfiles = new Set<IndustryProfileId>([
     "generic",
     "telecom",
-    "dairy_food",
+    "consumer_food",
     "bank",
     "insurance",
     "manufacturing",
     "real_estate",
     "pharma_healthcare",
     "energy_utility",
+    "transportation_logistics",
+    "software_it",
+    "media_entertainment",
+    "environmental_services",
+    "beauty_personalcare",
+    "consumer_services",
   ]);
   if (profileRaw && !allowedProfiles.has(profileRaw)) {
     throw new Error(
