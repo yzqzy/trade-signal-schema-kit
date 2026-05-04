@@ -1,6 +1,6 @@
 {
   "name": "@trade-signal/research-hub",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "description": "TradeSignal 研报静态站：仅 /reports 与静态数据 public/reports",
   "license": "MIT",

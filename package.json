@@ -1,6 +1,6 @@
 {
   "name": "trade-signal-research-kit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Trade-signal research kit: schema-first market data + HTTP research runtime",
   "license": "MIT",
