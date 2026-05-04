@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 
 import { ReportAttachments, type ReportAttachmentView, type ReportSourceLinkView } from "@/components/ReportAttachments";
 import { ReportMarkdownBody } from "@/components/ReportMarkdownBody";
+import { MethodologyGuideLink } from "@/components/MethodologyGuideLink";
 import { TOPIC_LABEL_ZH, type ReportTopicType } from "@/lib/reports/topic-labels";
 
 const PLACEHOLDER_ENTRY_ID = "__no_entries__";
@@ -124,9 +125,7 @@ export default async function ReportEntryPage({ params }: { params: Promise<{ en
             <span className="rh-pill rh-pill--mono">run {meta.sourceRunId}</span>
             <span className="rh-pill">置信度 {meta.confidenceState}</span>
             <span className={metaStatusClass(meta.requiredFieldsStatus)}>字段 {meta.requiredFieldsStatus}</span>
-            <Link className="rh-pill" href="/reports/methodology">
-              公式说明
-            </Link>
+            <MethodologyGuideLink from="reports" variant="pill" />
           </div>
         </div>
       </header>

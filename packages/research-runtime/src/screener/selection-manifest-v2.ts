@@ -6,10 +6,7 @@ import type {
 import { buildSelectionManifestFromScreener } from "@trade-signal/research-selection";
 
 export type { SelectionManifestV1 };
-export {
-  SELECTION_MANIFEST_VERSION,
-  RANKINGS_DEFAULT_TOP_N,
-} from "@trade-signal/research-contracts";
+export { SELECTION_MANIFEST_VERSION } from "@trade-signal/research-contracts";
 
 export function buildSelectionManifestV1(
   output: ScreenerRunOutput,

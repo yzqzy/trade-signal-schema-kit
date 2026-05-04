@@ -1,14 +1,13 @@
-import Link from "next/link";
+import { MethodologyBackLink } from "@/components/MethodologyBackLink";
+import { METHODOLOGY_PAGE_TITLE } from "@/lib/methodology-nav";
 
 export default function ReportsMethodologyPage() {
   return (
     <div className="rh-container rh-container--narrow">
-      <Link className="rh-back-link" href="/reports">
-        ← 报告中心
-      </Link>
+      <MethodologyBackLink />
 
       <header className="rh-page-header">
-        <h1 className="rh-page-title">穿透收益率与前置筛选说明</h1>
+        <h1 className="rh-page-title">{METHODOLOGY_PAGE_TITLE}</h1>
         <p className="rh-page-desc">
           这页用人话解释为什么会出现“前置筛选结束（非异常）”，以及关键公式和阈值口径。
         </p>

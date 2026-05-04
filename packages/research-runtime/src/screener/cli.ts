@@ -10,10 +10,7 @@ import { resolveScreenerConfig, validateScreenerConfig } from "./config.js";
 import { exportScreenerResultsCsv, exportScreenerUniverseCsv } from "./export-results.js";
 import { runScreenerPipeline } from "./pipeline.js";
 import { renderScreenerHtml, renderScreenerMarkdown } from "./renderer.js";
-import {
-  buildSelectionManifestV1,
-  RANKINGS_DEFAULT_TOP_N,
-} from "./selection-manifest-v2.js";
+import { buildSelectionManifestV1 } from "./selection-manifest-v2.js";
 import type { ScreenerConfigOverrides, ScreenerRunInput, ScreenerUniverseRow } from "./types.js";
 import { loadOrFetchUniverseSnapshot } from "./universe-snapshot.js";
 
@@ -201,7 +198,7 @@ async function main(): Promise<void> {
   const rankingsTopN =
     typeof topNRaw === "number" && Number.isFinite(topNRaw) && topNRaw > 0
       ? Math.floor(topNRaw)
-      : RANKINGS_DEFAULT_TOP_N;
+      : 200;
   await writeText(
     path.join(outDir, "selection_manifest.json"),
     JSON.stringify(buildSelectionManifestV1(result, runId, { rankingsTopN }), null, 2),

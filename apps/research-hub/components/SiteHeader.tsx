@@ -31,16 +31,16 @@ export function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-3 sm:gap-4" aria-label="主导航">
           <Link
-            href="/rankings"
-            className="text-sm font-medium text-gray-600 no-underline transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            策略榜单
-          </Link>
-          <Link
             href="/reports"
             className="text-sm font-medium text-gray-600 no-underline transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             研报中心
+          </Link>
+          <Link
+            href="/rankings"
+            className="text-sm font-medium text-gray-600 no-underline transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            策略榜单
           </Link>
           <a
             href="https://github.com/yzqzy"

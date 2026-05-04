@@ -31,7 +31,7 @@ export const RANKING_STRATEGIES: RankingStrategyMeta[] = [
   {
     id: "turtle",
     label: "龟龟策略",
-    shortDescription: "以 ROE、FCF 收益率、穿透回报率与估值因子做综合排序，适合作为当前多策略榜单中心的首期样板。",
+    shortDescription: "以 ROE、FCF 收益率、穿透回报率与估值因子做综合排序。",
     methodologyHref: "/reports/methodology",
     decisionLabel(decision) {
       if (decision === "buy") return "候选";

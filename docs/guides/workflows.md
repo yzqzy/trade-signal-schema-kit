@@ -397,7 +397,7 @@ Screener 输出：
 - `screener_report.md`
 - `screener_report.html`
 
-榜单 Top N：站点 `/rankings` 仅展示按策略综合分降序后的前 N 名，**默认 200**。`pnpm run screener:run` 接受 `--rankings-top-n <N>` 显式覆盖；不传时读取 `RANKINGS_DEFAULT_TOP_N` 常量（位于 `@trade-signal/research-contracts`）。`reports-site:emit` 从 `selection_manifest.rankingsTopN` 取值，写入 `rankings/lists/*.json` 时同时记录 `topN` 与 `totalCandidates`，便于审计「谁被截掉了」。
+榜单 Top N：站点 `/rankings` 仅展示按策略综合分降序后的前 N 名，**默认 200**。`pnpm run screener:run` 接受 `--rankings-top-n <N>` 显式覆盖；不传时 manifest 与 emit 均按 **200** 兜底。`reports-site:emit` 从 `selection_manifest.rankingsTopN` 取值，写入 `rankings/lists/*.json` 时同时记录 `topN` 与 `totalCandidates`，便于审计「谁被截掉了」。
 
 质量门禁：
 

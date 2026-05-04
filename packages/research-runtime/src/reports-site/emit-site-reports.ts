@@ -35,10 +35,7 @@ import {
   type FinalNarrativeStatus,
 } from "../runtime/business-analysis/final-narrative-status.js";
 import type { Phase1BItem, Phase1BQualitativeSupplement } from "../steps/phase1b/types.js";
-import {
-  RANKINGS_DEFAULT_TOP_N,
-  type SelectionManifestV1,
-} from "../screener/selection-manifest-v2.js";
+import type { SelectionManifestV1 } from "../screener/selection-manifest-v2.js";
 import type { ScreenerRunOutput, ScreenerScoredResult } from "../screener/types.js";
 
 export type EmitSiteReportsOptions = {
@@ -1323,7 +1320,7 @@ function buildRankingItem(
 }
 
 /**
- * 从 manifest 中读取 `rankingsTopN` 并做防御性收敛：非有限正数则使用默认值。
+ * 从 manifest 中读取 `rankingsTopN` 并做防御性收敛：非有限正数则使用默认 200。
  * 实际是否截断取决于 results 的真实长度，本函数只决定上限。
  */
 function resolveRankingsTopN(manifest: SelectionManifestV1): number {
@@ -1331,7 +1328,7 @@ function resolveRankingsTopN(manifest: SelectionManifestV1): number {
   if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
     return Math.floor(raw);
   }
-  return RANKINGS_DEFAULT_TOP_N;
+  return 200;
 }
 
 async function emitFromScreener(runDir: string, siteDir: string): Promise<void> {

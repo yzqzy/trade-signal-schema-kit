@@ -48,6 +48,10 @@
   line-height: 1.6;
 }
 
+.rh-page-header .rh-page-desc + .rh-page-desc {
+  margin-top: 0.35rem;
+}
+
 .rh-page-meta {
   margin: 0.75rem 0 0;
   font-size: 0.75rem;
@@ -117,6 +121,31 @@
 
 .rh-card-title:hover {
   text-decoration: underline;
+}
+
+/* 正文段落内链：继承字号，高亮主色（避免误用 rh-card-title 在 0.875rem 段落里过大） */
+.rh-inline-link {
+  font-weight: 600;
+  color: #059669;
+  text-decoration: none;
+  font-size: inherit;
+}
+
+.rh-inline-link:hover {
+  text-decoration: underline;
+}
+
+.rh-methodology-pill {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rh-methodology-pill:hover {
+  border-color: #059669;
+  color: #065f46;
 }
 
 .rh-card-meta {
@@ -771,6 +800,25 @@
   color: #a3a3a3;
 }
 
+.dark .rh-inline-link {
+  color: #34d399;
+}
+
+.dark .rh-inline-link:hover {
+  color: #6ee7b7;
+}
+
+.dark .rh-methodology-pill {
+  color: #a7f3d0;
+  border-color: #047857;
+  background: #064e3b;
+}
+
+.dark .rh-methodology-pill:hover {
+  border-color: #34d399;
+  color: #d1fae5;
+}
+
 .dark .rh-chip {
   border-color: #404040;
   color: #d4d4d4;
@@ -1031,4 +1079,60 @@
   color: #a3a3a3;
   background: #141916;
   border-left-color: #404040;
+}
+
+/* —— 榜单页暗色变体 —— */
+.dark .rh-ranking-table-wrap {
+  border-color: #404040;
+}
+
+.dark .rh-ranking-table th,
+.dark .rh-ranking-table td {
+  border-bottom-color: #262626;
+}
+
+.dark .rh-ranking-table thead th {
+  background: #171717;
+  color: #a3a3a3;
+}
+
+.dark .rh-empty {
+  border-color: #404040;
+  color: #a3a3a3;
+}
+
+/* —— 搜索输入框（与 rh-chip 视觉同源） —— */
+.rh-search-input {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8125rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 9999px;
+  background: transparent;
+  color: #404040;
+}
+
+.rh-search-input::placeholder {
+  color: #a3a3a3;
+}
+
+.rh-search-input:focus {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+}
+
+.dark .rh-search-input {
+  border-color: #404040;
+  color: #d4d4d4;
+}
+
+.dark .rh-search-input::placeholder {
+  color: #737373;
+}
+
+.dark .rh-search-input:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
 }
